@@ -268,7 +268,7 @@ object LrcLib {
     private val VOICE_PREFIX = Regex("""^v(\d+)\s*:\s*""", RegexOption.IGNORE_CASE)
     private val NOISE = Regex(
         """\((?:from|feat\.?|official|lyrical|video|audio|remix)[^)]*\)|\[[^\]]*\]|""" +
-            """\b(?:official (?:video|audio|music video)|lyrical|full song|4k video)\b",
+            """\b(?:official (?:video|audio|music video)|lyrical|full song|4k video)\b""",
         RegexOption.IGNORE_CASE,
     )
 }
