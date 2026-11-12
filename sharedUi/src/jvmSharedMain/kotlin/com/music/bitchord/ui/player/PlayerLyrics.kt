@@ -1945,11 +1945,27 @@ internal fun LyricsPanel(
     // the line being read: its top on the top padding, or its middle on the
     // middle of the viewport.
     val focusOffset: (Int) -> Int = { size ->
-        if (!centered) {
-            0
-        } else {
-            val info = listState.layoutInfo
+        val info = listState.layoutInfo
+        if (centered) {
             (info.viewportStartOffset + info.viewportEndOffset) / 2 - size / 2
+        } else {
+            // On a phone, keep the current line in the upper-middle while
+            // there is plenty of song left. As the final few lines approach,
+            // ease that anchor down the screen so the preceding lyrics remain
+            // visible above the ending instead of leaving a large empty lower
+            // half. A short lyric naturally uses the same full transition.
+            val anchor = if (lines.size == 1) {
+                0.5f
+            } else {
+                val tailWindow = minOf(3, lines.lastIndex)
+                val tailProgress = (
+                    (focusLine - (lines.lastIndex - tailWindow)).toFloat() / tailWindow
+                ).coerceIn(0f, 1f)
+                0.36f + 0.34f * tailProgress
+            }
+            info.viewportStartOffset +
+                ((info.viewportEndOffset - info.viewportStartOffset) * anchor).toInt() -
+                size / 2
         }
     }
     // Nothing resets [browsing] off [controlsOpen] any more. It used to, so
