@@ -1,0 +1,26 @@
+name: Android Debug APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+    - name: local.properties
+      run: |
+        echo "LASTFM_API_KEY=" > local.properties
+        echo "LASTFM_SECRET=" >> local.properties
+        echo "LISTEN_TOGETHER_SERVER=" >> local.properties
+    - run: chmod +x gradlew
+    - run: ./gradlew assembleProdDebug
+    - uses: actions/upload-artifact@v4
+      with:
+        name: bitchord-debug
+        path: app/build/outputs/apk/prod/debug/*.apk
