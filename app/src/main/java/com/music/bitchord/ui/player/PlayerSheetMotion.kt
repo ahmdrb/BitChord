@@ -30,7 +30,7 @@ import kotlin.math.abs
  * spends most of its time settling, slower and slower, into place, which is
  * where the eye is following the artwork home.
  */
-private const val SLIDE_STIFFNESS = 150f
+private const val SLIDE_STIFFNESS = 195f
 
 /** Close enough to stop, in pixels — rather than a spring's whole long tail. */
 private const val SLIDE_SETTLED_PX = 0.5f
