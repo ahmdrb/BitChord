@@ -1954,11 +1954,15 @@ internal fun LyricsPanel(
             // ease that anchor down the screen so the preceding lyrics remain
             // visible above the ending instead of leaving a large empty lower
             // half. A short lyric naturally uses the same full transition.
-            val tailWindow = minOf(3, lines.lastIndex.coerceAtLeast(1))
-            val tailProgress = (
-                (focusLine - (lines.lastIndex - tailWindow)).toFloat() / tailWindow
-            ).coerceIn(0f, 1f)
-            val anchor = 0.36f + 0.34f * tailProgress
+            val anchor = if (lines.size == 1) {
+                0.5f
+            } else {
+                val tailWindow = minOf(3, lines.lastIndex)
+                val tailProgress = (
+                    (focusLine - (lines.lastIndex - tailWindow)).toFloat() / tailWindow
+                ).coerceIn(0f, 1f)
+                0.36f + 0.34f * tailProgress
+            }
             info.viewportStartOffset +
                 ((info.viewportEndOffset - info.viewportStartOffset) * anchor).toInt() -
                 size / 2
