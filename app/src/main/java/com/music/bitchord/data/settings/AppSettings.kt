@@ -593,6 +593,10 @@ object AppSettings {
      */
     val fullBleedDetailArtwork = MutableStateFlow(false)
 
+    /** App-private artwork chosen for the two built-in device folders. */
+    val localMusicFolderArtwork = MutableStateFlow("")
+    val downloadsFolderArtwork = MutableStateFlow("")
+
     /**
      * What the main player stands on below the artwork.
      *
@@ -1062,6 +1066,8 @@ object AppSettings {
         signatureApiUrl.value = normalizeSignatureApiUrl(prefs.getString(KEY_SIGNATURE_API_URL, "").orEmpty())
         fullBleedArtwork.value = prefs.getBoolean(KEY_FULL_BLEED_ARTWORK, true)
         fullBleedDetailArtwork.value = prefs.getBoolean(KEY_FULL_BLEED_DETAIL_ARTWORK, false)
+        localMusicFolderArtwork.value = prefs.getString(KEY_LOCAL_MUSIC_FOLDER_ARTWORK, "").orEmpty()
+        downloadsFolderArtwork.value = prefs.getString(KEY_DOWNLOADS_FOLDER_ARTWORK, "").orEmpty()
         // The old legacy mesh switch answers until a theme has been picked.
         playerTheme.value = runCatching {
             PlayerTheme.valueOf(prefs.getString(KEY_PLAYER_THEME, null).orEmpty())
@@ -1711,6 +1717,16 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_FULL_BLEED_DETAIL_ARTWORK, value).apply()
     }
 
+    fun setLocalMusicFolderArtwork(path: String) {
+        localMusicFolderArtwork.value = path
+        prefs.edit().putString(KEY_LOCAL_MUSIC_FOLDER_ARTWORK, path).apply()
+    }
+
+    fun setDownloadsFolderArtwork(path: String) {
+        downloadsFolderArtwork.value = path
+        prefs.edit().putString(KEY_DOWNLOADS_FOLDER_ARTWORK, path).apply()
+    }
+
     fun setPlayerTheme(value: PlayerTheme) {
         playerTheme.value = value
         prefs.edit().putString(KEY_PLAYER_THEME, value.name).apply()
@@ -2320,6 +2336,8 @@ object AppSettings {
     private const val KEY_SIGNATURE_API_URL = "signature_api_url"
     private const val KEY_FULL_BLEED_ARTWORK = "full_bleed_artwork"
     private const val KEY_FULL_BLEED_DETAIL_ARTWORK = "full_bleed_detail_artwork"
+    private const val KEY_LOCAL_MUSIC_FOLDER_ARTWORK = "local_music_folder_artwork"
+    private const val KEY_DOWNLOADS_FOLDER_ARTWORK = "downloads_folder_artwork"
     private const val KEY_PLAYER_THEME = "player_theme"
     private const val KEY_LEGACY_MESH_GRADIENT = "legacy_mesh_gradient"
     private const val KEY_LAST_PLAYER_SCREEN = "last_player_screen"
