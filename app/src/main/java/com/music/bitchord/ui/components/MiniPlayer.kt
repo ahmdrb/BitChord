@@ -467,20 +467,18 @@ fun MiniPlayer(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            if (isLoading) {
-                Box(Modifier.size(GLYPH_SLOT), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(
-                        color = MaterialTheme.colorScheme.onBackground,
-                        strokeWidth = 2.dp,
-                        modifier = Modifier.size(SPINNER_SIZE),
-                    )
-                }
-            } else {
+            // Keep the transport glyph in place while a track is buffering.
+            // Replacing it with a full-size spinner made the mini-player appear
+            // to finish its close transition before its primary control arrived.
+            // A small progress ring communicates loading without making the
+            // play/pause icon pop in late.
+            Box(Modifier.size(GLYPH_SLOT), contentAlignment = Alignment.Center) {
                 IconButton(
                     onClick = {
                         haptics.play(if (isPlaying) Haptic.Pause else Haptic.Resume)
                         onPlayPause()
                     },
+                    enabled = !isLoading,
                     modifier = Modifier.size(GLYPH_SLOT),
                 ) {
                     Icon(
@@ -488,6 +486,15 @@ fun MiniPlayer(
                         contentDescription = stringResource(if (isPlaying) R.string.pause else R.string.play),
                         tint = MaterialTheme.colorScheme.onBackground,
                         modifier = Modifier.size(GLYPH_SIZE),
+                    )
+                }
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f),
+                        strokeWidth = 1.5.dp,
+                        modifier = Modifier
+                            .size(12.dp)
+                            .align(Alignment.BottomEnd),
                     )
                 }
             }
