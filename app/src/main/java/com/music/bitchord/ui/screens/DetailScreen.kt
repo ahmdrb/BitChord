@@ -2,6 +2,9 @@ package com.music.bitchord.ui.screens
 
 import com.music.bitchord.ui.components.trackArtSize
 import android.os.Build
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import com.music.bitchord.R
 
 import androidx.compose.animation.AnimatedContent
@@ -56,6 +59,7 @@ import androidx.compose.material.icons.rounded.Check
 import com.music.bitchord.data.model.LibraryState
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Person
@@ -69,6 +73,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -101,6 +106,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -186,6 +192,10 @@ import com.music.bitchord.ui.theme.ArtworkPalette
 import com.music.bitchord.ui.theme.rememberArtworkPalette
 import kotlin.math.roundToInt
 import java.util.Locale
+import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private const val MAX_ARTIST_SONGS = 20
 private const val SONGS_PER_COLUMN = 4
@@ -367,7 +377,47 @@ fun DetailScreen(
      * [ArtworkPalette] so it reads as this page rather than a sheet over it.
      */
     reorder: (@Composable (ArtworkPalette) -> Unit)? = null,
-) {
+ ) {
+    val context = LocalContext.current
+    val artworkScope = rememberCoroutineScope()
+    val localMusicArtwork by AppSettings.localMusicFolderArtwork.collectAsStateWithLifecycle()
+    val downloadsArtwork by AppSettings.downloadsFolderArtwork.collectAsStateWithLifecycle()
+    val folderArtworkKey = if (folder != null) when (page.browseId) {
+        "local:all" -> "local_music"
+        "local:downloads" -> "downloads"
+        else -> null
+    } else null
+    val selectedFolderArtwork = when (folderArtworkKey) {
+        "local_music" -> localMusicArtwork
+        "downloads" -> downloadsArtwork
+        else -> ""
+    }.takeIf { it.isNotBlank() }
+    val folderArtworkPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri: Uri? ->
+        val key = folderArtworkKey
+        if (uri != null && key != null) artworkScope.launch {
+            val savedPath = withContext(Dispatchers.IO) {
+                runCatching {
+                    val directory = File(context.filesDir, "folder-artwork").apply { mkdirs() }
+                    val temporary = File(directory, "$key.tmp")
+                    val destination = File(directory, "$key.img")
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        temporary.outputStream().use { output -> input.copyTo(output) }
+                    } ?: error("Unable to open the selected image")
+                    if (!temporary.renameTo(destination)) {
+                        temporary.copyTo(destination, overwrite = true)
+                        temporary.delete()
+                    }
+                    destination.absolutePath
+                }.getOrNull()
+            }
+            if (savedPath != null) when (key) {
+                "local_music" -> AppSettings.setLocalMusicFolderArtwork(savedPath)
+                "downloads" -> AppSettings.setDownloadsFolderArtwork(savedPath)
+            }
+        }
+    }
     val rawSongs = (page.songs as? UiState.Success)?.data.orEmpty()
     // A folder keeps its own sort — the one its top bar menu sets — rather
     // than the per-page one a release takes.
@@ -600,6 +650,8 @@ fun DetailScreen(
                         onArtistClick = onArtistClick.takeIf { folder == null },
                         onToggleLibrary = onToggleLibrary,
                         onDownloadAll = folder?.onDownload?.let { download -> { download(songs) } },
+                        folderArtworkPath = selectedFolderArtwork,
+                        onEditFolderArtwork = folderArtworkKey?.let { { folderArtworkPicker.launch(arrayOf("image/*")) } },
                     )
                 }
             }
@@ -930,13 +982,16 @@ private fun ReleaseHeader(
     onToggleLibrary: (() -> Unit)?,
     /** The Cached songs folder's: saves every track on it to Downloads. Null hides it. */
     onDownloadAll: (() -> Unit)? = null,
+    folderArtworkPath: String? = null,
+    onEditFolderArtwork: (() -> Unit)? = null,
 ) {
     val (credit, meta) = page.headerLines(songs.size, songs.playtime())
     // Every row on a release carries the same credit — see [pageCredit] — so
     // the first one speaks for the whole page, the same source the rows'
     // own long-press "Open artist" already reads from.
     val artist = songs.firstOrNull()
-    var artFailed by remember(page.thumbnailUrl) { mutableStateOf(false) }
+    val sleeveArtwork = folderArtworkPath ?: page.thumbnailUrl?.artworkAt(HEADER_ART_PX)
+    var artFailed by remember(sleeveArtwork) { mutableStateOf(false) }
     // A placeholder is a sleeve or it is nothing, as on the player: blown out
     // to the page's width it would only tint the top of the screen.
     val bleed = fullBleed && page.thumbnailUrl != null && !artFailed
@@ -963,7 +1018,7 @@ private fun ReleaseHeader(
                     .aspectRatio(1f),
             ) {
                 AsyncImage(
-                    model = page.thumbnailUrl.artworkAt(HEADER_ART_PX),
+                    model = sleeveArtwork,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     onState = { artFailed = it is AsyncImagePainter.State.Error },
@@ -1013,7 +1068,7 @@ private fun ReleaseHeader(
             // placeholder sleeve rather than an empty square. Not shown while a
             // real one is still on its way, so a loading cover doesn't flash
             // a glyph first.
-            if (page.thumbnailUrl == null || artFailed) {
+            if (sleeveArtwork == null || artFailed) {
                 CoverPlaceholder(
                     icon = page.placeholderIcon(),
                     base = palette.elevated,
@@ -1037,6 +1092,21 @@ private fun ReleaseHeader(
                     isPlaying = true,
                     modifier = Modifier.matchParentSize(),
                 )
+            }
+            onEditFolderArtwork?.let { edit ->
+                IconButton(
+                    onClick = edit,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(10.dp)
+                        .background(Color.Black.copy(alpha = 0.58f), CircleShape),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Edit,
+                        contentDescription = "Change folder artwork",
+                        tint = Color.White,
+                    )
+                }
             }
         }
 
