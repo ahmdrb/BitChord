@@ -400,15 +400,10 @@ fun DetailScreen(
             val savedPath = withContext(Dispatchers.IO) {
                 runCatching {
                     val directory = File(context.filesDir, "folder-artwork").apply { mkdirs() }
-                    val temporary = File(directory, "$key.tmp")
-                    val destination = File(directory, "$key.img")
+                    val destination = File(directory, "$key-${System.currentTimeMillis()}.img")
                     context.contentResolver.openInputStream(uri)?.use { input ->
-                        temporary.outputStream().use { output -> input.copyTo(output) }
+                        destination.outputStream().use { output -> input.copyTo(output) }
                     } ?: error("Unable to open the selected image")
-                    if (!temporary.renameTo(destination)) {
-                        temporary.copyTo(destination, overwrite = true)
-                        temporary.delete()
-                    }
                     destination.absolutePath
                 }.getOrNull()
             }
@@ -990,7 +985,7 @@ private fun ReleaseHeader(
     // the first one speaks for the whole page, the same source the rows'
     // own long-press "Open artist" already reads from.
     val artist = songs.firstOrNull()
-    val sleeveArtwork = folderArtworkPath ?: page.thumbnailUrl?.artworkAt(HEADER_ART_PX)
+    val sleeveArtwork: Any? = folderArtworkPath?.let(::File) ?: page.thumbnailUrl?.artworkAt(HEADER_ART_PX)
     var artFailed by remember(sleeveArtwork) { mutableStateOf(false) }
     // A placeholder is a sleeve or it is nothing, as on the player: blown out
     // to the page's width it would only tint the top of the screen.
