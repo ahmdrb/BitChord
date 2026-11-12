@@ -82,15 +82,39 @@ object LrcLib {
     }
 
     /**
-     * `[mm:ss.xx] words`. Metadata tags carry no timestamp and fall out on
-     * their own. A stamp with no words marks an instrumental break; those are
-     * kept, but only where the silence is long enough to be worth showing —
-     * otherwise the line would blink out between two sung phrases. A stamp
-     * with nothing after it closes the final line, so it always survives.
+     * `[mm:ss.xx] words`, plus the Apple Music voice tags that LRC converters
+     * (SpotiFLAC / Paxsenix) write:
+     *
+     *  - `v1:` / `v2:` prefixes name the voice singing the line. The prefix is
+     *    stripped and the voices are laid out on opposite sides of the panel
+     *    with [lineAlignments], the same walk the TTML parser uses.
+     *  - `[bg: <mm:ss.xx>word…]` lines are the answering vocal. They carry no
+     *    line stamp of their own, so they used to fall out of the parse; now
+     *    they keep their word timings and hang under the lead they start
+     *    beneath as [LyricLine.background], drawn on their own clock.
+     *
+     * A stamp with no words still marks an instrumental break; a trailing
+     * stamp still closes the final line.
      */
     fun parseLrc(lrc: String): List<LyricLine> {
-        val all = lrc.lineSequence().mapNotNull { line ->
-            val match = STAMP.find(line) ?: return@mapNotNull null
+        val leads = ArrayList<Lead>()
+        val backs = ArrayList<LyricLine>()
+
+        for (raw in lrc.lineSequence()) {
+            val line = raw.trim()
+
+            // Answering vocal: "[bg: <00:33.831>Wi<00:34.255>thout<00:36.601>]"
+            val bg = BG_LINE.matchEntire(line)
+            if (bg != null) {
+                val body = bg.groupValues[1]
+                val start = WORD_STAMP.find(body)?.let { msOf(it) } ?: continue
+                val text = body.replace(WORD_STAMP, "").trim()
+                if (text.isEmpty()) continue
+                backs += LyricLine(start, text, parseWordRuns(body))
+                continue
+            }
+
+            val match = STAMP.find(line) ?: continue
             val (minutes, seconds, fraction) = match.destructured
             // Two digits mean centiseconds, three mean milliseconds.
             val fractionMs = when (fraction.length) {
@@ -98,20 +122,53 @@ object LrcLib {
                 3 -> fraction.toLong()
                 else -> 0L
             }
-            val body = line.substring(match.range.last + 1)
+            var body = line.substring(match.range.last + 1)
             // Detect the RTL marker that was written by [toEnhancedLrc].
-            val (text, alignment) = stripAlignmentMarker(body)
-            LyricLine(
+            val (marked, alignment) = stripAlignmentMarker(body)
+            body = marked
+            // Strip the voice tag ("v1: ") and remember who sings the line.
+            val voice = VOICE_PREFIX.find(body)
+            val singer = voice?.let { "v" + it.groupValues[1] }
+            if (voice != null) body = body.removeRange(voice.range)
+
+            leads += Lead(
                 timeMs = minutes.toLong() * 60_000 + seconds.toLong() * 1_000 + fractionMs,
                 // Stripped rather than rebuilt from the runs below: the spacing
                 // and punctuation between two words belong to the line, and
                 // re-joining the words with single spaces would quietly rewrite
                 // a line that never had them.
-                text = text.replace(WORD_STAMP, "").trim(),
-                words = parseWordRuns(text),
+                text = body.replace(WORD_STAMP, "").trim(),
+                words = parseWordRuns(body),
                 alignment = alignment,
+                singer = singer,
             )
-        }.sortedBy { it.timeMs }.toList()
+        }
+        leads.sortBy { it.timeMs }
+        backs.sortBy { it.timeMs }
+
+        // Duet layout: the same alternation the TTML parser uses, so a v1/v2
+        // file reads as two people rather than one long verse.
+        val sides = lineAlignments(leads.map { it.singer }, emptyMap())
+        val all = leads.mapIndexed { index, lead ->
+            LyricLine(
+                timeMs = lead.timeMs,
+                text = lead.text,
+                words = lead.words,
+                alignment = if (lead.singer != null) sides[index] else lead.alignment,
+            )
+        }.toMutableList()
+
+        // Hang each answering vocal under the lead it starts beneath.
+        for (back in backs) {
+            val at = all.indexOfLast { it.timeMs <= back.timeMs && !it.isGap }
+            if (at >= 0) {
+                val lead = all[at]
+                if (lead.background == null) all[at] = lead.copy(background = back)
+            } else {
+                all.add(back.copy(alignment = LyricAlignment.End))
+            }
+        }
+        all.sortBy { it.timeMs }
 
         val kept = all.filterIndexed { index, line ->
             if (!line.isGap) return@filterIndexed true
@@ -130,6 +187,14 @@ object LrcLib {
         }
     }
 
+    private class Lead(
+        val timeMs: Long,
+        val text: String,
+        val words: List<LyricWord>,
+        val alignment: LyricAlignment,
+        val singer: String?,
+    )
+
     /**
      * Strip the alignment marker written by [toEnhancedLrc] and return the
      * clean body along with the recovered alignment.
@@ -147,10 +212,8 @@ object LrcLib {
 
     private const val ALIGNMENT_MARKER = "<R>"
 
-    /**
-     * YouTube Music titles are noisy — "(From "Raees")", "| Official Video",
-     * "(Lyrical)" — and LRCLIB matches on the plain song name.
-     */
+    /** YouTube Music titles are noisy — "(From "Raees")", "| Official Video",
+     * "(Lyrical)" — and LRCLIB matches on the plain song name. */
     private fun String.clean(): String = this
         .replace(NOISE, " ")
         .substringBefore(" | ")
@@ -199,11 +262,13 @@ object LrcLib {
         return minutes.toLong() * 60_000 + seconds.toLong() * 1_000 + fractionMs
     }
 
-    private val STAMP = Regex("""\[(\d{1,2}):(\d{2})[.:](\d{2,3})]""")
+    private val STAMP = Regex("""\[(\d{1,2}):(\d{2})[.:](\d{2,3})\]""")
     private val WORD_STAMP = Regex("""<(\d{1,3}):(\d{2})[.:](\d{2,3})>""")
+    private val BG_LINE = Regex("""^\[bg\s*:\s*(.*?)\]\s*$""", RegexOption.IGNORE_CASE)
+    private val VOICE_PREFIX = Regex("""^v(\d+)\s*:\s*""", RegexOption.IGNORE_CASE)
     private val NOISE = Regex(
-        """\((?:from|feat\.?|official|lyrical|video|audio|remix)[^)]*\)|\[[^]]*]|""" +
-            """\b(?:official (?:video|audio|music video)|lyrical|full song|4k video)\b""",
+        """\((?:from|feat\.?|official|lyrical|video|audio|remix)[^)]*\)|\[[^\]]*\]|""" +
+            """\b(?:official (?:video|audio|music video)|lyrical|full song|4k video)\b",
         RegexOption.IGNORE_CASE,
     )
 }
