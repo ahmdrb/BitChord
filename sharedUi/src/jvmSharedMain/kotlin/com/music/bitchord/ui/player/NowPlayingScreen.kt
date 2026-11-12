@@ -3414,13 +3414,19 @@ fun NowPlayingScreen(
                                     .fillMaxSize()
                                     .drawWithContent {
                                         val frame = still()
-                                        if (frame == null) {
+                                        if (lyricsOpen) {
+                                            // Lyrics must always show the actual album cover.
+                                            // A captured Canvas frame can stand in for the
+                                            // cover elsewhere in the player, but must never
+                                            // suppress the still image in the lyrics header.
+                                            drawContent()
+                                        } else if (frame == null) {
                                             if (art.loaded || !canvasRendered) drawContent()
                                         } else if (
                                             // The clip's still in place of the cover —
                                             // see [stillTakesOver] — and, for the reason
                                             // above, drawn only while it can be seen.
-                                            !lyricsOpen && (stillTakesOver() || !canvasRendered || (heroMode && canvasCover.floatValue < 1f))
+                                            stillTakesOver() || !canvasRendered || (heroMode && canvasCover.floatValue < 1f)
                                         ) {
                                             drawCropped(frame.image)
                                         }
