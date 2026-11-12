@@ -1867,7 +1867,7 @@ fun NowPlayingScreen(
     // Whether the still is on screen in the clip's place: while it moves, and
     // until the clip has painted the same frame again.
     fun stillTakesOver(): Boolean = still() != null && CanvasStills.fresh &&
-        (collapseStarted || dockMoving || lyricsOpen || queueOpen || queueDragging || !canvasRendered)
+        (collapseStarted || dockMoving || queueOpen || queueDragging || !canvasRendered)
     // A portrait still is the clip's whole picture, not the banner's square:
     // top-aligned across the player's width, as the clip is contained, and as
     // tall. Read off the still, which is there before a reopened clip knows
@@ -2465,7 +2465,7 @@ fun NowPlayingScreen(
                             //
                             // Out of sight altogether while its still stands in for it.
                             presentationAlpha = {
-                                if (stillTakesOver()) 0f
+                                if (lyricsOpen || stillTakesOver()) 0f
                                 else (1f - 2f * p()).coerceIn(0f, 1f) * dockFade()
                             },
                             // A full-screen Spotify Canvas holds its frame for a beat
@@ -3414,14 +3414,19 @@ fun NowPlayingScreen(
                                     .fillMaxSize()
                                     .drawWithContent {
                                         val frame = still()
-                                        if (frame == null) {
+                                        if (lyricsOpen) {
+                                            // Lyrics must always show the actual album cover.
+                                            // A captured Canvas frame can stand in for the
+                                            // cover elsewhere in the player, but must never
+                                            // suppress the still image in the lyrics header.
+                                            drawContent()
+                                        } else if (frame == null) {
                                             if (art.loaded || !canvasRendered) drawContent()
                                         } else if (
                                             // The clip's still in place of the cover —
                                             // see [stillTakesOver] — and, for the reason
                                             // above, drawn only while it can be seen.
-                                            stillTakesOver() || !canvasRendered ||
-                                            (heroMode && canvasCover.floatValue < 1f)
+                                            stillTakesOver() || !canvasRendered || (heroMode && canvasCover.floatValue < 1f)
                                         ) {
                                             drawCropped(frame.image)
                                         }
@@ -3444,7 +3449,7 @@ fun NowPlayingScreen(
                                             collapseStarted || dockMoving || overlayOpen.value,
                                         // The same stand-in as the banner's clip; here
                                         // the still is drawn by the sleeve around it.
-                                        presentationAlpha = { if (stillTakesOver()) 0f else 1f },
+                                        presentationAlpha = { if (lyricsOpen || stillTakesOver()) 0f else 1f },
                                         startPositionMs = stillStart?.positionMs ?: 0L,
                                         revealInstantly = stillStart != null,
                                         captureStill = stillMoving,
