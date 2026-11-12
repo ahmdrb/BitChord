@@ -989,7 +989,7 @@ private fun ReleaseHeader(
     var artFailed by remember(sleeveArtwork) { mutableStateOf(false) }
     // A placeholder is a sleeve or it is nothing, as on the player: blown out
     // to the page's width it would only tint the top of the screen.
-    val bleed = fullBleed && page.thumbnailUrl != null && !artFailed
+    val bleed = fullBleed && sleeveArtwork != null && !artFailed
 
     Column(
         modifier = Modifier
@@ -1072,7 +1072,7 @@ private fun ReleaseHeader(
                 )
             }
             AsyncImage(
-                model = page.thumbnailUrl.artworkAt(HEADER_ART_PX),
+                model = sleeveArtwork,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 onState = { artFailed = it is AsyncImagePainter.State.Error },
