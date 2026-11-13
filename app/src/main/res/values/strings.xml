@@ -209,6 +209,9 @@
     <string name="spatial_audio_subtitle">Widens stereo tracks for a more immersive feel</string>
     <string name="spatial_audio_atmos_subtitle">Paused for this track — Dolby Atmos is already spatial</string>
     <string name="animated_cover_cellular">Play animated cover over cellular</string>
+    <string name="animated_cover_cellular_subtitle" translatable="false">Each clip is downloaded once and cached; later loops use the cached copy.</string>
+    <string name="pause_search_history" translatable="false">Pause search history</string>
+    <string name="pause_search_history_subtitle" translatable="false">Stop saving new YouTube and Addons searches. Existing history stays available.</string>
     <string name="replay">Replay</string>
     <string name="replay_subtitle">Your top songs, artists, albums and genres</string>
     <string name="work_out_genres">Work out genres</string>
