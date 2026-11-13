@@ -252,6 +252,7 @@ fun SettingsScreen(
     val lyricsBlur by AppSettings.lyricsBlur.collectAsStateWithLifecycle()
     val animatedCanvas by AppSettings.animatedCanvas.collectAsStateWithLifecycle()
     val canvasOverCellular by AppSettings.canvasOverCellular.collectAsStateWithLifecycle()
+    val pauseSearchHistory by AppSettings.pauseSearchHistory.collectAsStateWithLifecycle()
     val signatureApiEnabled by AppSettings.signatureApiEnabled.collectAsStateWithLifecycle()
     val signatureApiUrl by AppSettings.signatureApiUrl.collectAsStateWithLifecycle()
     val fullBleedArtwork by AppSettings.fullBleedArtwork.collectAsStateWithLifecycle()
@@ -1192,6 +1193,7 @@ fun SettingsScreen(
                         title = coverCellularTitle,
                         checked = canvasOverCellular,
                         onCheckedChange = AppSettings::setCanvasOverCellular,
+                        subtitle = stringResource(R.string.animated_cover_cellular_subtitle),
                     )
                 }
                 val spotifyCanvasTitle = stringResource(R.string.integrate_spotify_canvas)
@@ -1504,6 +1506,21 @@ fun SettingsScreen(
                     title = replayTitle,
                     subtitle = stringResource(R.string.replay_subtitle),
                     onClick = onOpenReplay,
+                )
+            }
+            val pauseSearchHistoryTitle = stringResource(R.string.pause_search_history)
+            row(pauseSearchHistoryTitle, "search", "history", "privacy", "recent searches") {
+                SettingsRow(
+                    icon = Icons.Rounded.History,
+                    title = pauseSearchHistoryTitle,
+                    subtitle = stringResource(R.string.pause_search_history_subtitle),
+                    trailing = {
+                        IosSwitch(
+                            checked = pauseSearchHistory,
+                            onCheckedChange = AppSettings::setPauseSearchHistory,
+                        )
+                    },
+                    onClick = { AppSettings.setPauseSearchHistory(!pauseSearchHistory) },
                 )
             }
             val workOutGenresTitle = stringResource(R.string.work_out_genres)
