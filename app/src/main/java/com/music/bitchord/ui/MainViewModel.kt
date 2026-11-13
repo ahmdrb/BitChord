@@ -2137,8 +2137,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         // The Library source answers from the device on every keystroke (see
         // [libraryResults]); YouTube's completions have nothing to add to it.
         if (_searchSource.value != SearchSource.YOUTUBE) return
-        // While typing, surface text completions — the pipeline already feeds
-        // them through [suggestRequests] and publishes results via typeahead.
+
+        // Publish the exact text immediately, before any network request. This
+        // keeps the dropdown responsive even on a slow/mobile connection and
+        // guarantees the first and latest characters are represented while
+        // suggestions are loading. A late response is still guarded against
+        // stale queries in startSuggestPipeline().
+        _suggestions.value = listOf(newValue)
+        _typeaheadResults.value = emptyList()
         suggestRequests.tryEmit(newValue)
     }
 
@@ -2589,7 +2595,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
          * long enough that "cold" isn't four lookups, short enough that the
          * list is up by the time the thumb has left the key.
          */
-        const val SUGGEST_DEBOUNCE_MS = 180L
+        const val SUGGEST_DEBOUNCE_MS = 100L
 
         /**
          * Debounce for the parallel media-search pipeline. Slightly longer than
@@ -2597,7 +2603,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
          * full search is heavier than a suggestion request, and the UI only
          * needs a few results to fill the dropdown.
          */
-        const val TYPEAHEAD_MEDIA_DEBOUNCE_MS = 350L
+        const val TYPEAHEAD_MEDIA_DEBOUNCE_MS = 220L
 
         /**
          * Maximum number of live media results shown in the typeahead dropdown.
