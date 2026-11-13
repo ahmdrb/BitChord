@@ -543,20 +543,17 @@ object AppSettings {
     val animatedCanvas = MutableStateFlow(true)
 
     /**
-     * Whether [animatedCanvas] is allowed to actually stream on a metered
-     * connection, as distinct from the switch that turns the feature off
-     * altogether.
+     * Whether [animatedCanvas] may fetch a clip over a metered connection.
      *
-     * Off by default. A canvas clip loops for as long as its track plays,
-     * and every loop past the first re-fetches the same few seconds of video
-     * — see [CanvasCache][com.music.bitchord.data.canvas.CanvasCache] for why
-     * that costs network at all rather than being answered from a buffer —
-     * so a few-second clip behind a four-minute track on cellular is not a
-     * flat video cost, it is that cost repeated dozens of times per song.
-     * That is the shape of the reported 8GB day: still art costs nothing
-     * here and stays up regardless of this setting.
+     * Enabled by default: [CanvasCache][com.music.bitchord.data.canvas.CanvasCache]
+     * stores the clip on disk after its first fetch, so subsequent loops and
+     * replays use the cached bytes rather than downloading the same video again.
+     * The still cover remains visible if this is switched off.
      */
-    val canvasOverCellular = MutableStateFlow(false)
+    val canvasOverCellular = MutableStateFlow(true)
+
+    /** Stop adding new local YouTube and Addons searches to the on-device history. */
+    val pauseSearchHistory = MutableStateFlow(false)
 
     /** Automatically collapses the lower controls after Spotify Canvas settles. */
     val spotifyCanvasAutoHide = MutableStateFlow(true)
@@ -1059,7 +1056,11 @@ object AppSettings {
             reduceDynamicBlur.value = false
         }
         animatedCanvas.value = prefs.getBoolean(KEY_ANIMATED_CANVAS, true)
-        canvasOverCellular.value = prefs.getBoolean(KEY_CANVAS_OVER_CELLULAR, false)
+        // The clip cache means cellular pays for a clip once, not once per
+        // loop. Default to enabled for existing installs that never changed
+        // this opt-in; an explicit saved false remains respected.
+        canvasOverCellular.value = prefs.getBoolean(KEY_CANVAS_OVER_CELLULAR, true)
+        pauseSearchHistory.value = prefs.getBoolean(KEY_PAUSE_SEARCH_HISTORY, false)
         spotifyCanvasAutoHide.value = prefs.getBoolean(KEY_SPOTIFY_CANVAS_AUTO_HIDE, true)
         prioritizeSpotifyCanvas.value = prefs.getBoolean(KEY_PRIORITIZE_SPOTIFY_CANVAS, false)
         signatureApiEnabled.value = prefs.getBoolean(KEY_SIGNATURE_API_ENABLED, false)
@@ -1683,6 +1684,11 @@ object AppSettings {
     fun setCanvasOverCellular(value: Boolean) {
         canvasOverCellular.value = value
         prefs.edit().putBoolean(KEY_CANVAS_OVER_CELLULAR, value).apply()
+    }
+
+    fun setPauseSearchHistory(value: Boolean) {
+        pauseSearchHistory.value = value
+        prefs.edit().putBoolean(KEY_PAUSE_SEARCH_HISTORY, value).apply()
     }
 
     fun setSpotifyCanvasAutoHide(value: Boolean) {
@@ -2330,6 +2336,7 @@ object AppSettings {
     private const val KEY_TRANSLATION_LANGUAGE = "translation_language"
     private const val KEY_ANIMATED_CANVAS = "animated_canvas"
     private const val KEY_CANVAS_OVER_CELLULAR = "canvas_over_cellular"
+    private const val KEY_PAUSE_SEARCH_HISTORY = "pause_search_history"
     private const val KEY_SPOTIFY_CANVAS_AUTO_HIDE = "spotify_canvas_auto_hide"
     private const val KEY_PRIORITIZE_SPOTIFY_CANVAS = "prioritize_spotify_canvas"
     private const val KEY_SIGNATURE_API_ENABLED = "signature_api_enabled"
