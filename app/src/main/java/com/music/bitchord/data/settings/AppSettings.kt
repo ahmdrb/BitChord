@@ -543,18 +543,12 @@ object AppSettings {
     val animatedCanvas = MutableStateFlow(true)
 
     /**
-     * Whether [animatedCanvas] is allowed to actually stream on a metered
-     * connection, as distinct from the switch that turns the feature off
-     * altogether.
+     * Whether [animatedCanvas] may fetch a clip over a metered connection.
      *
-     * Off by default. A canvas clip loops for as long as its track plays,
-     * and every loop past the first re-fetches the same few seconds of video
-     * — see [CanvasCache][com.music.bitchord.data.canvas.CanvasCache] for why
-     * that costs network at all rather than being answered from a buffer —
-     * so a few-second clip behind a four-minute track on cellular is not a
-     * flat video cost, it is that cost repeated dozens of times per song.
-     * That is the shape of the reported 8GB day: still art costs nothing
-     * here and stays up regardless of this setting.
+     * Enabled by default: [CanvasCache][com.music.bitchord.data.canvas.CanvasCache]
+     * stores the clip on disk after its first fetch, so subsequent loops and
+     * replays use the cached bytes rather than downloading the same video again.
+     * The still cover remains visible if this is switched off.
      */
     val canvasOverCellular = MutableStateFlow(true)
 
