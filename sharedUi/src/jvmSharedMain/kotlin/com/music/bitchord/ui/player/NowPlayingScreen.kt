@@ -394,6 +394,18 @@ internal class CanvasStill(val url: String, val image: ImageBitmap, val position
 internal object CanvasStills {
     var current by mutableStateOf<CanvasStill?>(null)
 
+    // Keep the last playhead independently of the optional captured bitmap.
+    // Full-screen Spotify Canvas has no sleeve to draw a still into, but it
+    // must resume at the same point when the player is opened again.
+    private var lastPosition: Pair<String, Long>? = null
+
+    fun rememberPosition(url: String, positionMs: Long) {
+        lastPosition = url to positionMs
+    }
+
+    fun positionFor(url: String): Long? =
+        lastPosition?.takeIf { it.first == url }?.second
+
     /** Whether [current] is still the clip's frame, rather than one it has played on from. */
     var fresh by mutableStateOf(false)
 }
@@ -1889,13 +1901,15 @@ fun NowPlayingScreen(
     }
     // Where a clip starts, read once as it mounts — see each — from its still,
     // so the first frame it paints is the one already on screen.
-    fun stillAtMount(): CanvasStill? = Snapshot.withoutReadObservation { still() }
+    fun stillAtMount(url: String): CanvasStill? =
+        Snapshot.withoutReadObservation { CanvasStills.current?.takeIf { it.url == url } }
     val onStillCaptured: (ImageBitmap?, Long) -> Unit = { image, position ->
-        val url = stillClip?.url
+        val url = canvas?.url
+        if (url != null) CanvasStills.rememberPosition(url, position)
         if (image != null && url != null) {
             CanvasStills.current = CanvasStill(url, image, position)
             CanvasStills.fresh = true
-        } else {
+        } else if (stillClip != null) {
             CanvasStills.current = null
         }
     }
@@ -2431,7 +2445,7 @@ fun NowPlayingScreen(
                 // invisible view to full-player bounds before its first frame is shown.
                 if (heroMode && heroHeight > 0.dp) {
                     heroClipMounted?.let { clip ->
-                        val stillStart = remember(clip.url) { stillAtMount() }
+                        val stillStart = remember(clip.url) { stillAtMount(clip.url) }
                         CanvasArtworkPlayer(
                             canvas = clip,
                             isPlaying = isPlaying,
@@ -2477,9 +2491,9 @@ fun NowPlayingScreen(
                             // once the player has come all the way up, rather than
                             // setting off with the end of the movement.
                             resumeDelayMs = if (clipFullscreen) SPOTIFY_CANVAS_RESUME_DELAY_MS else 0L,
-                            startPositionMs = stillStart?.positionMs ?: 0L,
+                            startPositionMs = CanvasStills.positionFor(clip.url) ?: stillStart?.positionMs ?: 0L,
                             revealInstantly = stillStart != null,
-                            captureStill = stillMoving && !clipFullscreen,
+                            captureStill = stillMoving,
                             onStillCaptured = onStillCaptured,
                             onResumed = onClipResumed,
                             onRenderedChanged = { canvasRendered = it },
@@ -3443,7 +3457,7 @@ fun NowPlayingScreen(
                             // sleeve's corners, shadow and paused shrink for free.
                             if (!heroMode && canvas != null) {
                                 WhileShown({ !collapsePastHalf }) {
-                                    val stillStart = remember(canvas.url) { stillAtMount() }
+                                    val stillStart = remember(canvas.url) { stillAtMount(canvas.url) }
                                     CanvasArtworkPlayer(
                                         canvas = canvas,
                                         isPlaying = isPlaying,
@@ -3455,7 +3469,7 @@ fun NowPlayingScreen(
                                         // The same stand-in as the banner's clip; here
                                         // the still is drawn by the sleeve around it.
                                         presentationAlpha = { if (lyricsOpen || stillTakesOver()) 0f else 1f },
-                                        startPositionMs = stillStart?.positionMs ?: 0L,
+                                        startPositionMs = CanvasStills.positionFor(canvas.url) ?: stillStart?.positionMs ?: 0L,
                                         revealInstantly = stillStart != null,
                                         captureStill = stillMoving,
                                         onStillCaptured = onStillCaptured,
