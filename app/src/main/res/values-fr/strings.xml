@@ -1,5 +1,7 @@
 <resources>
     <string name="app_name">BitChord</string>
+    <string name="keep_playback_screen_on">Garder l’écran du lecteur allumé</string>
+    <string name="keep_playback_screen_on_subtitle">Empêche l’écran de s’éteindre lorsque le lecteur plein écran est ouvert.</string>
     <string name="hide_lyrics_romanization_button">Masquer le bouton de romanisation des paroles</string>
     <string name="hide_lyrics_translation_button">Masquer le bouton de traduction des paroles</string>
     <string name="hide_lyrics_source_credit">Masquer l’attribution de la source des paroles</string>
