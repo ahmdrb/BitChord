@@ -1,5 +1,8 @@
 <resources>
     <string name="app_name">BitChord</string>
+    <string name="hide_lyrics_romanization_button">Скрыть кнопку транслитерации текста песни</string>
+    <string name="hide_lyrics_translation_button">Скрыть кнопку перевода текста песни</string>
+    <string name="hide_lyrics_source_credit">Скрыть указание источника текста песни</string>
     <string name="playback_channel_name">Сейчас играет</string>
     <string name="download_channel_name">Загрузки</string>
     <string name="download_channel_description">Песни сохраняются в папку «Музыка»</string>
