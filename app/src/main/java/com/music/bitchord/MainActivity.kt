@@ -4230,6 +4230,16 @@ private fun BitChordApp(
                             } else {
                                 playerSheetMotion::open
                             },
+                            onDismiss = {
+                                controller?.let { activePlayer ->
+                                    activePlayer.stop()
+                                    activePlayer.clearMediaItems()
+                                }
+                                showNowPlaying = false
+                            },
+                            progressFraction = if (player.durationMs > 0L) {
+                                (player.position.toFloat() / player.durationMs.toFloat()).coerceIn(0f, 1f)
+                            } else 0f,
                             controlsLocked = controlsLocked,
                             onBlockedControl = showHostOnlyNotice,
                             dock = activeDock,
@@ -4660,6 +4670,12 @@ private fun BitChordApp(
             // released low, a back press, a tap on the scrim. Refused here and
             // carried out there, on a curve slow enough to watch the artwork
             // fly home on, rather than on the sheet's own.
+            val keepPlaybackScreenOn by AppSettings.keepPlaybackScreenOn.collectAsStateWithLifecycle()
+            val playbackWindowView = LocalView.current
+            DisposableEffect(playbackWindowView, keepPlaybackScreenOn) {
+                playbackWindowView.keepScreenOn = keepPlaybackScreenOn
+                onDispose { playbackWindowView.keepScreenOn = false }
+            }
             val sheetDensity = LocalDensity.current
             val confirmSheetValue: (SheetValue) -> Boolean = { value ->
                 // Read when asked, not when the sheet was made: the setting
