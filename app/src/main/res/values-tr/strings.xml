@@ -1,5 +1,7 @@
 <resources>
     <string name="app_name">BitChord</string>
+    <string name="keep_playback_screen_on">Oynatma ekranını açık tut</string>
+    <string name="keep_playback_screen_on_subtitle">Tam oynatıcı açıkken ekranın kapanmasını önler.</string>
     <string name="hide_lyrics_romanization_button">Şarkı sözleri için Latin harflerine çevirme düğmesini gizle</string>
     <string name="hide_lyrics_translation_button">Şarkı sözleri çeviri düğmesini gizle</string>
     <string name="hide_lyrics_source_credit">Şarkı sözlerinin kaynak bilgisini gizle</string>
