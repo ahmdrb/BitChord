@@ -1,5 +1,8 @@
 <resources>
     <string name="app_name">BitChord</string>
+    <string name="hide_lyrics_romanization_button">Nascondi il pulsante di romanizzazione dei testi</string>
+    <string name="hide_lyrics_translation_button">Nascondi il pulsante di traduzione dei testi</string>
+    <string name="hide_lyrics_source_credit">Nascondi l’attribuzione della fonte dei testi</string>
     <string name="playback_channel_name">In riproduzione</string>
     <string name="download_channel_name">Download</string>
     <string name="download_channel_description">Brani salvati nella tua cartella Musica</string>
