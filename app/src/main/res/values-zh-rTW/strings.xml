@@ -1,5 +1,7 @@
 <resources>
     <string name="app_name">BitChord</string>
+    <string name="keep_playback_screen_on">保持播放畫面恆亮</string>
+    <string name="keep_playback_screen_on_subtitle">全螢幕播放器開啟時，防止螢幕自動關閉。</string>
     <string name="hide_lyrics_romanization_button">隱藏歌詞羅馬拼音按鈕</string>
     <string name="hide_lyrics_translation_button">隱藏歌詞翻譯按鈕</string>
     <string name="hide_lyrics_source_credit">隱藏歌詞來源標示</string>
