@@ -4,7 +4,7 @@
     <string name="keep_playback_screen_on_subtitle">全屏播放器打开时，防止屏幕自动熄灭。</string>
     <string name="hide_lyrics_romanization_button">隐藏歌词罗马音按钮</string>
     <string name="hide_lyrics_translation_button">隐藏歌词翻译按钮</string>
-    <string name="hide_lyrics_source_credit">隐藏歌词来源标注</string>
+    <string name="hide_lyrics_source_credit">隐藏歌词提供商选择器</string>
     <string name="playback_channel_name">正在播放</string>
     <string name="download_channel_name">下载</string>
     <string name="download_channel_description">正在保存到你的音乐文件夹的歌曲</string>
