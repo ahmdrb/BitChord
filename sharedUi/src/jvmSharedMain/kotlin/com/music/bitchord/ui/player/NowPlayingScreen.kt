@@ -1852,6 +1852,12 @@ fun NowPlayingScreen(
     // the trip, as for the collapse into the lyrics or the queue; a paused
     // clip keeps its last frame, so nothing blinks.
     val dockMoving by remember { derivedStateOf { docking() } }
+    // Full-screen Spotify Canvas has no sleeve to carry into the mini-player.
+    // Its cover is already mounted underneath the sheet, so reveal it as soon
+    // as the sheet starts moving instead of waiting for the final 15% hand-off.
+    SideEffect {
+        dock?.revealMiniArtEarly = clipFullscreen && dockMoving
+    }
     // The rest of the player gets out of the way a little ahead of the artwork,
     // so the cover lands on the bar rather than on a ghost of the player.
     val dockFade: () -> Float = { ((dockT() - DOCK_FADE_LEAD) / (1f - DOCK_FADE_LEAD)).coerceIn(0f, 1f) }
