@@ -284,6 +284,7 @@ fun SettingsScreen(
     val exportDownloads by AppSettings.exportDownloads.collectAsStateWithLifecycle()
     val syncDownloadedPlaylists by AppSettings.syncDownloadedPlaylists.collectAsStateWithLifecycle()
     val stopOnTaskRemoved by AppSettings.stopOnTaskRemoved.collectAsStateWithLifecycle()
+    val keepPlaybackScreenOn by AppSettings.keepPlaybackScreenOn.collectAsStateWithLifecycle()
     val hideVolumeBar by AppSettings.hideVolumeBar.collectAsStateWithLifecycle()
     val hideStatusBarInPlayer by AppSettings.hideStatusBarInPlayer.collectAsStateWithLifecycle()
     val hideSongStatus by AppSettings.hideSongStatus.collectAsStateWithLifecycle()
@@ -1612,6 +1613,21 @@ fun SettingsScreen(
                         )
                     },
                     onClick = { AppSettings.setStopOnTaskRemoved(!stopOnTaskRemoved) },
+                )
+            }
+            val keepPlaybackScreenOnTitle = stringResource(R.string.keep_playback_screen_on)
+            row(keepPlaybackScreenOnTitle, "display", "screen timeout", "awake", "player") {
+                SettingsRow(
+                    icon = SfIcons.WebAssetOff,
+                    title = keepPlaybackScreenOnTitle,
+                    subtitle = stringResource(R.string.keep_playback_screen_on_subtitle),
+                    trailing = {
+                        IosSwitch(
+                            checked = keepPlaybackScreenOn,
+                            onCheckedChange = AppSettings::setKeepPlaybackScreenOn,
+                        )
+                    },
+                    onClick = { AppSettings.setKeepPlaybackScreenOn(!keepPlaybackScreenOn) },
                 )
             }
             val hideVolumeBarTitle = stringResource(R.string.hide_volume_bar)
