@@ -5,7 +5,7 @@
     <string name="keep_playback_screen_on_subtitle">Ngăn màn hình tắt khi trình phát đầy đủ đang mở.</string>
     <string name="hide_lyrics_romanization_button">Ẩn nút phiên âm lời bài hát</string>
     <string name="hide_lyrics_translation_button">Ẩn nút dịch lời bài hát</string>
-    <string name="hide_lyrics_source_credit">Ẩn thông tin ghi nguồn lời bài hát</string>
+    <string name="hide_lyrics_source_credit">Ẩn bộ chọn nhà cung cấp lời bài hát</string>
     <string name="playback_channel_name">Đang phát</string>
     <string name="download_channel_name">Tải xuống</string>
     <string name="download_channel_description">Các bài hát đang được lưu vào thư mục Nhạc của bạn</string>
