@@ -1,5 +1,8 @@
 <resources>
     <string name="app_name">BitChord</string>
+    <string name="hide_lyrics_romanization_button">Sembunyikan tombol romanisasi lirik</string>
+    <string name="hide_lyrics_translation_button">Sembunyikan tombol terjemahan lirik</string>
+    <string name="hide_lyrics_source_credit">Sembunyikan atribusi sumber lirik</string>
     <string name="playback_channel_name">Sedang diputar</string>
     <string name="download_channel_name">Unduhan</string>
     <string name="download_channel_description">Lagu yang sedang disimpan ke folder Musik Anda</string>
