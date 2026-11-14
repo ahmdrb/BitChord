@@ -109,15 +109,15 @@ val SFProDisplayLegacy = FontFamily(
 // Apple Music-inspired heavy typography: retain the original heavy cuts,
 // but open the tracking so tight pairs (such as "rt") stay clearly separated.
 private val LegacyTypography = Typography(
-    displayLarge = TextStyle(fontWeight = FontWeight.W800, fontSize = 34.sp, letterSpacing = (-0.1).sp),
-    headlineLarge = TextStyle(fontWeight = FontWeight.W800, fontSize = 30.sp, letterSpacing = 0.sp),
-    headlineMedium = TextStyle(fontWeight = FontWeight.W700, fontSize = 22.sp, letterSpacing = 0.05.sp),
-    titleLarge = TextStyle(fontWeight = FontWeight.W700, fontSize = 20.sp, letterSpacing = 0.05.sp),
-    titleMedium = TextStyle(fontWeight = FontWeight.W600, fontSize = 16.sp, letterSpacing = 0.1.sp),
+    displayLarge = TextStyle(fontWeight = FontWeight.W700, fontSize = 34.sp, letterSpacing = (-0.1).sp),
+    headlineLarge = TextStyle(fontWeight = FontWeight.W700, fontSize = 30.sp, letterSpacing = 0.sp),
+    headlineMedium = TextStyle(fontWeight = FontWeight.W600, fontSize = 22.sp, letterSpacing = 0.05.sp),
+    titleLarge = TextStyle(fontWeight = FontWeight.W600, fontSize = 20.sp, letterSpacing = 0.05.sp),
+    titleMedium = TextStyle(fontWeight = FontWeight.W500, fontSize = 16.sp, letterSpacing = 0.1.sp),
     bodyLarge = TextStyle(fontWeight = FontWeight.W400, fontSize = 16.sp, letterSpacing = 0.15.sp),
     bodyMedium = TextStyle(fontWeight = FontWeight.W400, fontSize = 14.sp, letterSpacing = 0.3.sp),
-    labelMedium = TextStyle(fontWeight = FontWeight.W600, fontSize = 12.sp, letterSpacing = 0.25.sp),
-    labelSmall = TextStyle(fontWeight = FontWeight.W600, fontSize = 11.sp, letterSpacing = 0.3.sp),
+    labelMedium = TextStyle(fontWeight = FontWeight.W500, fontSize = 12.sp, letterSpacing = 0.25.sp),
+    labelSmall = TextStyle(fontWeight = FontWeight.W500, fontSize = 11.sp, letterSpacing = 0.3.sp),
 ).withFamily(SFProDisplayLegacy)
 
 /** Applies [family] to every style in the scale, so nothing is left on Roboto. */
