@@ -115,7 +115,11 @@ class PlayerDock {
     // and every one of those invalidated the page's whole window behind the
     // player: a full redraw, liquid glass and all, for a cover that hadn't
     // changed.
-    private val coversMiniArtState = derivedStateOf { attached && openFraction() > 0f }
+    // The full player's sleeve is already fading away over this final 15% of
+    // the trip (DOCK_FADE_LEAD in NowPlayingScreen). Reveal the mini player's
+    // already-mounted artwork at the same point, so it is in place underneath
+    // the last frames of the hand-off rather than appearing after the sheet lands.
+    private val coversMiniArtState = derivedStateOf { attached && openFraction() > 0.15f }
 }
 
 /** The [PlayerDock] around the player, if its host has a mini player to dock into. */
