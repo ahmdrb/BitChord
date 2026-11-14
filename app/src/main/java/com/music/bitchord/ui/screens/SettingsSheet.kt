@@ -1722,10 +1722,10 @@ fun SettingsScreen(
                 )
             }
             val hideLyricsProviderPickerTitle = stringResource(R.string.hide_lyrics_source_credit)
-            row(hideLyricsSourceCreditTitle, "lyrics", "source", "credit", "attribution", "lrc.red") {
+            row(hideLyricsProviderPickerTitle, "lyrics", "source", "credit", "attribution", "lrc.red") {
                 SettingsRow(
                     icon = SfIcons.VisibilityOff,
-                    title = hideLyricsSourceCreditTitle,
+                    title = hideLyricsProviderPickerTitle,
                     trailing = {
                         IosSwitch(
                             checked = hideLyricsSourceCredit,
