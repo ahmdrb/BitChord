@@ -4679,8 +4679,8 @@ private fun BitChordApp(
             // fly home on, rather than on the sheet's own.
             val keepPlaybackScreenOn by AppSettings.keepPlaybackScreenOn.collectAsStateWithLifecycle()
             val playbackWindowView = LocalView.current
-            DisposableEffect(playbackWindowView, keepPlaybackScreenOn) {
-                playbackWindowView.keepScreenOn = keepPlaybackScreenOn
+            DisposableEffect(playbackWindowView, keepPlaybackScreenOn, showNowPlaying) {
+                playbackWindowView.keepScreenOn = keepPlaybackScreenOn && showNowPlaying
                 onDispose { playbackWindowView.keepScreenOn = false }
             }
             val sheetDensity = LocalDensity.current
