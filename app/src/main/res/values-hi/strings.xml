@@ -1,5 +1,7 @@
 <resources>
     <string name="app_name">BitChord</string>
+    <string name="keep_playback_screen_on">प्लेबैक स्क्रीन चालू रखें</string>
+    <string name="keep_playback_screen_on_subtitle">पूरा प्लेयर खुला रहने पर स्क्रीन को बंद होने से रोकें।</string>
     <string name="hide_lyrics_romanization_button">गीतों के लिप्यंतरण का बटन छिपाएँ</string>
     <string name="hide_lyrics_translation_button">गीतों के अनुवाद का बटन छिपाएँ</string>
     <string name="hide_lyrics_source_credit">गीतों के स्रोत का श्रेय छिपाएँ</string>
