@@ -1,5 +1,7 @@
 <resources>
     <string name="app_name">BitChord</string>
+    <string name="keep_playback_screen_on">再生画面を点灯したままにする</string>
+    <string name="keep_playback_screen_on_subtitle">フルプレーヤーを開いている間、画面がスリープしないようにします。</string>
     <string name="hide_lyrics_romanization_button">歌詞のローマ字表示ボタンを非表示</string>
     <string name="hide_lyrics_translation_button">歌詞の翻訳ボタンを非表示</string>
     <string name="hide_lyrics_source_credit">歌詞の提供元表示を非表示</string>
