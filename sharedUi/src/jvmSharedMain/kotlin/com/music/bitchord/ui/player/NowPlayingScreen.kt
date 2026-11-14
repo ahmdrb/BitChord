@@ -913,6 +913,9 @@ fun NowPlayingScreen(
     val openListenTogetherMembers: () -> Unit = { showListenTogetherMembers = true }
 
     val syncedLyricsEnabled by PlayerSettings.syncedLyrics.collectAsStateWithLifecycle()
+    val hideLyricsRomanizationButton by PlayerSettings.hideLyricsRomanizationButton.collectAsStateWithLifecycle()
+    val hideLyricsTranslationButton by PlayerSettings.hideLyricsTranslationButton.collectAsStateWithLifecycle()
+    val hideLyricsSourceCredit by PlayerSettings.hideLyricsSourceCredit.collectAsStateWithLifecycle()
     val lyricsOffsetMs by PlayerSettings.lyricsOffsetMs.collectAsStateWithLifecycle()
     // A lambda, not a value: read by the lyric strip and panel in scopes of
     // their own, so a tick recomposes them and not the player around them.
@@ -1107,6 +1110,7 @@ fun NowPlayingScreen(
         lyricsSource = lyricsSource,
         lyricsUnavailable = lyricsUnavailable,
         loadingText = lyricsLoadingText,
+        showSourceCredit = !hideLyricsSourceCredit,
         haptics = haptics,
     )
     // The drawer holding the finished card, set the moment Share is confirmed.
@@ -3903,7 +3907,7 @@ fun NowPlayingScreen(
                                 label = "translateFade",
                             )
                             if (translateFade > 0.01f && !lyricPicker.picking) {
-                                Box(
+                                if (!hideLyricsRomanizationButton) Box(
                                     modifier = Modifier
                                         .align(Alignment.BottomStart)
                                         .graphicsLayer { alpha = translateFade },
@@ -3915,7 +3919,7 @@ fun NowPlayingScreen(
                                         onClick = lyricsTranslation.toggleRomanization,
                                     )
                                 }
-                                Box(
+                                if (!hideLyricsTranslationButton) Box(
                                     modifier = Modifier
                                         .align(Alignment.BottomEnd)
                                         .graphicsLayer { alpha = translateFade },
