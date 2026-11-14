@@ -4193,6 +4193,13 @@ private fun BitChordApp(
                         } else {
                             playerSheetMotion::open
                         },
+                        onDismiss = {
+                            controller?.let { activePlayer ->
+                                activePlayer.stop()
+                                activePlayer.clearMediaItems()
+                            }
+                            showNowPlaying = false
+                        },
                         controlsLocked = controlsLocked,
                         onBlockedControl = showHostOnlyNotice,
                         dock = activeDock,
@@ -4238,7 +4245,7 @@ private fun BitChordApp(
                                 showNowPlaying = false
                             },
                             progressFraction = if (player.durationMs > 0L) {
-                                (player.position.toFloat() / player.durationMs.toFloat()).coerceIn(0f, 1f)
+                                (player.position.positionMs.toFloat() / player.durationMs.toFloat()).coerceIn(0f, 1f)
                             } else 0f,
                             controlsLocked = controlsLocked,
                             onBlockedControl = showHostOnlyNotice,
