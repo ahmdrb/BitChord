@@ -2105,7 +2105,7 @@ internal fun LyricsPanel(
                             text = sectionTitle.uppercase(),
                             style = MaterialTheme.typography.labelMedium.copy(
                                 letterSpacing = 1.3.sp,
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = style.fontWeight ?: FontWeight.Bold,
                                 fontSize = 11.5.sp,
                             ),
                             color = Color.White.copy(alpha = 0.9f),
@@ -2245,14 +2245,14 @@ internal fun LyricsPanel(
                     MaterialTheme.typography.headlineLarge.copy(
                         fontSize = 34.sp,
                         lineHeight = 41.sp,
-                        fontWeight = FontWeight.ExtraBold,
+                        fontWeight = MaterialTheme.typography.headlineLarge.fontWeight ?: FontWeight.ExtraBold,
                         textAlign = if (alignEnd) TextAlign.End else TextAlign.Start,
                     )
                 } else {
                     MaterialTheme.typography.headlineMedium.copy(
                         fontSize = 30.sp,
                         lineHeight = 38.sp,
-                        fontWeight = FontWeight.ExtraBold,
+                        fontWeight = MaterialTheme.typography.headlineMedium.fontWeight ?: FontWeight.ExtraBold,
                         textAlign = if (alignEnd) TextAlign.End else TextAlign.Start,
                     )
                 }
