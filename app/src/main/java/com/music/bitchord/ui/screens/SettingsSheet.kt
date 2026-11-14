@@ -1721,7 +1721,7 @@ fun SettingsScreen(
                     onClick = { AppSettings.setHideLyricsTranslationButton(!hideLyricsTranslationButton) },
                 )
             }
-            val hideLyricsSourceCreditTitle = stringResource(R.string.hide_lyrics_source_credit)
+            val hideLyricsProviderPickerTitle = stringResource(R.string.hide_lyrics_source_credit)
             row(hideLyricsSourceCreditTitle, "lyrics", "source", "credit", "attribution", "lrc.red") {
                 SettingsRow(
                     icon = SfIcons.VisibilityOff,
