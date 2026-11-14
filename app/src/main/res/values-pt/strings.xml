@@ -1,6 +1,8 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="app_name">BitChord</string>
+    <string name="keep_playback_screen_on">Manter a tela de reprodução ligada</string>
+    <string name="keep_playback_screen_on_subtitle">Impede que a tela desligue enquanto o player completo estiver aberto.</string>
     <string name="hide_lyrics_romanization_button">Ocultar o botão de romanização da letra</string>
     <string name="hide_lyrics_translation_button">Ocultar o botão de tradução da letra</string>
     <string name="hide_lyrics_source_credit">Ocultar a atribuição da fonte da letra</string>
