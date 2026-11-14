@@ -1,5 +1,8 @@
 <resources>
     <string name="app_name">BitChord</string>
+    <string name="hide_lyrics_romanization_button">ซ่อนปุ่มถอดเสียงเนื้อเพลง</string>
+    <string name="hide_lyrics_translation_button">ซ่อนปุ่มแปลเนื้อเพลง</string>
+    <string name="hide_lyrics_source_credit">ซ่อนข้อมูลแหล่งที่มาของเนื้อเพลง</string>
     <string name="playback_channel_name">กำลังเล่น</string>
     <string name="download_channel_name">การดาวน์โหลด</string>
     <string name="download_channel_description">เพลงที่กำลังบันทึกลงในโฟลเดอร์เพลงของคุณ</string>
