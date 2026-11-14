@@ -4183,6 +4183,20 @@ private fun BitChordApp(
                         song = player.song,
                         isPlaying = player.isPlaying,
                         isLoading = playPauseBusy,
+                        progressFraction = if (player.durationMs > 0L) {
+                            (player.position.positionMs.toFloat() / player.durationMs.toFloat()).coerceIn(0f, 1f)
+                        } else 0f,
+                        onSeekFraction = { fraction ->
+                            controller?.let { activePlayer ->
+                                val duration = activePlayer.duration
+                                if (duration > 0L) {
+                                    activePlayer.seekTo(
+                                        (fraction * duration).toLong()
+                                            .coerceIn(0L, (duration - SEEK_END_GUARD_MS).coerceAtLeast(0L)),
+                                    )
+                                }
+                            }
+                        },
                         onPlayPause = {
                             togglePlayPause()
                         },
@@ -4247,6 +4261,17 @@ private fun BitChordApp(
                             progressFraction = if (player.durationMs > 0L) {
                                 (player.position.positionMs.toFloat() / player.durationMs.toFloat()).coerceIn(0f, 1f)
                             } else 0f,
+                            onSeekFraction = { fraction ->
+                                controller?.let { activePlayer ->
+                                    val duration = activePlayer.duration
+                                    if (duration > 0L) {
+                                        activePlayer.seekTo(
+                                            (fraction * duration).toLong()
+                                                .coerceIn(0L, (duration - SEEK_END_GUARD_MS).coerceAtLeast(0L)),
+                                        )
+                                    }
+                                }
+                            },
                             controlsLocked = controlsLocked,
                             onBlockedControl = showHostOnlyNotice,
                             dock = activeDock,
