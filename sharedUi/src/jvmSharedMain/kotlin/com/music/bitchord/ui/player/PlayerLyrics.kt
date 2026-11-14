@@ -2105,7 +2105,7 @@ internal fun LyricsPanel(
                             text = sectionTitle.uppercase(),
                             style = MaterialTheme.typography.labelMedium.copy(
                                 letterSpacing = 1.3.sp,
-                                fontWeight = style.fontWeight ?: FontWeight.Bold,
+                                fontWeight = MaterialTheme.typography.labelMedium.fontWeight ?: FontWeight.Bold,
                                 fontSize = 11.5.sp,
                             ),
                             color = Color.White.copy(alpha = 0.9f),
