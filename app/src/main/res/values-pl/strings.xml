@@ -1,6 +1,9 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="app_name">BitChord</string>
+    <string name="hide_lyrics_romanization_button">Ukryj przycisk transkrypcji fonetycznej tekstu</string>
+    <string name="hide_lyrics_translation_button">Ukryj przycisk tłumaczenia tekstu</string>
+    <string name="hide_lyrics_source_credit">Ukryj informację o źródle tekstu</string>
     <string name="playback_channel_name">Teraz gra</string>
     <string name="download_channel_name">Pobrane</string>
     <string name="download_channel_description">Utwory są zapisywane do folderu Muzyka</string>
