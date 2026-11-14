@@ -259,6 +259,9 @@ fun SettingsScreen(
     val fullBleedDetailArtwork by AppSettings.fullBleedDetailArtwork.collectAsStateWithLifecycle()
     val playerTheme by AppSettings.playerTheme.collectAsStateWithLifecycle()
     val syncedLyrics by AppSettings.syncedLyrics.collectAsStateWithLifecycle()
+    val hideLyricsRomanizationButton by AppSettings.hideLyricsRomanizationButton.collectAsStateWithLifecycle()
+    val hideLyricsTranslationButton by AppSettings.hideLyricsTranslationButton.collectAsStateWithLifecycle()
+    val hideLyricsSourceCredit by AppSettings.hideLyricsSourceCredit.collectAsStateWithLifecycle()
     val lyricsSources by AppSettings.lyricsSources.collectAsStateWithLifecycle()
     val translationLanguage by AppSettings.translationLanguage.collectAsStateWithLifecycle()
     val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
@@ -1688,6 +1691,48 @@ fun SettingsScreen(
                         )
                     },
                     onClick = { AppSettings.setShowQueueHistory(!showQueueHistory) },
+                )
+            }
+            val hideLyricsRomanizationTitle = stringResource(R.string.hide_lyrics_romanization_button)
+            row(hideLyricsRomanizationTitle, "lyrics", "globe", "romanization", "language") {
+                SettingsRow(
+                    icon = SfIcons.VisibilityOff,
+                    title = hideLyricsRomanizationTitle,
+                    trailing = {
+                        IosSwitch(
+                            checked = hideLyricsRomanizationButton,
+                            onCheckedChange = AppSettings::setHideLyricsRomanizationButton,
+                        )
+                    },
+                    onClick = { AppSettings.setHideLyricsRomanizationButton(!hideLyricsRomanizationButton) },
+                )
+            }
+            val hideLyricsTranslationTitle = stringResource(R.string.hide_lyrics_translation_button)
+            row(hideLyricsTranslationTitle, "lyrics", "translate", "translation") {
+                SettingsRow(
+                    icon = SfIcons.VisibilityOff,
+                    title = hideLyricsTranslationTitle,
+                    trailing = {
+                        IosSwitch(
+                            checked = hideLyricsTranslationButton,
+                            onCheckedChange = AppSettings::setHideLyricsTranslationButton,
+                        )
+                    },
+                    onClick = { AppSettings.setHideLyricsTranslationButton(!hideLyricsTranslationButton) },
+                )
+            }
+            val hideLyricsSourceCreditTitle = stringResource(R.string.hide_lyrics_source_credit)
+            row(hideLyricsSourceCreditTitle, "lyrics", "source", "credit", "attribution", "lrc.red") {
+                SettingsRow(
+                    icon = SfIcons.VisibilityOff,
+                    title = hideLyricsSourceCreditTitle,
+                    trailing = {
+                        IosSwitch(
+                            checked = hideLyricsSourceCredit,
+                            onCheckedChange = AppSettings::setHideLyricsSourceCredit,
+                        )
+                    },
+                    onClick = { AppSettings.setHideLyricsSourceCredit(!hideLyricsSourceCredit) },
                 )
             }
             val hideSongStatusTitle = stringResource(R.string.hide_song_status)
