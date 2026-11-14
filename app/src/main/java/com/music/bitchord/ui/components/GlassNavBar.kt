@@ -97,6 +97,8 @@ fun GlassNavBar(
     song: Song?,
     isPlaying: Boolean,
     isLoading: Boolean,
+    progressFraction: Float = 0f,
+    onSeekFraction: (Float) -> Unit = {},
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
@@ -154,6 +156,8 @@ fun GlassNavBar(
                     isInline = true,
                     isPlaying = isPlaying,
                     isLoading = isLoading,
+                    progressFraction = progressFraction,
+                    onSeekFraction = onSeekFraction,
                     contentColor = contentColor,
                     onPlayPause = onPlayPause,
                     onNext = onNext,
@@ -175,6 +179,8 @@ fun GlassNavBar(
                     isInline = false,
                     isPlaying = isPlaying,
                     isLoading = isLoading,
+                    progressFraction = progressFraction,
+                    onSeekFraction = onSeekFraction,
                     contentColor = contentColor,
                     onPlayPause = onPlayPause,
                     onNext = onNext,
@@ -302,6 +308,8 @@ private fun GlassNowPlaying(
     isInline: Boolean,
     isPlaying: Boolean,
     isLoading: Boolean,
+    progressFraction: Float,
+    onSeekFraction: (Float) -> Unit,
     contentColor: Color,
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
@@ -486,6 +494,13 @@ private fun GlassNowPlaying(
                 }
             }
         }
+        MiniPlayerProgressTrack(
+            progressFraction = progressFraction,
+            onSeekFraction = onSeekFraction,
+            playedColor = contentColor.copy(alpha = 0.9f),
+            trackColor = contentColor.copy(alpha = 0.16f),
+            modifier = Modifier.align(Alignment.BottomStart),
+        )
     }
 }
 
