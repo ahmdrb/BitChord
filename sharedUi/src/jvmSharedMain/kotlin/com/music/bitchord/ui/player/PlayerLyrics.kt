@@ -3085,6 +3085,7 @@ internal fun rememberLyricsTranslation(
     /** What the status line says while the lyrics are still being looked up. */
     loadingText: String,
     haptics: Haptics,
+    showSourceCredit: Boolean = true,
 ): LyricsTranslationUi {
     val reduceTranslationMotion by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
     val configuredLocale = appLanguageTag()
@@ -3276,7 +3277,7 @@ internal fun rememberLyricsTranslation(
             stringResource(Res.string.lyrics_already_in_language, translationLanguageName)
         romanizationState is LyricsTranslationUiState.SameLanguage ->
             stringResource(Res.string.lyrics_already_romanized)
-        lyricsSource != null -> stringResource(Res.string.lyrics_by, lyricsSource.label)
+        showSourceCredit && lyricsSource != null -> stringResource(Res.string.lyrics_by, lyricsSource.label)
         lyricsUnavailable -> stringResource(Res.string.no_lyrics_found)
         lyrics.isNullOrEmpty() -> loadingText
         else -> stringResource(Res.string.lyrics_saved_with_download)
