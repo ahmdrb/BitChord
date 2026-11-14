@@ -106,6 +106,10 @@ class PlayerDock {
      * revealed as the sleeve fades over the final 15% of the trip — before the
      * sheet lands, so the cover is already in place when the bar is fully shown.
      */
+    /** Reveal the already-mounted mini cover from the start when full-screen Canvas has no moving sleeve. */
+    var revealMiniArtEarly by mutableStateOf(false)
+        internal set
+
     val coversMiniArt: Boolean
         get() = coversMiniArtState.value
 
@@ -119,7 +123,7 @@ class PlayerDock {
     // the trip (DOCK_FADE_LEAD in NowPlayingScreen). Reveal the mini player's
     // already-mounted artwork at the same point, so it is in place underneath
     // the last frames of the hand-off rather than appearing after the sheet lands.
-    private val coversMiniArtState = derivedStateOf { attached && openFraction() > 0.15f }
+    private val coversMiniArtState = derivedStateOf { attached && openFraction() > 0.15f && !revealMiniArtEarly }
 }
 
 /** The [PlayerDock] around the player, if its host has a mini player to dock into. */
