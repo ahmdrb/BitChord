@@ -4,7 +4,7 @@
     <string name="keep_playback_screen_on_subtitle">Verhindert, dass sich das Display ausschaltet, während der vollständige Player geöffnet ist.</string>
     <string name="hide_lyrics_romanization_button">Romanisierungs-Schaltfläche für Liedtexte ausblenden</string>
     <string name="hide_lyrics_translation_button">Übersetzungsschaltfläche für Liedtexte ausblenden</string>
-    <string name="hide_lyrics_source_credit">Quellenangabe der Liedtexte ausblenden</string>
+    <string name="hide_lyrics_source_credit">Auswahl des Liedtextanbieters ausblenden</string>
     <string name="playback_channel_name">Wird wiedergegeben</string>
     <string name="download_channel_name">Downloads</string>
     <string name="download_channel_description">Songs, die in deinem Musikordner gespeichert werden</string>
