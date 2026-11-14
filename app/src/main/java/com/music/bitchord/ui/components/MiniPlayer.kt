@@ -7,6 +7,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -16,6 +18,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -31,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -64,6 +69,7 @@ import com.music.bitchord.ui.haptics.rememberHaptics
 import com.music.bitchord.playback.MusicOnlyPlayback
 import com.music.bitchord.ui.player.PlayerDock
 import com.music.bitchord.ui.player.AndroidMusicVideo
+import com.music.bitchord.ui.theme.rememberArtworkPalette
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.animation.core.animateDpAsState
@@ -115,6 +121,37 @@ private val TRANSPORT_GAP = 8.dp
  * and so its pill radius at 28.
  */
 private val ROW_PADDING_VERTICAL = 8.dp
+
+/**
+ * A non-interactive progress fill for the mini-player capsule.
+ *
+ * The artwork palette supplies a track-specific tint; the fill itself never
+ * participates in hit testing, leaving the whole capsule available for open
+ * and pull gestures.
+ */
+@Composable
+internal fun MiniPlayerProgressFill(
+    song: Song,
+    progressFraction: Float,
+    modifier: Modifier = Modifier,
+) {
+    val palette = rememberArtworkPalette(rememberRemoteArtworkUrl(song), artPx = ROW_ART_PX)
+    key(song.videoId) {
+        val fillFraction by animateFloatAsState(
+            targetValue = progressFraction.coerceIn(0f, 1f),
+            animationSpec = tween(durationMillis = 320),
+            label = "miniPlayerProgressFill",
+        )
+        Box(modifier = modifier.clip(RoundedCornerShape(percent = 50))) {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(fillFraction)
+                    .background(palette.elevated),
+            )
+        }
+    }
+}
 
 /**
  * Horizontal padding, deliberately larger than the vertical.
@@ -213,6 +250,7 @@ internal fun Modifier.miniPlayerGestures(
     pull: MiniPlayerPull?,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
+    onDismiss: () -> Unit,
     /** Listening in a party whose host holds the controls. Swipes say so instead of skipping. */
     locked: Boolean = false,
     onBlocked: () -> Unit = {},
@@ -223,6 +261,7 @@ internal fun Modifier.miniPlayerGestures(
     val currentPull by rememberUpdatedState(pull)
     val currentOnNext by rememberUpdatedState(onNext)
     val currentOnPrevious by rememberUpdatedState(onPrevious)
+    val currentOnDismiss by rememberUpdatedState(onDismiss)
     val currentLocked by rememberUpdatedState(locked)
     val currentOnBlocked by rememberUpdatedState(onBlocked)
     val scope = rememberCoroutineScope()
@@ -232,6 +271,7 @@ internal fun Modifier.miniPlayerGestures(
     val settle = remember { arrayOfNulls<Job>(1) }
     return pointerInput(Unit) {
         val trackThreshold = TRACK_SWIPE_THRESHOLD.toPx()
+        val dismissThreshold = TRACK_SWIPE_THRESHOLD.toPx()
         val liftEase = PULL_LIFT_EASE.toPx()
         val maxVelocity = viewConfiguration.maximumFlingVelocity
         awaitEachGesture {
@@ -240,6 +280,7 @@ internal fun Modifier.miniPlayerGestures(
             // Up to the slop: which way this is heading, or nothing at all.
             var start: PointerInputChange? = null
             var vertical = false
+            var dismiss = false
             while (start == null) {
                 val change = awaitPointerEvent().changes.firstOrNull { it.id == pointer }
                     ?: return@awaitEachGesture
@@ -248,15 +289,26 @@ internal fun Modifier.miniPlayerGestures(
                 val moved = change.position - down.position
                 if (moved.getDistance() < viewConfiguration.touchSlop) continue
                 vertical = moved.y < 0f && abs(moved.x) < -moved.y * PULL_BIAS
+                dismiss = moved.y > 0f && abs(moved.x) < moved.y * PULL_BIAS
                 // Downwards has nothing to do on the bar, and nor has a pull
                 // with no player to pull: left as they always were, a drag that
                 // ends inside the bar still counts as its tap.
-                if (!vertical && abs(moved.x) < abs(moved.y)) return@awaitEachGesture
+                if (!vertical && !dismiss && abs(moved.x) < abs(moved.y)) return@awaitEachGesture
                 if (vertical && currentPull == null) return@awaitEachGesture
                 change.consume()
                 start = change
             }
             val slopped = start ?: return@awaitEachGesture
+
+            if (dismiss) {
+                var pulledDown = slopped.position.y - down.position.y
+                val finished = drag(pointer) { change ->
+                    pulledDown += change.positionChange().y
+                    change.consume()
+                }
+                if (finished && pulledDown >= dismissThreshold) currentOnDismiss()
+                return@awaitEachGesture
+            }
 
             if (!vertical) {
                 var dragged = slopped.position.x - down.position.x
@@ -357,6 +409,11 @@ fun MiniPlayer(
     onNext: () -> Unit,
     onPrevious: () -> Unit,
     onExpand: () -> Unit,
+    /** Dismisses the bar and stops the current playback session. */
+    onDismiss: () -> Unit = {},
+    /** Fraction of the current track already played, from 0 to 1. */
+    progressFraction: Float = 0f,
+    onSeekFraction: (Float) -> Unit = {},
     /** @see com.music.bitchord.data.listentogether.ListenTogether.State.controlsLocked */
     controlsLocked: Boolean = false,
     onBlockedControl: () -> Unit = {},
@@ -387,6 +444,7 @@ fun MiniPlayer(
                     haptics.play(Haptic.SkipPrevious)
                     onPrevious()
                 },
+                onDismiss = onDismiss,
                 locked = controlsLocked,
                 onBlocked = onBlockedControl,
             )
@@ -407,6 +465,11 @@ fun MiniPlayer(
             // its own confirmation. The glyphs on it still buzz.
             .clickable(onClick = onExpand),
     ) {
+        MiniPlayerProgressFill(
+            song = song,
+            progressFraction = progressFraction,
+            modifier = Modifier.matchParentSize(),
+        )
         Row(
             modifier = Modifier
                 .fillMaxWidth()

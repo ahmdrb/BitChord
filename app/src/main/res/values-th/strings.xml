@@ -1,5 +1,10 @@
 <resources>
     <string name="app_name">BitChord</string>
+    <string name="keep_playback_screen_on">เปิดหน้าจอเครื่องเล่นค้างไว้</string>
+    <string name="keep_playback_screen_on_subtitle">ป้องกันไม่ให้หน้าจอดับขณะที่เปิดเครื่องเล่นแบบเต็มอยู่</string>
+    <string name="hide_lyrics_romanization_button">ซ่อนปุ่มถอดเสียงเนื้อเพลง</string>
+    <string name="hide_lyrics_translation_button">ซ่อนปุ่มแปลเนื้อเพลง</string>
+    <string name="hide_lyrics_source_credit">ซ่อนตัวเลือกผู้ให้บริการเนื้อเพลง</string>
     <string name="playback_channel_name">กำลังเล่น</string>
     <string name="download_channel_name">การดาวน์โหลด</string>
     <string name="download_channel_description">เพลงที่กำลังบันทึกลงในโฟลเดอร์เพลงของคุณ</string>

@@ -4183,6 +4183,20 @@ private fun BitChordApp(
                         song = player.song,
                         isPlaying = player.isPlaying,
                         isLoading = playPauseBusy,
+                        progressFraction = if (player.durationMs > 0L) {
+                            (player.position.positionMs.toFloat() / player.durationMs.toFloat()).coerceIn(0f, 1f)
+                        } else 0f,
+                        onSeekFraction = { fraction ->
+                            controller?.let { activePlayer ->
+                                val duration = activePlayer.duration
+                                if (duration > 0L) {
+                                    activePlayer.seekTo(
+                                        (fraction * duration).toLong()
+                                            .coerceIn(0L, (duration - SEEK_END_GUARD_MS).coerceAtLeast(0L)),
+                                    )
+                                }
+                            }
+                        },
                         onPlayPause = {
                             togglePlayPause()
                         },
@@ -4192,6 +4206,13 @@ private fun BitChordApp(
                             { showNowPlaying = true }
                         } else {
                             playerSheetMotion::open
+                        },
+                        onDismiss = {
+                            controller?.let { activePlayer ->
+                                activePlayer.stop()
+                                activePlayer.clearMediaItems()
+                            }
+                            showNowPlaying = false
                         },
                         controlsLocked = controlsLocked,
                         onBlockedControl = showHostOnlyNotice,
@@ -4229,6 +4250,27 @@ private fun BitChordApp(
                                 { showNowPlaying = true }
                             } else {
                                 playerSheetMotion::open
+                            },
+                            onDismiss = {
+                                controller?.let { activePlayer ->
+                                    activePlayer.stop()
+                                    activePlayer.clearMediaItems()
+                                }
+                                showNowPlaying = false
+                            },
+                            progressFraction = if (player.durationMs > 0L) {
+                                (player.position.positionMs.toFloat() / player.durationMs.toFloat()).coerceIn(0f, 1f)
+                            } else 0f,
+                            onSeekFraction = { fraction ->
+                                controller?.let { activePlayer ->
+                                    val duration = activePlayer.duration
+                                    if (duration > 0L) {
+                                        activePlayer.seekTo(
+                                            (fraction * duration).toLong()
+                                                .coerceIn(0L, (duration - SEEK_END_GUARD_MS).coerceAtLeast(0L)),
+                                        )
+                                    }
+                                }
                             },
                             controlsLocked = controlsLocked,
                             onBlockedControl = showHostOnlyNotice,
@@ -4660,6 +4702,12 @@ private fun BitChordApp(
             // released low, a back press, a tap on the scrim. Refused here and
             // carried out there, on a curve slow enough to watch the artwork
             // fly home on, rather than on the sheet's own.
+            val keepPlaybackScreenOn by AppSettings.keepPlaybackScreenOn.collectAsStateWithLifecycle()
+            val playbackWindowView = LocalView.current
+            DisposableEffect(playbackWindowView, keepPlaybackScreenOn, showNowPlaying) {
+                playbackWindowView.keepScreenOn = keepPlaybackScreenOn && showNowPlaying
+                onDispose { playbackWindowView.keepScreenOn = false }
+            }
             val sheetDensity = LocalDensity.current
             val confirmSheetValue: (SheetValue) -> Boolean = { value ->
                 // Read when asked, not when the sheet was made: the setting

@@ -101,11 +101,15 @@ class PlayerDock {
     }
 
     /**
-     * Whether the mini player's own cover should stand aside, because the
-     * player's is on its way to or from it. Not before the sheet has moved at
-     * all: the sheet's window can land a frame after the page's, and a cover
-     * hidden in that frame is a hole in the bar.
+     * Whether the mini player's own cover should stand aside for the player's
+     * moving sleeve. It stays hidden while that sleeve is travelling, then is
+     * revealed as the sleeve fades over the final 15% of the trip — before the
+     * sheet lands, so the cover is already in place when the bar is fully shown.
      */
+    /** Reveal the already-mounted mini cover from the start when full-screen Canvas has no moving sleeve. */
+    var revealMiniArtEarly by mutableStateOf(false)
+        internal set
+
     val coversMiniArt: Boolean
         get() = coversMiniArtState.value
 
@@ -115,7 +119,11 @@ class PlayerDock {
     // and every one of those invalidated the page's whole window behind the
     // player: a full redraw, liquid glass and all, for a cover that hadn't
     // changed.
-    private val coversMiniArtState = derivedStateOf { attached && openFraction() > 0f }
+    // The full player's sleeve is already fading away over this final 15% of
+    // the trip (DOCK_FADE_LEAD in NowPlayingScreen). Reveal the mini player's
+    // already-mounted artwork at the same point, so it is in place underneath
+    // the last frames of the hand-off rather than appearing after the sheet lands.
+    private val coversMiniArtState = derivedStateOf { attached && openFraction() > 0.15f && !revealMiniArtEarly }
 }
 
 /** The [PlayerDock] around the player, if its host has a mini player to dock into. */

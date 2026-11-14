@@ -97,10 +97,14 @@ fun GlassNavBar(
     song: Song?,
     isPlaying: Boolean,
     isLoading: Boolean,
+    progressFraction: Float = 0f,
+    onSeekFraction: (Float) -> Unit = {},
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
     onExpand: () -> Unit,
+    /** Dismisses the mini-player and stops the active playback session. */
+    onDismiss: () -> Unit = {},
     /** @see com.music.bitchord.data.listentogether.ListenTogether.State.controlsLocked */
     controlsLocked: Boolean = false,
     onBlockedControl: () -> Unit = {},
@@ -152,11 +156,13 @@ fun GlassNavBar(
                     isInline = true,
                     isPlaying = isPlaying,
                     isLoading = isLoading,
+                    progressFraction = progressFraction,
                     contentColor = contentColor,
                     onPlayPause = onPlayPause,
                     onNext = onNext,
                     onPrevious = onPrevious,
                     onExpand = onExpand,
+                    onDismiss = onDismiss,
                     controlsLocked = controlsLocked,
                     onBlockedControl = onBlockedControl,
                     dock = dock,
@@ -172,11 +178,13 @@ fun GlassNavBar(
                     isInline = false,
                     isPlaying = isPlaying,
                     isLoading = isLoading,
+                    progressFraction = progressFraction,
                     contentColor = contentColor,
                     onPlayPause = onPlayPause,
                     onNext = onNext,
                     onPrevious = onPrevious,
                     onExpand = onExpand,
+                    onDismiss = onDismiss,
                     controlsLocked = controlsLocked,
                     onBlockedControl = onBlockedControl,
                     dock = dock,
@@ -298,11 +306,13 @@ private fun GlassNowPlaying(
     isInline: Boolean,
     isPlaying: Boolean,
     isLoading: Boolean,
+    progressFraction: Float,
     contentColor: Color,
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
     onExpand: () -> Unit,
+    onDismiss: () -> Unit,
     controlsLocked: Boolean,
     onBlockedControl: () -> Unit,
     dock: PlayerDock?,
@@ -355,6 +365,7 @@ private fun GlassNowPlaying(
                     haptics.play(Haptic.SkipPrevious)
                     onPrevious()
                 },
+                onDismiss = onDismiss,
                 locked = controlsLocked,
                 onBlocked = onBlockedControl,
             )
@@ -369,6 +380,11 @@ private fun GlassNowPlaying(
                 onClick = onExpand,
             ),
     ) {
+        MiniPlayerProgressFill(
+            song = song,
+            progressFraction = progressFraction,
+            modifier = Modifier.matchParentSize(),
+        )
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
@@ -480,6 +496,7 @@ private fun GlassNowPlaying(
                 }
             }
         }
+
     }
 }
 

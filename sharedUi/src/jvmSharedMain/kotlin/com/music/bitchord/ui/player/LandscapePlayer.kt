@@ -505,6 +505,7 @@ internal fun LandscapeLyricsPane(
     placeholder: String,
     status: String,
     onStatusClick: () -> Unit,
+    showStatus: Boolean = true,
     /** Whether lines are being picked, which is what the bar stands in for. */
     picking: Boolean = false,
     /** The pick bar itself, drawn in place of the row below. */
@@ -558,10 +559,12 @@ internal fun LandscapeLyricsPane(
                     .padding(horizontal = 12.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                LyricsStatusWithChange(
-                    status = status,
-                    onStatusClick = onStatusClick,
-                )
+                if (showStatus) {
+                    LyricsStatusWithChange(
+                        status = status,
+                        onStatusClick = onStatusClick,
+                    )
+                }
             }
             Box(Modifier.size(34.dp)) { if (hasLyrics) translationToggle() }
         }
