@@ -118,6 +118,60 @@ private val TRANSPORT_GAP = 8.dp
 private val ROW_PADDING_VERTICAL = 8.dp
 
 /**
+ * A hairline playhead with a taller touch target. It sits over the bottom edge
+ * of the mini-player; dragging or tapping it seeks without being mistaken for
+ * the bar's horizontal swipe-to-skip gesture.
+ */
+@Composable
+internal fun MiniPlayerProgressTrack(
+    progressFraction: Float,
+    onSeekFraction: (Float) -> Unit,
+    playedColor: Color,
+    trackColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    val currentSeek by rememberUpdatedState(onSeekFraction)
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(12.dp)
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val trackWidth = size.width.toFloat().coerceAtLeast(1f)
+                    fun seek(x: Float) {
+                        currentSeek((x / trackWidth).coerceIn(0f, 1f))
+                    }
+                    seek(down.position.x)
+                    down.consume()
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        seek(change.position.x)
+                        if (!change.pressed) break
+                        change.consume()
+                    }
+                }
+            },
+    ) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .height(2.dp)
+                .background(trackColor),
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth(progressFraction.coerceIn(0f, 1f))
+                .height(2.dp)
+                .background(playedColor),
+        )
+    }
+}
+
+/**
  * Horizontal padding, deliberately larger than the vertical.
  *
  * A pill's ends are semicircles, so the edge nearest the artwork is not the
@@ -377,6 +431,7 @@ fun MiniPlayer(
     onDismiss: () -> Unit = {},
     /** Fraction of the current track already played, from 0 to 1. */
     progressFraction: Float = 0f,
+    onSeekFraction: (Float) -> Unit = {},
     /** @see com.music.bitchord.data.listentogether.ListenTogether.State.controlsLocked */
     controlsLocked: Boolean = false,
     onBlockedControl: () -> Unit = {},
@@ -428,20 +483,13 @@ fun MiniPlayer(
             // its own confirmation. The glyphs on it still buzz.
             .clickable(onClick = onExpand),
     ) {
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .fillMaxWidth()
-                .height(2.dp)
-                .background(Color.White.copy(alpha = 0.12f)),
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(progressFraction.coerceIn(0f, 1f))
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.78f)),
-            )
-        }
+        MiniPlayerProgressTrack(
+            progressFraction = progressFraction,
+            onSeekFraction = onSeekFraction,
+            playedColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.78f),
+            trackColor = Color.White.copy(alpha = 0.12f),
+            modifier = Modifier.align(Alignment.BottomStart),
+        )
         Row(
             modifier = Modifier
                 .fillMaxWidth()
