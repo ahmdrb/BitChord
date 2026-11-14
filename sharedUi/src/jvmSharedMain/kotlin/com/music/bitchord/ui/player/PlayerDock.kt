@@ -101,10 +101,10 @@ class PlayerDock {
     }
 
     /**
-     * Whether the mini player's own cover should stand aside, because the
-     * player's is on its way to or from it. Not before the sheet has moved at
-     * all: the sheet's window can land a frame after the page's, and a cover
-     * hidden in that frame is a hole in the bar.
+     * Whether the mini player's own cover should stand aside for the player's
+     * moving sleeve. It stays hidden while that sleeve is travelling, then is
+     * revealed as the sleeve fades over the final 15% of the trip — before the
+     * sheet lands, so the cover is already in place when the bar is fully shown.
      */
     val coversMiniArt: Boolean
         get() = coversMiniArtState.value
