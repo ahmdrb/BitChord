@@ -627,7 +627,7 @@ object AppSettings {
     val hideLyricsRomanizationButton = MutableStateFlow(false)
     /** Hides the translation control on the lyrics player. */
     val hideLyricsTranslationButton = MutableStateFlow(false)
-    /** Hides the lyrics-provider attribution below the lyrics. */
+    /** Hides the lyrics-provider picker/status entry point below the lyrics. */
     val hideLyricsSourceCredit = MutableStateFlow(false)
 
     /** The databases [syncedLyrics] may ask. Empty is the same as off. */
