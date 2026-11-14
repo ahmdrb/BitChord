@@ -2266,6 +2266,7 @@ fun NowPlayingScreen(
                             },
                             status = lyricsTranslation.status,
                             onStatusClick = { showLyricsProviders = true },
+                            showStatus = !hideLyricsSourceCredit,
                             picking = lyricPicker.picking,
                             pickBar = {
                                 LyricsPickBar(
@@ -4095,7 +4096,7 @@ fun NowPlayingScreen(
                                 .padding(vertical = 4.dp),
                         )
                     }
-                    if (lyricsOpen) {
+                    if (lyricsOpen && !hideLyricsSourceCredit) {
                         LyricsStatusWithChange(
                             status = lyricsTranslation.status,
                             onStatusClick = { showLyricsProviders = true },
