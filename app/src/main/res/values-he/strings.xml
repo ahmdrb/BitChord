@@ -5,7 +5,7 @@
     <string name="keep_playback_screen_on_subtitle">מונע כיבוי של המסך בזמן שהנגן המלא פתוח.</string>
     <string name="hide_lyrics_romanization_button">הסתרת כפתור תעתיק המילים</string>
     <string name="hide_lyrics_translation_button">הסתרת כפתור תרגום המילים</string>
-    <string name="hide_lyrics_source_credit">הסתרת ציון מקור המילים</string>
+    <string name="hide_lyrics_source_credit">הסתרת בורר ספק המילים</string>
     <string name="playback_channel_name">מתנגן כעת</string>
     <string name="download_channel_name">הורדות</string>
     <string name="download_channel_description">שירים שנשמרים בתיקיית המוזיקה שלך</string>
