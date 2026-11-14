@@ -1,6 +1,9 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="app_name">BitChord</string>
+    <string name="hide_lyrics_romanization_button">Ocultar o botão de romanização da letra</string>
+    <string name="hide_lyrics_translation_button">Ocultar o botão de tradução da letra</string>
+    <string name="hide_lyrics_source_credit">Ocultar a atribuição da fonte da letra</string>
     <string name="playback_channel_name">Tocando agora</string>
     <string name="download_channel_name">Downloads</string>
     <string name="download_channel_description">Músicas sendo salvas na sua pasta de Música</string>
