@@ -220,15 +220,15 @@ object PersonalLibraryStore {
         }.getOrDefault(emptyList())
         val playlists = runCatching {
             val array = JSONArray(preferences.getString(KEY_PLAYLISTS, "[]"))
-            (0 until array.length()).mapNotNull { index ->
-                val item = array.optJSONObject(index) ?: return@mapNotNull null
-                val id = item.optString("id").takeIf { it.isNotBlank() } ?: return@mapNotNull null
-                val title = item.optString("title").takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            (0 until array.length()).mapNotNull playlistEntry@{ index ->
+                val item = array.optJSONObject(index) ?: return@playlistEntry null
+                val id = item.optString("id").takeIf { it.isNotBlank() } ?: return@playlistEntry null
+                val title = item.optString("title").takeIf { it.isNotBlank() } ?: return@playlistEntry null
                 val playlistSongs = item.optJSONArray("songs")?.let { entries ->
-                    (0 until entries.length()).mapNotNull { songIndex ->
-                        val song = entries.optJSONObject(songIndex) ?: return@mapNotNull null
+                    (0 until entries.length()).mapNotNull songEntry@{ songIndex ->
+                        val song = entries.optJSONObject(songIndex) ?: return@songEntry null
                         val videoId = song.optString("videoId").takeIf { it.isNotBlank() }
-                            ?: return@mapNotNull null
+                            ?: return@songEntry null
                         Song(
                             videoId = videoId,
                             title = song.optString("title"),
