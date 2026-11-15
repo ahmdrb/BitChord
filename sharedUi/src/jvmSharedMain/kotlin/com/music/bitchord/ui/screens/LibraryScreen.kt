@@ -87,16 +87,7 @@ fun LibraryScreen(
     onPersonalPlaylistLongPress: (ShelfItem) -> Unit = onShelfItemLongPress,
     personalPlaylists: List<ShelfItem> = emptyList(),
     onPersonalArtistClick: (ShelfItem) -> Unit = onShelfItemClick,
-    /**
-     * A shelf's "Show all" — every shelf's row here stops at five cards (see
-     * [LibraryGridShelf]), so this is the only way to reach whatever didn't
-     * fit.
-     */
     onShowAll: (HomeShelf) -> Unit,
-    /**
-     * The way in to Replay at the head of the page — the row of Replay cards,
-     * their placeholders while the history is read, or nothing at all.
-     */
     replay: @Composable () -> Unit,
     onSignIn: () -> Unit,
     onRetry: () -> Unit,
@@ -105,20 +96,9 @@ fun LibraryScreen(
     pullState: PullToRefreshState,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues,
-    /**
-     * The device's folders — downloads, local files, the remote libraries this
-     * build supports — drawn as a list under the Replay cards. Built by the
-     * app, since which of those exist is the platform's business.
-     */
     links: List<LibraryLink>,
-    /**
-     * The "On device" shelf under that list: the releases kept on this device
-     * whole. Left off the page entirely while there are none.
-     */
     deviceItems: List<ShelfItem>,
-    /** The big "Library" heading; the desktop's pages carry none. */
     showTitle: Boolean = true,
-    /** Curated artist cards replace YouTube Music's artist shelf on this screen only. */
     personalArtists: List<ShelfItem> = emptyList(),
     onAddPersonalArtist: () -> Unit = {},
 ) {
@@ -145,6 +125,7 @@ fun LibraryScreen(
                 }
             }
             item(key = "replay") { replay() }
+
             if (!signedIn) {
                 item(key = "personal-playlists") {
                     PersonalPlaylistShelf(
@@ -168,8 +149,90 @@ fun LibraryScreen(
                         onAction = onSignIn,
                     )
                 }
-                if (links.isNotEmpty()) {
-                item(key = "links") { LibraryLinkList(links = links, onClick = onShelfItemClick) }
+            } else {
+                when (state) {
+                    is UiState.Loading -> {
+                        item(key = "personal-playlists") {
+                            PersonalPlaylistShelf(
+                                playlists = personalPlaylists,
+                                onItemClick = onPersonalPlaylistClick,
+                                onItemLongPress = onPersonalPlaylistLongPress,
+                                onAdd = onAddPersonalPlaylist,
+                            )
+                        }
+                        item(key = "personal-artists") {
+                            PersonalArtistShelf(
+                                artists = personalArtists,
+                                onItemClick = onPersonalArtistClick,
+                                onAdd = onAddPersonalArtist,
+                            )
+                        }
+                        librarySkeleton()
+                    }
+                    is UiState.Error -> {
+                        item(key = "personal-playlists") {
+                            PersonalPlaylistShelf(
+                                playlists = personalPlaylists,
+                                onItemClick = onPersonalPlaylistClick,
+                                onItemLongPress = onPersonalPlaylistLongPress,
+                                onAdd = onAddPersonalPlaylist,
+                            )
+                        }
+                        item(key = "personal-artists") {
+                            PersonalArtistShelf(
+                                artists = personalArtists,
+                                onItemClick = onPersonalArtistClick,
+                                onAdd = onAddPersonalArtist,
+                            )
+                        }
+                        item {
+                            MessageState(
+                                state.message,
+                                actionLabel = stringResource(Res.string.retry),
+                                onAction = onRetry,
+                            )
+                        }
+                    }
+                    is UiState.Success -> {
+                        val shelves = state.data.shelves
+                        item(key = "personal-playlists") {
+                            PersonalPlaylistShelf(
+                                playlists = personalPlaylists,
+                                onItemClick = onPersonalPlaylistClick,
+                                onItemLongPress = onPersonalPlaylistLongPress,
+                                onAdd = onAddPersonalPlaylist,
+                            )
+                        }
+                        item(key = "personal-artists") {
+                            PersonalArtistShelf(
+                                artists = personalArtists,
+                                onItemClick = onPersonalArtistClick,
+                                onAdd = onAddPersonalArtist,
+                            )
+                        }
+                        // Never show the YouTube Music account's Artists or Playlists shelves.
+                        shelves.filterNot {
+                            it.title.equals("Artists", ignoreCase = true) ||
+                                it.title.equals(PLAYLISTS, ignoreCase = true)
+                        }.forEach { shelf ->
+                            item(key = "shelf:${shelf.title}") {
+                                LibraryGridShelf(
+                                    shelf = shelf,
+                                    onItemClick = onShelfItemClick,
+                                    onItemLongPress = onShelfItemLongPress,
+                                    onShowAll = { onShowAll(shelf) },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Downloads, Local Music and device folders stay below the personal collections.
+            if (links.isNotEmpty()) {
+                item(key = "links") {
+                    LibraryLinkList(links = links, onClick = onShelfItemClick)
+                }
             }
             if (deviceItems.isNotEmpty()) {
                 item(key = "shelf:$onDevice") {
