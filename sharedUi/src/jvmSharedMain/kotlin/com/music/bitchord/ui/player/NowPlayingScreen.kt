@@ -1320,12 +1320,8 @@ fun NowPlayingScreen(
     // Never while a finger is on the scrubber or the volume bar: those are the
     // two controls that are *being used* while nothing else on screen moves,
     // and timing out underneath them would take the thing away mid-gesture.
-    LaunchedEffect(lyricsOpen, lyricsControlsOpen, scrub.scrubbing, volume.dragging) {
-        if (lyricsOpen && lyricsControlsOpen && !scrub.scrubbing && !volume.dragging) {
-            delay(LYRICS_CONTROLS_IDLE_MS)
-            lyricsControlsOpen = false
-        }
-    }
+    // Lyrics layout is now controlled explicitly by the reader's expand/collapse
+    // button. Do not auto-hide the player deck after an idle timeout.
     // How collapsed the sleeve is, whichever surface asked for it — one 420ms
     // ease for the queue and the lyrics both.
     val animatedCollapse = animateFloatAsState(
@@ -3826,7 +3822,16 @@ fun NowPlayingScreen(
                             // there's no account to record it against — except on a
                             // local file or a finished download, whose star is the
                             // device's own Liked playlist and needs no account.
-                            if (signedIn || song.localUri != null) {
+                            if (lyricsOpen) {
+                                CircleGlyph(
+                                    icon = if (lyricsControlsOpen) Icons.Rounded.Fullscreen else Icons.Rounded.FullscreenExit,
+                                    contentDescription = if (lyricsControlsOpen) "Expand lyrics" else "Restore player controls",
+                                    onClick = { lyricsControlsOpen = !lyricsControlsOpen },
+                                    active = !lyricsControlsOpen,
+                                    haptic = Haptic.Select,
+                                )
+                                Spacer(Modifier.width(8.dp))
+                            } else if (signedIn || song.localUri != null) {
                                 val liked = likeStatus == LikeStatus.LIKE
                                 CircleGlyph(
                                     icon = if (liked) BitChordIcons.StarFilled else BitChordIcons.Star,
