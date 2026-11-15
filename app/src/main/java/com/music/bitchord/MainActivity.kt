@@ -3666,7 +3666,6 @@ private fun BitChordApp(
                             )
                             else -> PersonalLibraryScreen(
                                 contentPadding = listPadding,
-                                onOpenArtist = onLibraryItemClick,
                                 onPlaySong = { songs, index ->
                                     playFrom(
                                         songs,
