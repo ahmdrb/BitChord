@@ -762,7 +762,7 @@ fun DetailScreen(
             }
             if (!isArtist) aboutItem()
 
-            when (val state = page.songs) {
+            when (val state = if (isPersonalArtist) UiState.Success(rawSongs) else page.songs) {
                 is UiState.Loading -> detailSkeleton(isArtist)
                 is UiState.Error -> item { MessageState(state.message) }
                 is UiState.Success -> if (folder != null && folderState != null) {
