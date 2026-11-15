@@ -634,8 +634,6 @@ private fun tabletSizedPlayer(windowWidth: Dp): Boolean =
 fun landscapePlayerAvailable(windowWidth: Dp, windowHeight: Dp): Boolean =
     windowWidth > windowHeight && windowWidth >= LANDSCAPE_PLAYER_MIN_WIDTH
 
-/** How long the player stands under the lyrics untouched before standing down. */
-private const val LYRICS_CONTROLS_IDLE_MS = 5_000L
 /** Default Spotify Canvas delay before its optional automatic collapse. */
 private const val SPOTIFY_CANVAS_CONTROLS_IDLE_MS = 5_000L
 /** One shared travel time keeps the deck, credits and stats moving as a unit. */
@@ -1311,19 +1309,9 @@ fun NowPlayingScreen(
     )
 
     val volume = rememberPlayerVolume()
-    // Present when you arrive, out of the way once you are actually reading.
-    //
-    // The panel opens with the player under it so the scrubber and transport
-    // are there to be reached, and this is the other half of that bargain: left
-    // alone for [LYRICS_CONTROLS_IDLE_MS] it stands down and gives the words the
-    // whole screen. Scrolling up brings it back and restarts the wait, since
-    // that write to [lyricsControlsOpen] re-keys this effect.
-    //
-    // Never while a finger is on the scrubber or the volume bar: those are the
-    // two controls that are *being used* while nothing else on screen moves,
-    // and timing out underneath them would take the thing away mid-gesture.
-    // Lyrics layout is now controlled explicitly by the reader's expand/collapse
-    // button. Do not auto-hide the player deck after an idle timeout.
+    // The reader decides when to hide or restore the player deck with the
+    // expand/collapse control in the lyrics header. The layout stays put until
+    // the reader changes it; there is no idle timeout.
     // How collapsed the sleeve is, whichever surface asked for it — one 420ms
     // ease for the queue and the lyrics both.
     val animatedCollapse = animateFloatAsState(
