@@ -436,20 +436,6 @@ private val LYRIC_EASING = CubicBezierEasing(0.41f, 0f, 0.12f, 0.99f)
 private const val LYRIC_SETTLE_MS = 400
 
 /**
- * How the rows fan out as the panel moves between lines.
- *
- * They do not travel as a block. Each row after the one being scrolled to sets
- * off slightly later than the row before it, up to a few rows back, so the
- * spacing opens as the panel leaves and closes as it arrives. A block of text
- * sliding rigidly is a list being scrolled; the same lines arriving one behind
- * another is the panel handing over.
- *
- * Deliberately under half of what the renderer this came from uses. Its lines
- * carry the whole scroll themselves, so a long delay only means arriving late;
- * here the list has already moved underneath them, and the same delay reads as
- * the rows being dragged rather than following.
- */
-/**
  * How long before a line lands the panel starts moving to it — and how long
  * the move then takes, which is the same number.
  *
