@@ -449,15 +449,6 @@ private const val LYRIC_SETTLE_MS = 400
  * here the list has already moved underneath them, and the same delay reads as
  * the rows being dragged rather than following.
  */
-private const val STAGGER_STEPS = 3
-private const val STAGGER_FRACTION = 0.06f
-
-/** One handover: how far the panel is going, and how long it is taking. */
-private class ScrollRun(val id: Int, val delta: Float, val durationMs: Int) {
-    /** The last row to arrive does so this long after the panel sets off. */
-    val spanMs: Float get() = durationMs * (1f + STAGGER_FRACTION * STAGGER_STEPS)
-}
-
 /**
  * How long before a line lands the panel starts moving to it — and how long
  * the move then takes, which is the same number.
@@ -1920,36 +1911,14 @@ internal fun LyricsPanel(
         }
     }
 
-    // The panel's own journey, published so each row can work out how far
-    // behind it should be running. Held as a plain value plus a frame clock
-    // rather than an animation per row: sixty rows each with their own
-    // Animatable is sixty animations to start and stop on every handover.
-    var run by remember(lines) { mutableStateOf(ScrollRun(0, 0f, LYRIC_SETTLE_MS)) }
-    val since = remember(lines) { mutableFloatStateOf(0f) }
-    var sinceRunId by remember(lines) { mutableIntStateOf(0) }
-    LaunchedEffect(run.id) {
-        if (run.id == 0) return@LaunchedEffect
-        // A new handover can arrive while the previous frame clock is sitting
-        // at its finished value. Do not let rows read that old elapsed time
-        // against the new run: it produces a one-frame jump on the outgoing
-        // line before the new animation gets its first frame.
-        since.floatValue = 0f
-        sinceRunId = run.id
-        animate(
-            initialValue = 0f,
-            targetValue = run.spanMs,
-            animationSpec = tween(run.spanMs.toInt(), easing = LinearEasing),
-        ) { value, _ -> since.floatValue = value }
-    }
+    // Duration of the most recent lyric handover. The list itself carries
+    // the movement; rows stay anchored to it rather than adding a second
+    // vertical translation that could make the opening lines bounce.
+    var runDurationMs by remember(lines) { mutableIntStateOf(LYRIC_SETTLE_MS) }
     // Keyed to the track, not to [lines]: toggling the translation replaces
     // every line while the reader's place in the song is unchanged, and a reset
     // here would snap the panel back to the top mid-read.
     var placed by remember(trackKey) { mutableStateOf(false) }
-    // The first automatic handover can happen while lyrics have just appeared
-    // and the list is still establishing its initial anchor. Let the list make
-    // that first move without the extra per-row stagger, which can look like
-    // the opening lyric line jumps on songs whose vocals start immediately.
-    var skipFirstHandover by remember(trackKey) { mutableStateOf(true) }
     // Unsynced text has no line to hold anywhere, and centred it would only
     // open with half a screen of nothing above the first verse.
     val centered = centerFocus && isSynced
@@ -2019,8 +1988,7 @@ internal fun LyricsPanel(
                 visible != null -> {
                     val span = scrollLead(lines, clock.longValue).toInt()
                     val distance = (visible.offset - focusOffset(visible.size)).toFloat()
-                    run = ScrollRun(run.id + 1, if (skipFirstHandover) 0f else distance, span)
-                    skipFirstHandover = false
+                    runDurationMs = span
                     // The same curve the rows catch up on. Two different
                     // curves and a row with no delay at all still trails the
                     // list it is sitting in, which is most of the way to
@@ -2281,11 +2249,6 @@ internal fun LyricsPanel(
                 // brightness as it leaves rather than when the last syllable
                 // lands — the dim, the blur and the movement together.
                 val sung = offset < 0
-                // Rows behind the one being scrolled to are the ones that
-                // fan out; the ones it is moving away from arrive together.
-                val behind = if (run.delta >= 0f) index - focusLine else focusLine - index
-                val staggerDelay = behind.coerceIn(0, STAGGER_STEPS) *
-                    STAGGER_FRACTION * run.durationMs
                 val interaction = remember { MutableInteractionSource() }
                 val pressed by interaction.collectIsPressedAsState()
                 val scale by animateFloatAsState(
@@ -2325,32 +2288,10 @@ internal fun LyricsPanel(
                         scaleY = scale
                         transformOrigin = TransformOrigin(if (alignEnd) 1f else 0f, 0.5f)
                         alpha = lineAlpha
-                        // Held back against the list's own movement: the list
-                        // has already taken this row part of the way, so giving
-                        // back what it has not earned yet is what leaves it
-                        // trailing. One curve for both, so a row with no delay
-                        // sits exactly still against the list and the rows that
-                        // do have one are the only thing that moves.
-                        //
-                        // Rows with nothing to catch up on never read the clock
-                        // at all, so a handover only invalidates the handful of
-                        // layers that are actually fanning out.
-                        translationY = if (staggerDelay <= 0f) {
-                            0f
-                        } else {
-                            // If composition has observed a newer run before its
-                            // effect starts, the previous run's clock is stale.
-                            // Treat it as zero until this run owns the clock.
-                            val elapsed = if (sinceRunId == run.id) since.floatValue else 0f
-                            run.delta * (
-                                LYRIC_EASING.transform(
-                                    (elapsed / run.durationMs).coerceIn(0f, 1f),
-                                ) - LYRIC_EASING.transform(
-                                    ((elapsed - staggerDelay) / run.durationMs)
-                                        .coerceIn(0f, 1f),
-                                )
-                                )
-                        }
+                        // The list scroll is the only vertical movement. Keeping
+                        // each lyric row fixed to its list slot avoids a second
+                        // per-row translation that made some first lines bounce.
+                        translationY = 0f
                     }
                     .blur(blur, BlurredEdgeTreatment.Unbounded)
                     .clip(RoundedCornerShape(10.dp))
@@ -2446,7 +2387,7 @@ internal fun LyricsPanel(
                             wanted -> tween(BACKING_OPEN_MS, easing = LYRIC_EASING)
                             else -> tween(
                                 BACKING_CLOSE_MS,
-                                delayMillis = if (index < focusLine) run.durationMs else 0,
+                                delayMillis = if (index < focusLine) runDurationMs else 0,
                                 easing = FastOutSlowInEasing,
                             )
                         },
