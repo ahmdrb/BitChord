@@ -5004,7 +5004,10 @@ private fun BitChordApp(
                                 )
                             }
                         }
-                        .guardSheetFromContentTouches(nowPlayingSheetState)
+                        .guardSheetFromContentTouches(
+                            nowPlayingSheetState,
+                            enabled = !playerDock.fullScreenCanvas,
+                        )
                         // The sheet fills the window, so its height is the
                         // whole of its travel: hidden sits that far down.
                         .onSizeChanged {
