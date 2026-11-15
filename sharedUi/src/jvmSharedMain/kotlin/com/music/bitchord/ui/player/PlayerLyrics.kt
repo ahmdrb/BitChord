@@ -1945,6 +1945,11 @@ internal fun LyricsPanel(
     // every line while the reader's place in the song is unchanged, and a reset
     // here would snap the panel back to the top mid-read.
     var placed by remember(trackKey) { mutableStateOf(false) }
+    // The first automatic handover can happen while lyrics have just appeared
+    // and the list is still establishing its initial anchor. Let the list make
+    // that first move without the extra per-row stagger, which can look like
+    // the opening lyric line jumps on songs whose vocals start immediately.
+    var skipFirstHandover by remember(trackKey) { mutableStateOf(true) }
     // Unsynced text has no line to hold anywhere, and centred it would only
     // open with half a screen of nothing above the first verse.
     val centered = centerFocus && isSynced
@@ -2014,7 +2019,8 @@ internal fun LyricsPanel(
                 visible != null -> {
                     val span = scrollLead(lines, clock.longValue).toInt()
                     val distance = (visible.offset - focusOffset(visible.size)).toFloat()
-                    run = ScrollRun(run.id + 1, distance, span)
+                    run = ScrollRun(run.id + 1, if (skipFirstHandover) 0f else distance, span)
+                    skipFirstHandover = false
                     // The same curve the rows catch up on. Two different
                     // curves and a row with no delay at all still trails the
                     // list it is sitting in, which is most of the way to
