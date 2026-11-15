@@ -86,6 +86,7 @@ fun LibraryScreen(
     onPersonalPlaylistClick: (ShelfItem) -> Unit = onShelfItemClick,
     onPersonalPlaylistLongPress: (ShelfItem) -> Unit = onShelfItemLongPress,
     personalPlaylists: List<ShelfItem> = emptyList(),
+    onPersonalArtistClick: (ShelfItem) -> Unit = onShelfItemClick,
     /**
      * A shelf's "Show all" — every shelf's row here stops at five cards (see
      * [LibraryGridShelf]), so this is the only way to reach whatever didn't
@@ -156,7 +157,7 @@ fun LibraryScreen(
                 item(key = "personal-artists") {
                     PersonalArtistShelf(
                         artists = personalArtists,
-                        onItemClick = onShelfItemClick,
+                        onItemClick = onPersonalArtistClick,
                         onAdd = onAddPersonalArtist,
                     )
                 }
@@ -200,7 +201,7 @@ fun LibraryScreen(
                     item(key = "personal-artists") {
                         PersonalArtistShelf(
                             artists = personalArtists,
-                            onItemClick = onShelfItemClick,
+                            onItemClick = onPersonalArtistClick,
                             onAdd = onAddPersonalArtist,
                         )
                     }
@@ -218,7 +219,7 @@ fun LibraryScreen(
                     item(key = "personal-artists") {
                         PersonalArtistShelf(
                             artists = personalArtists,
-                            onItemClick = onShelfItemClick,
+                            onItemClick = onPersonalArtistClick,
                             onAdd = onAddPersonalArtist,
                         )
                     }
@@ -241,7 +242,7 @@ fun LibraryScreen(
                     item(key = "personal-artists") {
                         PersonalArtistShelf(
                             artists = personalArtists,
-                            onItemClick = onShelfItemClick,
+                            onItemClick = onPersonalArtistClick,
                             onAdd = onAddPersonalArtist,
                         )
                     }
