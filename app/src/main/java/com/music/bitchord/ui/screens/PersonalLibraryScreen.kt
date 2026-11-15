@@ -64,7 +64,7 @@ import com.music.bitchord.data.model.Song
 import com.music.bitchord.ui.components.PAGE_GUTTER
 import kotlinx.coroutines.launch
 
-private enum class PersonalAddMode { ARTIST, SONG }
+internal enum class PersonalAddMode { ARTIST, SONG }
 
 /**
  * The Library tab is an intentionally curated, local collection. The YouTube
@@ -286,7 +286,7 @@ fun PersonalLibraryScreen(
 }
 
 @Composable
-private fun PersonalLibraryAddDialog(
+internal fun PersonalLibraryAddDialog(
     mode: PersonalAddMode,
     artists: List<BrowseItem>,
     initialArtistId: String?,
