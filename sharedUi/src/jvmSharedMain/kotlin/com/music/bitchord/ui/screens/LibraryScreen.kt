@@ -116,6 +116,9 @@ fun LibraryScreen(
     deviceItems: List<ShelfItem>,
     /** The big "Library" heading; the desktop's pages carry none. */
     showTitle: Boolean = true,
+    /** Curated artist cards replace YouTube Music's artist shelf on this screen only. */
+    personalArtists: List<ShelfItem> = emptyList(),
+    onAddPersonalArtist: () -> Unit = {},
 ) {
     val pinnedPlaylists by AppUi.host.pinnedPlaylists.collectAsStateWithLifecycle()
     val onDevice = stringResource(Res.string.on_device)
@@ -167,6 +170,13 @@ fun LibraryScreen(
                         onShowAll = { onShowAll(emptyPlaylists) },
                     )
                 }
+                item(key = "personal-artists") {
+                    PersonalArtistShelf(
+                        artists = personalArtists,
+                        onItemClick = onShelfItemClick,
+                        onAdd = onAddPersonalArtist,
+                    )
+                }
                 item {
                     MessageState(
                         message = stringResource(Res.string.library_sign_in_description),
@@ -187,6 +197,16 @@ fun LibraryScreen(
                     // makes one — so the row is drawn either way, empty but
                     // for the tile that creates the first playlist.
                     val shelves = state.data.shelves
+                    val hasArtistShelf = shelves.any { it.title.equals("Artists", ignoreCase = true) }
+                    if (!hasArtistShelf) {
+                        item(key = "personal-artists") {
+                            PersonalArtistShelf(
+                                artists = personalArtists,
+                                onItemClick = onShelfItemClick,
+                                onAdd = onAddPersonalArtist,
+                            )
+                        }
+                    }
                     if (shelves.none { it.title == PLAYLISTS }) {
                         item(key = "shelf:$PLAYLISTS") {
                             val emptyPlaylists = HomeShelf(PLAYLISTS, emptyList())
@@ -202,7 +222,13 @@ fun LibraryScreen(
                     }
                     shelves.forEach { shelf ->
                         item(key = "shelf:${shelf.title}") {
-                            if (shelf.title == PLAYLISTS) {
+                            if (shelf.title.equals("Artists", ignoreCase = true)) {
+                                PersonalArtistShelf(
+                                    artists = personalArtists,
+                                    onItemClick = onShelfItemClick,
+                                    onAdd = onAddPersonalArtist,
+                                )
+                            } else if (shelf.title == PLAYLISTS) {
                                 val pinnedFirst = shelf.pinnedFirst(pinnedPlaylists)
                                 PlaylistShelf(
                                     shelf = pinnedFirst,
@@ -296,6 +322,46 @@ private fun LibraryLinkList(links: List<LibraryLink>, onClick: (ShelfItem) -> Un
 
 private val LINK_ICON_SIZE = 24.dp
 private val LINK_ICON_GAP = 16.dp
+
+/**
+ * The original Library shelf treatment, with only its artist contents made
+ * personal. The add action lives beside the heading rather than as a new card.
+ */
+@Composable
+private fun PersonalArtistShelf(
+    artists: List<ShelfItem>,
+    onItemClick: (ShelfItem) -> Unit,
+    onAdd: () -> Unit,
+) {
+    Column(Modifier.padding(bottom = 26.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = PAGE_GUTTER),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text("Artists", style = MaterialTheme.typography.titleLarge)
+            androidx.compose.material3.IconButton(onClick = onAdd) {
+                Icon(BitChordIcons.Plus, contentDescription = "Add artist")
+            }
+        }
+        if (artists.isNotEmpty()) {
+            ShelfRow(
+                contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
+                horizontalArrangement = Arrangement.spacedBy(LIBRARY_GRID_SPACING),
+            ) {
+                items(artists, key = { it.browseId ?: it.title }) { artist ->
+                    ShelfCard(
+                        item = artist,
+                        onClick = { onItemClick(artist) },
+                        onLongPress = {},
+                    )
+                }
+            }
+        }
+    }
+}
 
 /**
  * The one shelf on this page that can be written to: it leads with the tile
