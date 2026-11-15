@@ -279,6 +279,7 @@ fun LibraryScreen(
                         }
                     }
                 }
+            }
             // Remote folders and device music follow the editable collections,
             // so neither can push Artists / Playlists below the initial view.
             if (signedIn) {
@@ -296,7 +297,6 @@ fun LibraryScreen(
                         )
                     }
                 }
-            }
             }
         }
     }
