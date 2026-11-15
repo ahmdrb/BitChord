@@ -1855,9 +1855,9 @@ fun NowPlayingScreen(
     // first frame of a downward transition. Read the flag during composition:
     // reading it only inside SideEffect does not subscribe this screen to the
     // state change, so the reveal could be missed until some unrelated recompose.
-    val revealCanvasCover = canvas != null && dock?.transitioningToMini == true
+    val canvasTransitioningToMini = canvas != null && dock?.transitioningToMini == true
     SideEffect {
-        dock?.revealMiniArtEarly = revealCanvasCover
+        dock?.revealMiniArtEarly = canvasTransitioningToMini
     }
     // The rest of the player gets out of the way a little ahead of the artwork,
     // so the cover lands on the bar rather than on a ghost of the player.
@@ -2495,7 +2495,7 @@ fun NowPlayingScreen(
                                 // very first downward movement, not halfway through the
                                 // sheet animation. Moving back up restores Canvas at once.
                                 if (lyricsOpen || (stillTakesOver() && !dockMoving) ||
-                                    (canvas != null && dock?.transitioningToMini == true)
+                                    canvasTransitioningToMini
                                 ) 0f
                                 else (1f - 2f * p()).coerceIn(0f, 1f) * dockFade()
                             },
@@ -3485,7 +3485,7 @@ fun NowPlayingScreen(
                                         // the still is drawn by the sleeve around it.
                                         presentationAlpha = {
                                             if (lyricsOpen || (stillTakesOver() && !dockMoving) ||
-                                                (canvas != null && dock?.transitioningToMini == true)
+                                                canvasTransitioningToMini
                                             ) 0f else 1f
                                         },
                                         startPositionMs = CanvasStills.positionFor(canvas.url) ?: stillStart?.positionMs ?: 0L,
