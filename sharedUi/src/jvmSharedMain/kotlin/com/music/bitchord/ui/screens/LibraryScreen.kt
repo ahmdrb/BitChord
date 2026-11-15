@@ -187,9 +187,27 @@ fun LibraryScreen(
                 return@LazyColumn
             }
             when (state) {
-                is UiState.Loading -> librarySkeleton()
-                is UiState.Error -> item {
-                    MessageState(state.message, actionLabel = stringResource(Res.string.retry), onAction = onRetry)
+                is UiState.Loading -> {
+                    librarySkeleton()
+                    item(key = "personal-artists") {
+                        PersonalArtistShelf(
+                            artists = personalArtists,
+                            onItemClick = onShelfItemClick,
+                            onAdd = onAddPersonalArtist,
+                        )
+                    }
+                }
+                is UiState.Error -> {
+                    item {
+                        MessageState(state.message, actionLabel = stringResource(Res.string.retry), onAction = onRetry)
+                    }
+                    item(key = "personal-artists") {
+                        PersonalArtistShelf(
+                            artists = personalArtists,
+                            onItemClick = onShelfItemClick,
+                            onAdd = onAddPersonalArtist,
+                        )
+                    }
                 }
                 is UiState.Success -> {
                     // A fresh account has no Playlists shelf at all, and that
