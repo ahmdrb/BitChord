@@ -1806,7 +1806,11 @@ fun NowPlayingScreen(
         // sheet's window may not have drawn anything, and the mini player's
         // cover is the only artwork on screen.
         DisposableEffect(dock) {
-            onDispose { dock.attached = false }
+            onDispose {
+                dock.attached = false
+                dock.fullScreenCanvas = false
+                dock.revealMiniArtEarly = false
+            }
         }
     }
     val dockFrame = remember { DockFrame() }
