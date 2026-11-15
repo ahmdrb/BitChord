@@ -60,12 +60,27 @@ object PersonalLibraryStore {
     }
 
     fun addSong(song: Song, artistBrowseId: String?) = update { current ->
-        if (current.songs.any { it.song.videoId == song.videoId }) current
-        else current.copy(songs = current.songs + PersonalSong(song, artistBrowseId))
+        val existingIndex = current.songs.indexOfFirst { it.song.videoId == song.videoId }
+        if (existingIndex < 0) {
+            current.copy(songs = current.songs + PersonalSong(song, artistBrowseId))
+        } else {
+            val updated = current.songs.toMutableList()
+            updated[existingIndex] = updated[existingIndex].copy(artistBrowseId = artistBrowseId)
+            current.copy(songs = updated)
+        }
     }
 
     fun removeSong(videoId: String) = update { current ->
         current.copy(songs = current.songs.filterNot { it.song.videoId == videoId })
+    }
+
+    /** Remove a song from one artist's page without deleting it from Songs. */
+    fun removeSongFromArtist(videoId: String, artistBrowseId: String) = update { current ->
+        current.copy(songs = current.songs.map { entry ->
+            if (entry.song.videoId == videoId && entry.artistBrowseId == artistBrowseId) {
+                entry.copy(artistBrowseId = null)
+            } else entry
+        })
     }
 
     private fun update(transform: (Snapshot) -> Snapshot) {
