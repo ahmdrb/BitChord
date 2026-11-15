@@ -188,9 +188,10 @@ fun LibraryScreen(
             }
             when (state) {
                 is UiState.Loading -> {
-                    librarySkeleton()
-                    // Keep the two editable collection shelves available while
-                    // the remote YouTube Music library is still loading.
+                    // Keep the editable collection shelves at the top while
+                    // remote YouTube Music shelves are still loading. The
+                    // library skeleton includes several song rows, so placing
+                    // these after it pushed both headings below the fold.
                     item(key = "shelf:$PLAYLISTS") {
                         val emptyPlaylists = HomeShelf(PLAYLISTS, emptyList())
                         PlaylistShelf(
@@ -209,10 +210,19 @@ fun LibraryScreen(
                             onAdd = onAddPersonalArtist,
                         )
                     }
+                    librarySkeleton()
                 }
                 is UiState.Error -> {
-                    item {
-                        MessageState(state.message, actionLabel = stringResource(Res.string.retry), onAction = onRetry)
+                    item(key = "shelf:$PLAYLISTS") {
+                        val emptyPlaylists = HomeShelf(PLAYLISTS, emptyList())
+                        PlaylistShelf(
+                            shelf = emptyPlaylists,
+                            onItemClick = onShelfItemClick,
+                            onItemLongPress = onShelfItemLongPress,
+                            onNewPlaylist = onNewPlaylist,
+                            onImportSpotifyPlaylist = onImportSpotifyPlaylist,
+                            onShowAll = { onShowAll(emptyPlaylists) },
+                        )
                     }
                     item(key = "personal-artists") {
                         PersonalArtistShelf(
@@ -220,6 +230,9 @@ fun LibraryScreen(
                             onItemClick = onShelfItemClick,
                             onAdd = onAddPersonalArtist,
                         )
+                    }
+                    item {
+                        MessageState(state.message, actionLabel = stringResource(Res.string.retry), onAction = onRetry)
                     }
                 }
                 is UiState.Success -> {
