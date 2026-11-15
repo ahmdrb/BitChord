@@ -1854,7 +1854,7 @@ fun NowPlayingScreen(
     // Its cover is already mounted underneath the sheet, so reveal it from the
     // first frame of a downward transition.
     SideEffect {
-        dock?.revealMiniArtEarly = clipFullscreen && dock?.transitioningToMini == true
+        dock?.revealMiniArtEarly = canvas != null && dock?.transitioningToMini == true
     }
     // The rest of the player gets out of the way a little ahead of the artwork,
     // so the cover lands on the bar rather than on a ghost of the player.
@@ -2491,8 +2491,8 @@ fun NowPlayingScreen(
                                 // Spotify Canvas is replaced by the still cover on the
                                 // very first downward movement, not halfway through the
                                 // sheet animation. Moving back up restores Canvas at once.
-                                if (lyricsOpen || stillTakesOver() ||
-                                    (clipFullscreen && dock?.transitioningToMini == true)
+                                if (lyricsOpen || (stillTakesOver() && !dockMoving) ||
+                                    (canvas != null && dock?.transitioningToMini == true)
                                 ) 0f
                                 else (1f - 2f * p()).coerceIn(0f, 1f) * dockFade()
                             },
@@ -3480,7 +3480,11 @@ fun NowPlayingScreen(
                                             collapseStarted || dockMoving || overlayOpen.value,
                                         // The same stand-in as the banner's clip; here
                                         // the still is drawn by the sleeve around it.
-                                        presentationAlpha = { if (lyricsOpen || stillTakesOver()) 0f else 1f },
+                                        presentationAlpha = {
+                                            if (lyricsOpen || (stillTakesOver() && !dockMoving) ||
+                                                (canvas != null && dock?.transitioningToMini == true)
+                                            ) 0f else 1f
+                                        },
                                         startPositionMs = CanvasStills.positionFor(canvas.url) ?: stillStart?.positionMs ?: 0L,
                                         revealInstantly = stillStart != null,
                                         captureStill = stillMoving,
