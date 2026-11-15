@@ -167,6 +167,20 @@ fun LibraryScreen(
                         onAction = onSignIn,
                     )
                 }
+                if (links.isNotEmpty()) {
+                    item(key = "links") { LibraryLinkList(links = links, onClick = onShelfItemClick) }
+                }
+                if (deviceItems.isNotEmpty()) {
+                    item(key = "shelf:$onDevice") {
+                        val onDeviceShelf = HomeShelf(title = onDevice, items = deviceItems)
+                        LibraryGridShelf(
+                            shelf = onDeviceShelf,
+                            onItemClick = onShelfItemClick,
+                            onItemLongPress = onShelfItemLongPress,
+                            onShowAll = { onShowAll(onDeviceShelf) },
+                        )
+                    }
+                }
                 return@LazyColumn
             }
             when (state) {
@@ -350,18 +364,22 @@ private fun PersonalPlaylistShelf(
                 .fillMaxWidth()
                 .padding(horizontal = PAGE_GUTTER),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.Start,
         ) {
             Text(
                 "Playlists",
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onBackground,
             )
-            androidx.compose.material3.IconButton(onClick = onAdd) {
+            androidx.compose.material3.IconButton(
+                onClick = onAdd,
+                modifier = Modifier.size(36.dp),
+            ) {
                 Icon(
                     BitChordIcons.Plus,
                     contentDescription = "Create personal playlist",
                     tint = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.size(20.dp),
                 )
             }
         }
@@ -398,18 +416,22 @@ private fun PersonalArtistShelf(
                 .fillMaxWidth()
                 .padding(horizontal = PAGE_GUTTER),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.Start,
         ) {
             Text(
                 "Artists",
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onBackground,
             )
-            androidx.compose.material3.IconButton(onClick = onAdd) {
+            androidx.compose.material3.IconButton(
+                onClick = onAdd,
+                modifier = Modifier.size(36.dp),
+            ) {
                 Icon(
                     BitChordIcons.Plus,
                     contentDescription = "Add artist",
                     tint = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.size(20.dp),
                 )
             }
         }
