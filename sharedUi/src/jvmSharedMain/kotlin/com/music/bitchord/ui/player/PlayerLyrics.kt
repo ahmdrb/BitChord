@@ -2392,7 +2392,7 @@ internal fun LyricsPanel(
                 val subStyle = style.copy(
                     fontSize = SUB_LYRIC_FONT_SIZE,
                     lineHeight = SUB_LYRIC_LINE_HEIGHT,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = style.fontWeight ?: FontWeight.Medium,
                 )
                 // The answering voice is only on screen while it is being sung,
                 // the way Apple Music keeps it: it opens on its own clock, just
