@@ -17,8 +17,8 @@ import org.json.JSONObject
 object PersonalLibraryStore {
     data class PersonalSong(
         val song: Song,
-        /** The artist card this song belongs to in BitChord; null means unassigned. */
-        val artistBrowseId: String? = null,
+        /** Artist cards this song belongs to in BitChord; empty means unassigned. */
+        val artistBrowseIds: Set<String> = emptySet(),
     )
 
     data class Snapshot(
@@ -54,18 +54,22 @@ object PersonalLibraryStore {
         current.copy(
             artists = current.artists.filterNot { it.browseId == browseId },
             songs = current.songs.map { entry ->
-                if (entry.artistBrowseId == browseId) entry.copy(artistBrowseId = null) else entry
+                entry.copy(artistBrowseIds = entry.artistBrowseIds - browseId)
             },
         )
     }
 
-    fun addSong(song: Song, artistBrowseId: String?) = update { current ->
+    /** Add a song once, merging any selected artist memberships for collaborations. */
+    fun addSong(song: Song, artistBrowseIds: Set<String>) = update { current ->
         val existingIndex = current.songs.indexOfFirst { it.song.videoId == song.videoId }
         if (existingIndex < 0) {
-            current.copy(songs = current.songs + PersonalSong(song, artistBrowseId))
+            current.copy(songs = current.songs + PersonalSong(song, artistBrowseIds))
         } else {
             val updated = current.songs.toMutableList()
-            updated[existingIndex] = updated[existingIndex].copy(artistBrowseId = artistBrowseId)
+            val existing = updated[existingIndex]
+            updated[existingIndex] = existing.copy(
+                artistBrowseIds = existing.artistBrowseIds + artistBrowseIds,
+            )
             current.copy(songs = updated)
         }
     }
@@ -77,8 +81,8 @@ object PersonalLibraryStore {
     /** Remove a song from one artist's page without deleting it from Songs. */
     fun removeSongFromArtist(videoId: String, artistBrowseId: String) = update { current ->
         current.copy(songs = current.songs.map { entry ->
-            if (entry.song.videoId == videoId && entry.artistBrowseId == artistBrowseId) {
-                entry.copy(artistBrowseId = null)
+            if (entry.song.videoId == videoId && artistBrowseId in entry.artistBrowseIds) {
+                entry.copy(artistBrowseIds = entry.artistBrowseIds - artistBrowseId)
             } else entry
         })
     }
@@ -109,7 +113,9 @@ object PersonalLibraryStore {
                             put("thumbnailUrl", song.thumbnailUrl ?: JSONObject.NULL)
                             put("durationText", song.durationText ?: JSONObject.NULL)
                             put("artistId", song.artistId ?: JSONObject.NULL)
-                            put("personalArtistId", entry.artistBrowseId ?: JSONObject.NULL)
+                            put("personalArtistIds", JSONArray().apply {
+                                entry.artistBrowseIds.forEach(::put)
+                            })
                         })
                     }
                 }.toString())
@@ -147,7 +153,9 @@ object PersonalLibraryStore {
                         durationText = item.nullableString("durationText"),
                         artistId = item.nullableString("artistId"),
                     ),
-                    artistBrowseId = item.nullableString("personalArtistId"),
+                    artistBrowseIds = item.optJSONArray("personalArtistIds")?.let { ids ->
+                        (0 until ids.length()).mapNotNull { ids.optString(it).takeIf(String::isNotBlank) }.toSet()
+                    } ?: item.nullableString("personalArtistId")?.let(::setOf).orEmpty(),
                 )
             }
         }.getOrDefault(emptyList())
