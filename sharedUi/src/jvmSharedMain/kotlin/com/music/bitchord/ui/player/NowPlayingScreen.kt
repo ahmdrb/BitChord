@@ -2513,7 +2513,10 @@ fun NowPlayingScreen(
                             // A full-screen Spotify Canvas holds its frame for a beat
                             // once the player has come all the way up, rather than
                             // setting off with the end of the movement.
-                            resumeDelayMs = if (clipFullscreen) SPOTIFY_CANVAS_RESUME_DELAY_MS else 0L,
+                            // The captured Canvas frame is ready underneath the player; resume as soon
+                            // as the sheet is fully open rather than leaving a static cover
+                            // for an additional delay after the back transition.
+                            resumeDelayMs = 0L,
                             startPositionMs = CanvasStills.positionFor(clip.url) ?: stillStart?.positionMs ?: 0L,
                             revealInstantly = stillStart != null,
                             captureStill = stillMoving,
