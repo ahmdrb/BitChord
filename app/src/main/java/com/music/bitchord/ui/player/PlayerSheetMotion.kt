@@ -154,9 +154,6 @@ class PlayerSheetMotion(
     private fun sampleSheet(at: Float) {
         val now = System.nanoTime()
         if (!sheetSampleAt.isNaN()) {
-            val delta = at - sheetSampleAt
-            if (delta > 0.5f) dock.transitioningToMini = true
-            else if (delta < -0.5f) dock.transitioningToMini = false
             val seconds = (now - sheetSampleNanos) / 1e9f
             if (seconds > 0f) {
                 val instant = (at - sheetSampleAt) / seconds
@@ -173,7 +170,7 @@ class PlayerSheetMotion(
 
     /** A tap on the mini player. */
     fun open() {
-        dock.transitioningToMini = false
+        dock.setTransitioningToMini(false)
         if (shown()) {
             // Tapped while still on its way down: back up from where it is.
             if (closing && holding) {
@@ -252,7 +249,7 @@ class PlayerSheetMotion(
     /** A close caught before it finished: the player is staying up after all. */
     private fun reopening() {
         closing = false
-        dock.transitioningToMini = false
+        dock.setTransitioningToMini(false)
         passTouchesThrough(false)
         window?.setWindowAnimations(windowAnimations)
     }
@@ -261,7 +258,7 @@ class PlayerSheetMotion(
     fun close() {
         if (!shown() || closing) return
         closing = true
-        dock.transitioningToMini = true
+        dock.setTransitioningToMini(true)
         quietWindow()
         passTouchesThrough(true)
         settle?.cancel()
@@ -290,8 +287,8 @@ class PlayerSheetMotion(
             setShown(true)
         }
         settle?.cancel()
-        if (delta > 0f) dock.transitioningToMini = true
-        else if (delta < 0f) dock.transitioningToMini = false
+        if (delta > 0f) dock.setTransitioningToMini(true)
+        else if (delta < 0f) dock.setTransitioningToMini(false)
         held = (held + delta).coerceIn(0f, travel())
     }
 
@@ -340,7 +337,7 @@ class PlayerSheetMotion(
     }
 
     private suspend fun slide(from: Float, to: Float, velocity: Float = 0f) {
-        dock.transitioningToMini = to > from
+        dock.setTransitioningToMini(to > from)
         val travel = travel()
         animate(
             initialValue = from,
