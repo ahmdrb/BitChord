@@ -70,6 +70,8 @@ import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -152,6 +154,7 @@ import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.canvas.CanvasRepository
 import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.DetailPage
+import com.music.bitchord.data.PersonalLibraryStore
 import com.music.bitchord.data.model.CARD_ART_PX
 import com.music.bitchord.data.model.HEADER_ART_PX
 import com.music.bitchord.data.model.ROW_ART_PX
@@ -413,7 +416,15 @@ fun DetailScreen(
             }
         }
     }
-    val rawSongs = (page.songs as? UiState.Success)?.data.orEmpty()
+    val personalLibrary by PersonalLibraryStore.state.collectAsStateWithLifecycle()
+    val isPersonalArtist = page.type == BrowseType.ARTIST &&
+        personalLibrary.artists.any { it.browseId == page.browseId }
+    var showPersonalSongPicker by remember(page.browseId) { mutableStateOf(false) }
+    val rawSongs = if (isPersonalArtist) {
+        personalLibrary.songs.filter { page.browseId in it.artistBrowseIds }.map { it.song }
+    } else {
+        (page.songs as? UiState.Success)?.data.orEmpty()
+    }
     // A folder keeps its own sort — the one its top bar menu sets — rather
     // than the per-page one a release takes.
     val folderSort = folder?.sort
@@ -441,7 +452,7 @@ fun DetailScreen(
     var appleArt by remember(page.browseId) {
         mutableStateOf(if (isArtist) AppleArtistArtRepository.cached(page.browseId) else null)
     }
-    val songsLoading = page.songs is UiState.Loading
+    val songsLoading = !isPersonalArtist && page.songs is UiState.Loading
     LaunchedEffect(page.browseId, page.title, songsLoading) {
         if (isArtist && !songsLoading) {
             appleArt = AppleArtistArtRepository.artFor(page.browseId, page.title) { page.appleCatalogue() } ?: appleArt
@@ -667,13 +678,14 @@ fun DetailScreen(
 
             val description = page.description
 
-            if (songs.isNotEmpty() && isArtist) {
+            if ((songs.isNotEmpty() || isPersonalArtist) && isArtist) {
                 item(key = "actions") {
                     ActionRow(
-                        onPlay = { onSongClick(songs, 0) },
-                        onShuffle = { onShuffle(songs) },
+                        onPlay = { if (songs.isNotEmpty()) onSongClick(songs, 0) },
+                        onShuffle = { if (songs.isNotEmpty()) onShuffle(songs) },
                         subscription = page.subscription?.takeIf { onToggleSubscription != null },
                         onToggleSubscription = onToggleSubscription,
+                        onAddSong = { showPersonalSongPicker = true }.takeIf { isPersonalArtist },
                         bottomSpace = 22.dp,
                         playColor = appleArt?.keyColor?.let { Color(it) },
                     )
@@ -796,6 +808,9 @@ fun DetailScreen(
                                                 palette = palette,
                                                 onClick = { onSongClick(top, top.indexOf(song)) },
                                                 onLongPress = { onSongLongPress(song) },
+                                                onRemoveFromArtist = if (isPersonalArtist) {
+                                                    { PersonalLibraryStore.removeSongFromArtist(song.videoId, page.browseId) }
+                                                } else null,
                                                 downloadedTint = downloadedTint,
                                                 isCurrent = isCurrentRow(song),
                                                 isPlaying = isCurrentRow(song) && isPlaying,
@@ -946,6 +961,18 @@ fun DetailScreen(
     )
 }
 }
+    if (showPersonalSongPicker && isPersonalArtist) {
+        PersonalLibraryAddDialog(
+            mode = PersonalAddMode.SONG,
+            artists = personalLibrary.artists,
+            initialArtistId = page.browseId,
+            onDismiss = { showPersonalSongPicker = false },
+            onArtistAdded = {},
+            onSongAdded = { song, artistIds -> PersonalLibraryStore.addSong(song, artistIds) },
+        )
+    }
+
+
 }
 
 /**
@@ -1658,6 +1685,7 @@ private fun ActionRow(
     /** The artist header's subscribe state, or null where it isn't offered. */
     subscription: SubscriptionState? = null,
     onToggleSubscription: (() -> Unit)? = null,
+    onAddSong: (() -> Unit)? = null,
     /** Apple's fill for the Play circle; null leaves it white. */
     playColor: Color? = null,
 ) {
@@ -1683,7 +1711,15 @@ private fun ActionRow(
             containerColor = playColor ?: Color.White,
         )
 
-        if (subscription != null) {
+        if (onAddSong != null) {
+            CircleIconButton(
+                icon = BitChordIcons.Plus,
+                contentDescription = "Add song to this artist",
+                onClick = onAddSong,
+                haptic = Haptic.Select,
+                size = ARTIST_SIDE_BUTTON,
+            )
+        } else if (subscription != null) {
             CircleIconButton(
                 icon = if (subscription.subscribed) Icons.Rounded.Star else Icons.Rounded.StarBorder,
                 contentDescription = stringResource(
@@ -2108,10 +2144,12 @@ private fun CompactSongRow(
     palette: ArtworkPalette,
     onClick: () -> Unit,
     onLongPress: () -> Unit,
+    onRemoveFromArtist: (() -> Unit)? = null,
     downloadedTint: Color? = null,
     isCurrent: Boolean = false,
     isPlaying: Boolean = false,
 ) {
+    var songMenuExpanded by remember(song.videoId) { mutableStateOf(false) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -2150,7 +2188,29 @@ private fun CompactSongRow(
         if (downloadedTint != null) {
             DownloadedBadge(song.videoId, downloadedTint)
         }
-        RowMoreButton(onClick = onLongPress, tint = palette.onBackgroundVariant)
+        if (onRemoveFromArtist != null) {
+            Box {
+                RowMoreButton(onClick = { songMenuExpanded = true }, tint = palette.onBackgroundVariant)
+                DropdownMenu(expanded = songMenuExpanded, onDismissRequest = { songMenuExpanded = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Delete song from this artist") },
+                        onClick = {
+                            songMenuExpanded = false
+                            onRemoveFromArtist()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("More actions") },
+                        onClick = {
+                            songMenuExpanded = false
+                            onLongPress()
+                        },
+                    )
+                }
+            }
+        } else {
+            RowMoreButton(onClick = onLongPress, tint = palette.onBackgroundVariant)
+        }
     }
 }
 
