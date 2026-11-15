@@ -2264,7 +2264,7 @@ private fun BitChordApp(
                 title = item.title,
                 subtitle = item.subtitle,
                 thumbnailUrl = item.thumbnailUrl,
-                type = BrowseType.ARTIST.takeIf { personalLibrary.artists.any { artist -> artist.browseId == id } },
+                type = if (personalLibrary.artists.any { artist -> artist.browseId == id }) BrowseType.ARTIST else BrowseType.OTHER,
             )
         }
     }
