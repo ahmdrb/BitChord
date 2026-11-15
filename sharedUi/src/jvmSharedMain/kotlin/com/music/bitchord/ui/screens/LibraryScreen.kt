@@ -144,19 +144,23 @@ fun LibraryScreen(
                 }
             }
             item(key = "replay") { replay() }
-            if (links.isNotEmpty()) {
-                item(key = "links") { LibraryLinkList(links = links, onClick = onShelfItemClick) }
-            }
-            if (deviceItems.isNotEmpty()) {
-                item(key = "shelf:$onDevice") {
-                    val onDeviceShelf = HomeShelf(title = onDevice, items = deviceItems)
-                    LibraryGridShelf(
-                        shelf = onDeviceShelf,
-                        onItemClick = onShelfItemClick,
-                        onItemLongPress = onShelfItemLongPress,
-                        onShowAll = { onShowAll(onDeviceShelf) },
-                    )
+            // Signed-out pages keep their folders above the sign-in prompt.
+            if (!signedIn) {
+                if (links.isNotEmpty()) {
+                    item(key = "links") { LibraryLinkList(links = links, onClick = onShelfItemClick) }
                 }
+                if (deviceItems.isNotEmpty()) {
+                    item(key = "shelf:$onDevice") {
+                        val onDeviceShelf = HomeShelf(title = onDevice, items = deviceItems)
+                        LibraryGridShelf(
+                            shelf = onDeviceShelf,
+                            onItemClick = onShelfItemClick,
+                            onItemLongPress = onShelfItemLongPress,
+                            onShowAll = { onShowAll(onDeviceShelf) },
+                        )
+                    }
+                }
+    
             }
             if (!signedIn) {
                 item(key = "shelf:$PLAYLISTS") {
@@ -236,64 +240,63 @@ fun LibraryScreen(
                     }
                 }
                 is UiState.Success -> {
-                    // A fresh account has no Playlists shelf at all, and that
-                    // is exactly the account most in need of the button that
-                    // makes one — so the row is drawn either way, empty but
-                    // for the tile that creates the first playlist.
+                    // Keep the two editable collections at the top of the
+                    // Library, independent of the order returned by YouTube Music.
                     val shelves = state.data.shelves
-                    val hasArtistShelf = shelves.any { it.title.equals("Artists", ignoreCase = true) }
-                    if (!hasArtistShelf) {
-                        item(key = "personal-artists") {
-                            PersonalArtistShelf(
-                                artists = personalArtists,
-                                onItemClick = onShelfItemClick,
-                                onAdd = onAddPersonalArtist,
-                            )
-                        }
+                    val playlists = shelves.firstOrNull {
+                        it.title.equals(PLAYLISTS, ignoreCase = true)
+                    } ?: HomeShelf(PLAYLISTS, emptyList())
+                    val pinnedFirst = playlists.pinnedFirst(pinnedPlaylists)
+                    item(key = "shelf:$PLAYLISTS") {
+                        PlaylistShelf(
+                            shelf = pinnedFirst,
+                            onItemClick = onShelfItemClick,
+                            onItemLongPress = onShelfItemLongPress,
+                            onNewPlaylist = onNewPlaylist,
+                            onImportSpotifyPlaylist = onImportSpotifyPlaylist,
+                            onShowAll = { onShowAll(pinnedFirst) },
+                            pinnedPlaylists = pinnedPlaylists,
+                        )
                     }
-                    if (shelves.none { it.title == PLAYLISTS }) {
-                        item(key = "shelf:$PLAYLISTS") {
-                            val emptyPlaylists = HomeShelf(PLAYLISTS, emptyList())
-                            PlaylistShelf(
-                                shelf = emptyPlaylists,
+                    item(key = "personal-artists") {
+                        PersonalArtistShelf(
+                            artists = personalArtists,
+                            onItemClick = onShelfItemClick,
+                            onAdd = onAddPersonalArtist,
+                        )
+                    }
+                    shelves.filterNot {
+                        it.title.equals("Artists", ignoreCase = true) ||
+                            it.title.equals(PLAYLISTS, ignoreCase = true)
+                    }.forEach { shelf ->
+                        item(key = "shelf:${shelf.title}") {
+                            LibraryGridShelf(
+                                shelf = shelf,
                                 onItemClick = onShelfItemClick,
                                 onItemLongPress = onShelfItemLongPress,
-                                onNewPlaylist = onNewPlaylist,
-                                onImportSpotifyPlaylist = onImportSpotifyPlaylist,
-                                onShowAll = { onShowAll(emptyPlaylists) },
+                                onShowAll = { onShowAll(shelf) },
                             )
-                        }
-                    }
-                    shelves.forEach { shelf ->
-                        item(key = "shelf:${shelf.title}") {
-                            if (shelf.title.equals("Artists", ignoreCase = true)) {
-                                PersonalArtistShelf(
-                                    artists = personalArtists,
-                                    onItemClick = onShelfItemClick,
-                                    onAdd = onAddPersonalArtist,
-                                )
-                            } else if (shelf.title == PLAYLISTS) {
-                                val pinnedFirst = shelf.pinnedFirst(pinnedPlaylists)
-                                PlaylistShelf(
-                                    shelf = pinnedFirst,
-                                    onItemClick = onShelfItemClick,
-                                    onItemLongPress = onShelfItemLongPress,
-                                    onNewPlaylist = onNewPlaylist,
-                                    onImportSpotifyPlaylist = onImportSpotifyPlaylist,
-                                    onShowAll = { onShowAll(pinnedFirst) },
-                                    pinnedPlaylists = pinnedPlaylists,
-                                )
-                            } else {
-                                LibraryGridShelf(
-                                    shelf = shelf,
-                                    onItemClick = onShelfItemClick,
-                                    onItemLongPress = onShelfItemLongPress,
-                                    onShowAll = { onShowAll(shelf) },
-                                )
-                            }
                         }
                     }
                 }
+            // Remote folders and device music follow the editable collections,
+            // so neither can push Artists / Playlists below the initial view.
+            if (signedIn) {
+                if (links.isNotEmpty()) {
+                    item(key = "links") { LibraryLinkList(links = links, onClick = onShelfItemClick) }
+                }
+                if (deviceItems.isNotEmpty()) {
+                    item(key = "shelf:$onDevice") {
+                        val onDeviceShelf = HomeShelf(title = onDevice, items = deviceItems)
+                        LibraryGridShelf(
+                            shelf = onDeviceShelf,
+                            onItemClick = onShelfItemClick,
+                            onItemLongPress = onShelfItemLongPress,
+                            onShowAll = { onShowAll(onDeviceShelf) },
+                        )
+                    }
+                }
+            }
             }
         }
     }
