@@ -40,8 +40,10 @@ import androidx.compose.ui.unit.Velocity
  * alone, so a finger can still catch it.
  */
 @OptIn(ExperimentalMaterial3Api::class)
-fun Modifier.guardSheetFromContentTouches(sheetState: SheetState): Modifier =
-    pointerInput(sheetState) {
+fun Modifier.guardSheetFromContentTouches(
+    sheetState: SheetState,
+    enabled: Boolean = true,
+): Modifier = if (!enabled) this else pointerInput(sheetState) {
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
             // Unconsumed means the sheet was not animating, so it waits for its
