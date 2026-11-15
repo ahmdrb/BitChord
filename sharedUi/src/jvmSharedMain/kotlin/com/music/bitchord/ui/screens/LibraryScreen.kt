@@ -168,19 +168,19 @@ fun LibraryScreen(
                     )
                 }
                 if (links.isNotEmpty()) {
-                    item(key = "links") { LibraryLinkList(links = links, onClick = onShelfItemClick) }
+                item(key = "links") { LibraryLinkList(links = links, onClick = onShelfItemClick) }
+            }
+            if (deviceItems.isNotEmpty()) {
+                item(key = "shelf:$onDevice") {
+                    val onDeviceShelf = HomeShelf(title = onDevice, items = deviceItems)
+                    LibraryGridShelf(
+                        shelf = onDeviceShelf,
+                        onItemClick = onShelfItemClick,
+                        onItemLongPress = onShelfItemLongPress,
+                        onShowAll = { onShowAll(onDeviceShelf) },
+                    )
                 }
-                if (deviceItems.isNotEmpty()) {
-                    item(key = "shelf:$onDevice") {
-                        val onDeviceShelf = HomeShelf(title = onDevice, items = deviceItems)
-                        LibraryGridShelf(
-                            shelf = onDeviceShelf,
-                            onItemClick = onShelfItemClick,
-                            onItemLongPress = onShelfItemLongPress,
-                            onShowAll = { onShowAll(onDeviceShelf) },
-                        )
-                    }
-                }
+            }
                 return@LazyColumn
             }
             when (state) {
@@ -190,13 +190,13 @@ fun LibraryScreen(
                     // library skeleton includes several song rows, so placing
                     // these after it pushed both headings below the fold.
                     item(key = "personal-playlists") {
-                    PersonalPlaylistShelf(
-                        playlists = personalPlaylists,
-                        onItemClick = onPersonalPlaylistClick,
-                        onItemLongPress = onPersonalPlaylistLongPress,
-                        onAdd = onAddPersonalPlaylist,
-                    )
-                }
+                        PersonalPlaylistShelf(
+                            playlists = personalPlaylists,
+                            onItemClick = onPersonalPlaylistClick,
+                            onItemLongPress = onPersonalPlaylistLongPress,
+                            onAdd = onAddPersonalPlaylist,
+                        )
+                    }
                     item(key = "personal-artists") {
                         PersonalArtistShelf(
                             artists = personalArtists,
