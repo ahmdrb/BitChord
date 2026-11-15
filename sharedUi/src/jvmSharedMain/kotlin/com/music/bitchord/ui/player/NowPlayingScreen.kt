@@ -1856,7 +1856,7 @@ fun NowPlayingScreen(
     // Its cover is already mounted underneath the sheet, so reveal it as soon
     // as the sheet starts moving instead of waiting for the final 15% hand-off.
     SideEffect {
-        dock?.revealMiniArtEarly = clipFullscreen && dockMoving
+        dock?.revealMiniArtEarly = clipFullscreen && dock.transitioningToMini
     }
     // The rest of the player gets out of the way a little ahead of the artwork,
     // so the cover lands on the bar rather than on a ghost of the player.
@@ -2490,7 +2490,12 @@ fun NowPlayingScreen(
                             //
                             // Out of sight altogether while its still stands in for it.
                             presentationAlpha = {
-                                if (lyricsOpen || stillTakesOver()) 0f
+                                // Spotify Canvas is replaced by the still cover on the
+                                // very first downward movement, not halfway through the
+                                // sheet animation. Moving back up restores Canvas at once.
+                                if (lyricsOpen || stillTakesOver() ||
+                                    (clipFullscreen && dock?.transitioningToMini == true)
+                                ) 0f
                                 else (1f - 2f * p()).coerceIn(0f, 1f) * dockFade()
                             },
                             // A full-screen Spotify Canvas holds its frame for a beat
