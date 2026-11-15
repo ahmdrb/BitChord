@@ -21,14 +21,22 @@ object PersonalLibraryStore {
         val artistBrowseIds: Set<String> = emptySet(),
     )
 
+    data class PersonalPlaylist(
+        val id: String,
+        val title: String,
+        val songs: List<Song> = emptyList(),
+    )
+
     data class Snapshot(
         val artists: List<BrowseItem> = emptyList(),
         val songs: List<PersonalSong> = emptyList(),
+        val playlists: List<PersonalPlaylist> = emptyList(),
     )
 
     private const val PREFS = "bitchord_personal_library"
     private const val KEY_ARTISTS = "artists"
     private const val KEY_SONGS = "songs"
+    private const val KEY_PLAYLISTS = "playlists"
 
     private val lock = Any()
     private var initialized = false
@@ -43,6 +51,37 @@ object PersonalLibraryStore {
             mutableState.value = readSnapshot()
             initialized = true
         }
+    }
+
+    fun addPlaylist(title: String) = update { current ->
+        val name = title.trim()
+        if (name.isBlank()) current
+        else current.copy(
+            playlists = current.playlists + PersonalPlaylist(
+                id = java.util.UUID.randomUUID().toString(),
+                title = name,
+            ),
+        )
+    }
+
+    fun removePlaylist(id: String) = update { current ->
+        current.copy(playlists = current.playlists.filterNot { it.id == id })
+    }
+
+    fun addSongToPlaylist(id: String, song: Song) = update { current ->
+        current.copy(playlists = current.playlists.map { playlist ->
+            if (playlist.id == id && playlist.songs.none { it.videoId == song.videoId }) {
+                playlist.copy(songs = playlist.songs + song)
+            } else playlist
+        })
+    }
+
+    fun removeSongFromPlaylist(id: String, videoId: String) = update { current ->
+        current.copy(playlists = current.playlists.map { playlist ->
+            if (playlist.id == id) {
+                playlist.copy(songs = playlist.songs.filterNot { it.videoId == videoId })
+            } else playlist
+        })
     }
 
     fun addArtist(artist: BrowseItem) = update { current ->
@@ -119,6 +158,26 @@ object PersonalLibraryStore {
                         })
                     }
                 }.toString())
+                .putString(KEY_PLAYLISTS, JSONArray().apply {
+                    next.playlists.forEach { playlist ->
+                        put(JSONObject().apply {
+                            put("id", playlist.id)
+                            put("title", playlist.title)
+                            put("songs", JSONArray().apply {
+                                playlist.songs.forEach { song ->
+                                    put(JSONObject().apply {
+                                        put("videoId", song.videoId)
+                                        put("title", song.title)
+                                        put("artist", song.artist)
+                                        put("thumbnailUrl", song.thumbnailUrl ?: JSONObject.NULL)
+                                        put("durationText", song.durationText ?: JSONObject.NULL)
+                                        put("artistId", song.artistId ?: JSONObject.NULL)
+                                    })
+                                }
+                            })
+                        })
+                    }
+                }.toString())
                 .apply()
         }
     }
@@ -159,7 +218,31 @@ object PersonalLibraryStore {
                 )
             }
         }.getOrDefault(emptyList())
-        return Snapshot(artists, songs)
+        val playlists = runCatching {
+            val array = JSONArray(preferences.getString(KEY_PLAYLISTS, "[]"))
+            (0 until array.length()).mapNotNull { index ->
+                val item = array.optJSONObject(index) ?: return@mapNotNull null
+                val id = item.optString("id").takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                val title = item.optString("title").takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                val playlistSongs = item.optJSONArray("songs")?.let { entries ->
+                    (0 until entries.length()).mapNotNull { songIndex ->
+                        val song = entries.optJSONObject(songIndex) ?: return@mapNotNull null
+                        val videoId = song.optString("videoId").takeIf { it.isNotBlank() }
+                            ?: return@mapNotNull null
+                        Song(
+                            videoId = videoId,
+                            title = song.optString("title"),
+                            artist = song.optString("artist"),
+                            thumbnailUrl = song.nullableString("thumbnailUrl"),
+                            durationText = song.nullableString("durationText"),
+                            artistId = song.nullableString("artistId"),
+                        )
+                    }
+                }.orEmpty()
+                PersonalPlaylist(id = id, title = title, songs = playlistSongs)
+            }
+        }.getOrDefault(emptyList())
+        return Snapshot(artists, songs, playlists)
     }
 
     private fun JSONObject.nullableString(key: String): String? =
