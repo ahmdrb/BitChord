@@ -66,6 +66,104 @@ import kotlinx.coroutines.launch
 
 internal enum class PersonalAddMode { ARTIST, SONG }
 
+@Composable
+internal fun PersonalPlaylistCreateDialog(
+    onDismiss: () -> Unit,
+    onCreate: (String) -> Unit,
+) {
+    var title by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("New playlist") },
+        text = {
+            OutlinedTextField(
+                value = title,
+                onValueChange = { title = it },
+                singleLine = true,
+                label = { Text("Playlist name") },
+            )
+        },
+        confirmButton = {
+            TextButton(
+                enabled = title.isNotBlank(),
+                onClick = {
+                    onCreate(title.trim())
+                    onDismiss()
+                },
+            ) { Text("Create") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
+}
+
+@Composable
+internal fun PersonalPlaylistDetailDialog(
+    playlist: PersonalLibraryStore.PersonalPlaylist,
+    onDismiss: () -> Unit,
+    onAddSongs: () -> Unit,
+    onPlay: () -> Unit,
+    onRemoveSong: (String) -> Unit,
+    onDelete: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(playlist.title) },
+        text = {
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TextButton(onClick = onAddSongs) { Text("Add songs") }
+                    TextButton(enabled = playlist.songs.isNotEmpty(), onClick = onPlay) {
+                        Text("Play")
+                    }
+                }
+                if (playlist.songs.isEmpty()) {
+                    Text(
+                        "Songs you add to this BitChord playlist will appear here.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    LazyColumn(Modifier.heightIn(max = 320.dp)) {
+                        items(playlist.songs, key = { it.videoId }) { song ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                AsyncImage(
+                                    model = song.thumbnailUrl,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(42.dp).clip(RoundedCornerShape(6.dp)),
+                                    contentScale = ContentScale.Crop,
+                                )
+                                Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
+                                    Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(
+                                        song.artist,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                                IconButton(onClick = { onRemoveSong(song.videoId) }) {
+                                    Icon(Icons.Rounded.Close, contentDescription = "Remove song")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+        dismissButton = { TextButton(onClick = onDelete) { Text("Delete playlist") } },
+    )
+}
+
 /**
  * The Library tab is an intentionally curated, local collection. The YouTube
  * Music account library is not rendered here and is never modified by edits.
