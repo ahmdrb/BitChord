@@ -107,11 +107,13 @@ class PlayerDock {
      * sheet lands, so the cover is already in place when the bar is fully shown.
      */
     /** True as soon as the sheet starts travelling down to the mini player. */
-    var transitioningToMini by mutableStateOf(false)
-        private set
+    private var transitioningToMiniState by mutableStateOf(false)
+
+    val transitioningToMini: Boolean
+        get() = transitioningToMiniState
 
     fun setTransitioningToMini(value: Boolean) {
-        transitioningToMini = value
+        transitioningToMiniState = value
     }
 
     /** Reveal the already-mounted mini cover while full-screen Canvas has no moving sleeve. */
