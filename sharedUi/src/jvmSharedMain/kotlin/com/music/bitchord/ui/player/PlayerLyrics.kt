@@ -1926,8 +1926,15 @@ internal fun LyricsPanel(
     // Animatable is sixty animations to start and stop on every handover.
     var run by remember(lines) { mutableStateOf(ScrollRun(0, 0f, LYRIC_SETTLE_MS)) }
     val since = remember(lines) { mutableFloatStateOf(0f) }
+    var sinceRunId by remember(lines) { mutableIntStateOf(0) }
     LaunchedEffect(run.id) {
         if (run.id == 0) return@LaunchedEffect
+        // A new handover can arrive while the previous frame clock is sitting
+        // at its finished value. Do not let rows read that old elapsed time
+        // against the new run: it produces a one-frame jump on the outgoing
+        // line before the new animation gets its first frame.
+        since.floatValue = 0f
+        sinceRunId = run.id
         animate(
             initialValue = 0f,
             targetValue = run.spanMs,
@@ -2325,7 +2332,10 @@ internal fun LyricsPanel(
                         translationY = if (staggerDelay <= 0f) {
                             0f
                         } else {
-                            val elapsed = since.floatValue
+                            // If composition has observed a newer run before its
+                            // effect starts, the previous run's clock is stale.
+                            // Treat it as zero until this run owns the clock.
+                            val elapsed = if (sinceRunId == run.id) since.floatValue else 0f
                             run.delta * (
                                 LYRIC_EASING.transform(
                                     (elapsed / run.durationMs).coerceIn(0f, 1f),
