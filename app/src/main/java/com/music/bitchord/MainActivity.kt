@@ -177,6 +177,7 @@ import com.music.bitchord.ui.screens.DiscordDialogHost
 import com.music.bitchord.ui.screens.DiscordScreen
 import com.music.bitchord.ui.screens.EqualizerScreen
 import com.music.bitchord.ui.screens.HistoryScreen
+import com.music.bitchord.ui.screens.PersonalLibraryScreen
 import com.music.bitchord.ui.screens.LibraryReplayEntry
 import com.music.bitchord.ui.screens.libraryDeviceItems
 import com.music.bitchord.ui.screens.SPOTIFY_BROWSE_ID
@@ -3663,39 +3664,20 @@ private fun BitChordApp(
                                     )
                                 },
                             )
-                            else -> LibraryScreen(
-                                signedIn = signedIn,
-                                state = libraryState,
-                                listState = libraryListState,
-                                onShelfItemClick = onLibraryItemClick,
-                                // Every shelf here has a menu behind it now — the account's
-                                // own playlists get rename and delete on top of what a saved
-                                // album or a Liked Music card gets. Holding an artist still
-                                // does nothing; see [onBrowseLongPress].
-                                onShelfItemLongPress = onBrowseLongPress,
-                                onNewPlaylist = { creatingPlaylist = true },
-                                onImportSpotifyPlaylist = { showSpotifyImportDialog = true },
-                                onShowAll = { shelf -> navigator.push(AppRoute.LibraryShowAll(shelf)) },
-                                replay = {
-                                    LibraryReplayEntry(
-                                        cards = replayCards,
-                                        loading = replay.loading,
-                                        holder = account?.name.orEmpty(),
-                                        memberSince = replay.memberSince,
-                                        onOpenReplay = { page ->
-                                            replayLandingPage = page
-                                            navigator.push(AppRoute.Replay)
-                                        },
+                            else -> PersonalLibraryScreen(
+                                contentPadding = listPadding,
+                                onOpenArtist = onLibraryItemClick,
+                                onPlaySong = { songs, index ->
+                                    playFrom(
+                                        songs,
+                                        index,
+                                        QueueSource(
+                                            context.getString(R.string.library),
+                                            PlaybackSourceType.BROWSE,
+                                            "personal-library",
+                                        ),
                                     )
                                 },
-                                onSignIn = { webSession = WebSessionMode.SIGN_IN },
-                                onRetry = viewModel::loadLibrary,
-                                refreshing = MainViewModel.Feed.LIBRARY in refreshing,
-                                onRefresh = { viewModel.refresh(MainViewModel.Feed.LIBRARY) },
-                                pullState = libraryPull,
-                                contentPadding = listPadding,
-                                links = libraryLinks(),
-                                deviceItems = libraryDeviceItems(downloadedReleases) + localPlaylistItems,
                             )
                         }
                     }
