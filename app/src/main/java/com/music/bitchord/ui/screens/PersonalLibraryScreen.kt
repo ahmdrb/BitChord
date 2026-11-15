@@ -67,6 +67,73 @@ import kotlinx.coroutines.launch
 internal enum class PersonalAddMode { ARTIST, SONG }
 
 @Composable
+internal fun PersonalArtistDetailDialog(
+    artist: BrowseItem,
+    songs: List<Song>,
+    onDismiss: () -> Unit,
+    onAddSongs: () -> Unit,
+    onPlay: () -> Unit,
+    onRemoveSong: (String) -> Unit,
+    onDelete: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(artist.title) },
+        text = {
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TextButton(onClick = onAddSongs) { Text("Add songs") }
+                    TextButton(enabled = songs.isNotEmpty(), onClick = onPlay) {
+                        Text("Play")
+                    }
+                }
+                if (songs.isEmpty()) {
+                    Text(
+                        "Songs you add to this BitChord artist collection will appear here.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    LazyColumn(Modifier.heightIn(max = 320.dp)) {
+                        items(songs, key = { it.videoId }) { song ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                AsyncImage(
+                                    model = song.thumbnailUrl,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(42.dp).clip(RoundedCornerShape(6.dp)),
+                                    contentScale = ContentScale.Crop,
+                                )
+                                Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
+                                    Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(
+                                        song.artist,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                                IconButton(onClick = { onRemoveSong(song.videoId) }) {
+                                    Icon(Icons.Rounded.Close, contentDescription = "Remove song from artist")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+        dismissButton = { TextButton(onClick = onDelete) { Text("Delete artist") } },
+    )
+}
+
+@Composable
 internal fun PersonalPlaylistCreateDialog(
     onDismiss: () -> Unit,
     onCreate: (String) -> Unit,
