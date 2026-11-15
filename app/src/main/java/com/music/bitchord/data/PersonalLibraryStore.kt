@@ -11,14 +11,19 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * BitChord's independent, on-device Library. It deliberately does not call
- * YouTube Music's add/remove-library endpoints: curating this list must never
- * mutate the listener's Google account.
+ * BitChord's independent, on-device Library. Editing this collection never
+ * calls YouTube Music's add/remove-library endpoints or changes the Google account.
  */
 object PersonalLibraryStore {
+    data class PersonalSong(
+        val song: Song,
+        /** The artist card this song belongs to in BitChord; null means unassigned. */
+        val artistBrowseId: String? = null,
+    )
+
     data class Snapshot(
         val artists: List<BrowseItem> = emptyList(),
-        val songs: List<Song> = emptyList(),
+        val songs: List<PersonalSong> = emptyList(),
     )
 
     private const val PREFS = "bitchord_personal_library"
@@ -41,21 +46,26 @@ object PersonalLibraryStore {
     }
 
     fun addArtist(artist: BrowseItem) = update { current ->
-        if (artist.browseId in current.artists.map { it.browseId }) current
+        if (current.artists.any { it.browseId == artist.browseId }) current
         else current.copy(artists = current.artists + artist.copy(type = BrowseType.ARTIST))
     }
 
     fun removeArtist(browseId: String) = update { current ->
-        current.copy(artists = current.artists.filterNot { it.browseId == browseId })
+        current.copy(
+            artists = current.artists.filterNot { it.browseId == browseId },
+            songs = current.songs.map { entry ->
+                if (entry.artistBrowseId == browseId) entry.copy(artistBrowseId = null) else entry
+            },
+        )
     }
 
-    fun addSong(song: Song) = update { current ->
-        if (current.songs.any { it.videoId == song.videoId }) current
-        else current.copy(songs = current.songs + song)
+    fun addSong(song: Song, artistBrowseId: String?) = update { current ->
+        if (current.songs.any { it.song.videoId == song.videoId }) current
+        else current.copy(songs = current.songs + PersonalSong(song, artistBrowseId))
     }
 
     fun removeSong(videoId: String) = update { current ->
-        current.copy(songs = current.songs.filterNot { it.videoId == videoId })
+        current.copy(songs = current.songs.filterNot { it.song.videoId == videoId })
     }
 
     private fun update(transform: (Snapshot) -> Snapshot) {
@@ -75,7 +85,8 @@ object PersonalLibraryStore {
                     }
                 }.toString())
                 .putString(KEY_SONGS, JSONArray().apply {
-                    next.songs.forEach { song ->
+                    next.songs.forEach { entry ->
+                        val song = entry.song
                         put(JSONObject().apply {
                             put("videoId", song.videoId)
                             put("title", song.title)
@@ -83,6 +94,7 @@ object PersonalLibraryStore {
                             put("thumbnailUrl", song.thumbnailUrl ?: JSONObject.NULL)
                             put("durationText", song.durationText ?: JSONObject.NULL)
                             put("artistId", song.artistId ?: JSONObject.NULL)
+                            put("personalArtistId", entry.artistBrowseId ?: JSONObject.NULL)
                         })
                     }
                 }.toString())
@@ -95,7 +107,7 @@ object PersonalLibraryStore {
             val array = JSONArray(preferences.getString(KEY_ARTISTS, "[]"))
             (0 until array.length()).mapNotNull { index ->
                 val item = array.optJSONObject(index) ?: return@mapNotNull null
-                val id = item.optString("browseId").takeIf(String::isNotBlank) ?: return@mapNotNull null
+                val id = item.optString("browseId").takeIf { it.isNotBlank() } ?: return@mapNotNull null
                 BrowseItem(
                     browseId = id,
                     title = item.optString("title"),
@@ -110,14 +122,17 @@ object PersonalLibraryStore {
             val array = JSONArray(preferences.getString(KEY_SONGS, "[]"))
             (0 until array.length()).mapNotNull { index ->
                 val item = array.optJSONObject(index) ?: return@mapNotNull null
-                val id = item.optString("videoId").takeIf(String::isNotBlank) ?: return@mapNotNull null
-                Song(
-                    videoId = id,
-                    title = item.optString("title"),
-                    artist = item.optString("artist"),
-                    thumbnailUrl = item.nullableString("thumbnailUrl"),
-                    durationText = item.nullableString("durationText"),
-                    artistId = item.nullableString("artistId"),
+                val id = item.optString("videoId").takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                PersonalSong(
+                    song = Song(
+                        videoId = id,
+                        title = item.optString("title"),
+                        artist = item.optString("artist"),
+                        thumbnailUrl = item.nullableString("thumbnailUrl"),
+                        durationText = item.nullableString("durationText"),
+                        artistId = item.nullableString("artistId"),
+                    ),
+                    artistBrowseId = item.nullableString("personalArtistId"),
                 )
             }
         }.getOrDefault(emptyList())
@@ -125,5 +140,5 @@ object PersonalLibraryStore {
     }
 
     private fun JSONObject.nullableString(key: String): String? =
-        if (!has(key) || isNull(key)) null else optString(key).takeIf(String::isNotBlank)
+        if (!has(key) || isNull(key)) null else optString(key).takeIf { it.isNotBlank() }
 }
