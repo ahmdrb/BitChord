@@ -1852,9 +1852,12 @@ fun NowPlayingScreen(
     }
     // Full-screen Spotify Canvas has no sleeve to carry into the mini-player.
     // Its cover is already mounted underneath the sheet, so reveal it from the
-    // first frame of a downward transition.
+    // first frame of a downward transition. Read the flag during composition:
+    // reading it only inside SideEffect does not subscribe this screen to the
+    // state change, so the reveal could be missed until some unrelated recompose.
+    val revealCanvasCover = canvas != null && dock?.transitioningToMini == true
     SideEffect {
-        dock?.revealMiniArtEarly = canvas != null && dock?.transitioningToMini == true
+        dock?.revealMiniArtEarly = revealCanvasCover
     }
     // The rest of the player gets out of the way a little ahead of the artwork,
     // so the cover lands on the bar rather than on a ghost of the player.
