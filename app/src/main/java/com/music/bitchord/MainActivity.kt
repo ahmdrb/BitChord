@@ -178,6 +178,9 @@ import com.music.bitchord.ui.screens.DiscordScreen
 import com.music.bitchord.ui.screens.EqualizerScreen
 import com.music.bitchord.ui.screens.HistoryScreen
 import com.music.bitchord.ui.screens.PersonalLibraryScreen
+import com.music.bitchord.ui.screens.PersonalAddMode
+import com.music.bitchord.ui.screens.PersonalLibraryAddDialog
+import com.music.bitchord.data.PersonalLibraryStore
 import com.music.bitchord.ui.screens.LibraryReplayEntry
 import com.music.bitchord.ui.screens.libraryDeviceItems
 import com.music.bitchord.ui.screens.SPOTIFY_BROWSE_ID
@@ -897,6 +900,8 @@ private fun BitChordApp(
     val exploreState by viewModel.explore.collectAsStateWithLifecycle()
     val selectedMoodGenre by viewModel.selectedMoodGenre.collectAsStateWithLifecycle()
     val moodGenreShelves by viewModel.moodGenreShelves.collectAsStateWithLifecycle()
+    LaunchedEffect(context) { PersonalLibraryStore.initialize(context) }
+    val personalLibrary by PersonalLibraryStore.state.collectAsStateWithLifecycle()
     val libraryState by viewModel.library.collectAsStateWithLifecycle()
     val filter by viewModel.filter.collectAsStateWithLifecycle()
     val searchSource by viewModel.searchSource.collectAsStateWithLifecycle()
@@ -3664,20 +3669,61 @@ private fun BitChordApp(
                                     )
                                 },
                             )
-                            else -> PersonalLibraryScreen(
-                                contentPadding = listPadding,
-                                onPlaySong = { songs, index ->
-                                    playFrom(
-                                        songs,
-                                        index,
-                                        QueueSource(
-                                            context.getString(R.string.library),
-                                            PlaybackSourceType.BROWSE,
-                                            "personal-library",
-                                        ),
+                            else -> {
+                                var showAddPersonalArtist by remember { mutableStateOf(false) }
+                                Box(Modifier.fillMaxSize()) {
+                                    LibraryScreen(
+                                        signedIn = signedIn,
+                                        state = libraryState,
+                                        listState = libraryListState,
+                                        onShelfItemClick = onLibraryItemClick,
+                                        onShelfItemLongPress = onBrowseLongPress,
+                                        onNewPlaylist = { creatingPlaylist = true },
+                                        onImportSpotifyPlaylist = { showSpotifyImportDialog = true },
+                                        onShowAll = { shelf -> navigator.push(AppRoute.LibraryShowAll(shelf)) },
+                                        replay = {
+                                            LibraryReplayEntry(
+                                                cards = replayCards,
+                                                loading = replay.loading,
+                                                holder = account?.name.orEmpty(),
+                                                memberSince = replay.memberSince,
+                                                onOpenReplay = { page ->
+                                                    replayLandingPage = page
+                                                    navigator.push(AppRoute.Replay)
+                                                },
+                                            )
+                                        },
+                                        onSignIn = { webSession = WebSessionMode.SIGN_IN },
+                                        onRetry = viewModel::loadLibrary,
+                                        refreshing = MainViewModel.Feed.LIBRARY in refreshing,
+                                        onRefresh = { viewModel.refresh(MainViewModel.Feed.LIBRARY) },
+                                        pullState = libraryPull,
+                                        contentPadding = listPadding,
+                                        links = libraryLinks(),
+                                        deviceItems = libraryDeviceItems(downloadedReleases) + localPlaylistItems,
+                                        personalArtists = personalLibrary.artists.map { artist ->
+                                            ShelfItem(
+                                                title = artist.title,
+                                                subtitle = artist.subtitle,
+                                                thumbnailUrl = artist.thumbnailUrl,
+                                                videoId = null,
+                                                browseId = artist.browseId,
+                                            )
+                                        },
+                                        onAddPersonalArtist = { showAddPersonalArtist = true },
                                     )
-                                },
-                            )
+                                    if (showAddPersonalArtist) {
+                                        PersonalLibraryAddDialog(
+                                            mode = PersonalAddMode.ARTIST,
+                                            artists = emptyList(),
+                                            initialArtistId = null,
+                                            onDismiss = { showAddPersonalArtist = false },
+                                            onArtistAdded = { artist -> PersonalLibraryStore.addArtist(artist) },
+                                            onSongAdded = { _, _ -> },
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                     // A pushed page keeps its saved state — a scroll position,
