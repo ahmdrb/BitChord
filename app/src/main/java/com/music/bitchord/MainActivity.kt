@@ -180,6 +180,8 @@ import com.music.bitchord.ui.screens.HistoryScreen
 import com.music.bitchord.ui.screens.PersonalLibraryScreen
 import com.music.bitchord.ui.screens.PersonalAddMode
 import com.music.bitchord.ui.screens.PersonalLibraryAddDialog
+import com.music.bitchord.ui.screens.PersonalPlaylistCreateDialog
+import com.music.bitchord.ui.screens.PersonalPlaylistDetailDialog
 import com.music.bitchord.data.PersonalLibraryStore
 import com.music.bitchord.ui.screens.LibraryReplayEntry
 import com.music.bitchord.ui.screens.libraryDeviceItems
@@ -3673,6 +3675,9 @@ private fun BitChordApp(
                             )
                             else -> {
                                 var showAddPersonalArtist by remember { mutableStateOf(false) }
+                                var showAddPersonalPlaylist by remember { mutableStateOf(false) }
+                                var selectedPersonalPlaylistId by remember { mutableStateOf<String?>(null) }
+                                var addingSongToPersonalPlaylistId by remember { mutableStateOf<String?>(null) }
                                 Box(Modifier.fillMaxSize()) {
                                     LibraryScreen(
                                         signedIn = signedIn,
@@ -3680,8 +3685,28 @@ private fun BitChordApp(
                                         listState = libraryListState,
                                         onShelfItemClick = onLibraryItemClick,
                                         onShelfItemLongPress = onBrowseLongPress,
-                                        onNewPlaylist = { creatingPlaylist = true },
-                                        onImportSpotifyPlaylist = { showSpotifyImportDialog = true },
+                                        onAddPersonalPlaylist = { showAddPersonalPlaylist = true },
+                                        onPersonalPlaylistClick = { item ->
+                                            item.browseId
+                                                ?.removePrefix("bitchord-personal-playlist:")
+                                                ?.takeIf { it != item.browseId }
+                                                ?.let { selectedPersonalPlaylistId = it }
+                                        },
+                                        onPersonalPlaylistLongPress = { item ->
+                                            item.browseId
+                                                ?.removePrefix("bitchord-personal-playlist:")
+                                                ?.takeIf { it != item.browseId }
+                                                ?.let { selectedPersonalPlaylistId = it }
+                                        },
+                                        personalPlaylists = personalLibrary.playlists.map { playlist ->
+                                            ShelfItem(
+                                                title = playlist.title,
+                                                subtitle = "${playlist.songs.size} songs",
+                                                thumbnailUrl = playlist.songs.firstOrNull()?.thumbnailUrl,
+                                                videoId = null,
+                                                browseId = "bitchord-personal-playlist:${playlist.id}",
+                                            )
+                                        },
                                         onShowAll = { shelf -> navigator.push(AppRoute.LibraryShowAll(shelf)) },
                                         replay = {
                                             LibraryReplayEntry(
@@ -3722,6 +3747,54 @@ private fun BitChordApp(
                                             onDismiss = { showAddPersonalArtist = false },
                                             onArtistAdded = { artist -> PersonalLibraryStore.addArtist(artist) },
                                             onSongAdded = { _, _ -> },
+                                        )
+                                    }
+                                    if (showAddPersonalPlaylist) {
+                                        PersonalPlaylistCreateDialog(
+                                            onDismiss = { showAddPersonalPlaylist = false },
+                                            onCreate = PersonalLibraryStore::addPlaylist,
+                                        )
+                                    }
+                                    selectedPersonalPlaylistId?.let { playlistId ->
+                                        personalLibrary.playlists.firstOrNull { it.id == playlistId }?.let { playlist ->
+                                            PersonalPlaylistDetailDialog(
+                                                playlist = playlist,
+                                                onDismiss = { selectedPersonalPlaylistId = null },
+                                                onAddSongs = { addingSongToPersonalPlaylistId = playlistId },
+                                                onPlay = {
+                                                    if (playlist.songs.isNotEmpty()) {
+                                                        playFrom(
+                                                            playlist.songs,
+                                                            0,
+                                                            QueueSource(
+                                                                playlist.title,
+                                                                PlaybackSourceType.BROWSE,
+                                                                "personal-playlist:${playlist.id}",
+                                                            ),
+                                                        )
+                                                    }
+                                                },
+                                                onRemoveSong = { videoId ->
+                                                    PersonalLibraryStore.removeSongFromPlaylist(playlistId, videoId)
+                                                },
+                                                onDelete = {
+                                                    PersonalLibraryStore.removePlaylist(playlistId)
+                                                    selectedPersonalPlaylistId = null
+                                                },
+                                            )
+                                        } ?: run { selectedPersonalPlaylistId = null }
+                                    }
+                                    addingSongToPersonalPlaylistId?.let { playlistId ->
+                                        PersonalLibraryAddDialog(
+                                            mode = PersonalAddMode.SONG,
+                                            artists = personalLibrary.artists,
+                                            initialArtistId = null,
+                                            onDismiss = { addingSongToPersonalPlaylistId = null },
+                                            onArtistAdded = { },
+                                            onSongAdded = { song, artistIds ->
+                                                PersonalLibraryStore.addSong(song, artistIds)
+                                                PersonalLibraryStore.addSongToPlaylist(playlistId, song)
+                                            },
                                         )
                                     }
                                 }
