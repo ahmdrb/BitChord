@@ -50,7 +50,6 @@ import com.music.bitchord.data.model.LibraryPage
 import com.music.bitchord.data.model.ShelfItem
 import com.music.bitchord.data.model.UiState
 import com.music.bitchord.data.settings.LibrarySort
-import com.music.bitchord.ui.AppUi
 import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.components.LIBRARY_GRID_SPACING
 import com.music.bitchord.ui.components.MessageState
@@ -122,7 +121,6 @@ fun LibraryScreen(
     personalArtists: List<ShelfItem> = emptyList(),
     onAddPersonalArtist: () -> Unit = {},
 ) {
-    val pinnedPlaylists by AppUi.host.pinnedPlaylists.collectAsStateWithLifecycle()
     val onDevice = stringResource(Res.string.on_device)
     PullToRefresh(
         refreshing = refreshing,
@@ -146,23 +144,6 @@ fun LibraryScreen(
                 }
             }
             item(key = "replay") { replay() }
-            if (!signedIn) {
-                if (links.isNotEmpty()) {
-                    item(key = "links") { LibraryLinkList(links = links, onClick = onShelfItemClick) }
-                }
-                if (deviceItems.isNotEmpty()) {
-                    item(key = "shelf:$onDevice") {
-                        val onDeviceShelf = HomeShelf(title = onDevice, items = deviceItems)
-                        LibraryGridShelf(
-                            shelf = onDeviceShelf,
-                            onItemClick = onShelfItemClick,
-                            onItemLongPress = onShelfItemLongPress,
-                            onShowAll = { onShowAll(onDeviceShelf) },
-                        )
-                    }
-                }
-    
-            }
             if (!signedIn) {
                 item(key = "personal-playlists") {
                     PersonalPlaylistShelf(
@@ -266,9 +247,7 @@ fun LibraryScreen(
                 }
             }
             // Downloads and local music remain below the personal collections.
-            // Remote folders and device music follow the editable collections,
-            // so neither can push Artists / Playlists below the initial view.
-                if (links.isNotEmpty()) {
+            if (links.isNotEmpty()) {
                     item(key = "links") { LibraryLinkList(links = links, onClick = onShelfItemClick) }
                 }
                 if (deviceItems.isNotEmpty()) {
@@ -282,7 +261,6 @@ fun LibraryScreen(
                         )
                     }
                 }
-
         }
     }
 }
