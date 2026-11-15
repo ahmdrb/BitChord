@@ -28,6 +28,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -82,7 +83,7 @@ fun PersonalLibraryScreen(
 
     val visibleSongs = remember(collection.songs, selectedArtist) {
         if (selectedArtist == null) collection.songs
-        else collection.songs.filter { it.artistBrowseId == selectedArtist?.browseId }
+        else collection.songs.filter { selectedArtist?.browseId in it.artistBrowseIds }
     }
 
     LazyColumn(
@@ -279,7 +280,7 @@ fun PersonalLibraryScreen(
             initialArtistId = selectedArtist?.browseId,
             onDismiss = { addMode = null },
             onArtistAdded = { artist -> PersonalLibraryStore.addArtist(artist) },
-            onSongAdded = { song, artistId -> PersonalLibraryStore.addSong(song, artistId) },
+            onSongAdded = { song, artistIds -> PersonalLibraryStore.addSong(song, artistIds) },
         )
     }
 }
@@ -291,14 +292,16 @@ private fun PersonalLibraryAddDialog(
     initialArtistId: String?,
     onDismiss: () -> Unit,
     onArtistAdded: (BrowseItem) -> Unit,
-    onSongAdded: (Song, String?) -> Unit,
+    onSongAdded: (Song, Set<String>) -> Unit,
 ) {
     var query by remember(mode) { mutableStateOf("") }
     var loading by remember(mode) { mutableStateOf(false) }
     var searched by remember(mode) { mutableStateOf(false) }
     var songs by remember(mode) { mutableStateOf(emptyList<Song>()) }
     var artistResults by remember(mode) { mutableStateOf(emptyList<BrowseItem>()) }
-    var selectedArtistId by remember(mode, initialArtistId) { mutableStateOf(initialArtistId) }
+    var selectedArtistIds by remember(mode, initialArtistId) {
+        mutableStateOf(initialArtistId?.let(::setOf).orEmpty())
+    }
     var artistMenuOpen by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
@@ -350,25 +353,37 @@ private fun PersonalLibraryAddDialog(
                 if (mode == PersonalAddMode.SONG && artists.isNotEmpty()) {
                     Box {
                         TextButton(onClick = { artistMenuOpen = true }) {
-                            Text("Add to: ${artists.firstOrNull { it.browseId == selectedArtistId }?.title ?: "All songs"}")
+                            val selectedNames = artists.filter { it.browseId in selectedArtistIds }.map { it.title }
+                            Text("Add to: ${selectedNames.takeIf { it.isNotEmpty() }?.joinToString() ?: "No artist collection"}")
                         }
                         DropdownMenu(
                             expanded = artistMenuOpen,
                             onDismissRequest = { artistMenuOpen = false },
                         ) {
                             DropdownMenuItem(
-                                text = { Text("All songs") },
+                                text = { Text("No artist collection") },
                                 onClick = {
-                                    selectedArtistId = null
+                                    selectedArtistIds = emptySet()
                                     artistMenuOpen = false
                                 },
                             )
                             artists.forEach { artist ->
                                 DropdownMenuItem(
-                                    text = { Text(artist.title) },
+                                    text = {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Checkbox(
+                                                checked = artist.browseId in selectedArtistIds,
+                                                onCheckedChange = null,
+                                            )
+                                            Text(artist.title)
+                                        }
+                                    },
                                     onClick = {
-                                        selectedArtistId = artist.browseId
-                                        artistMenuOpen = false
+                                        selectedArtistIds = if (artist.browseId in selectedArtistIds) {
+                                            selectedArtistIds - artist.browseId
+                                        } else {
+                                            selectedArtistIds + artist.browseId
+                                        }
                                     },
                                 )
                             }
@@ -407,7 +422,7 @@ private fun PersonalLibraryAddDialog(
                             items(songs, key = { it.videoId }) { song ->
                                 Row(
                                     modifier = Modifier.fillMaxWidth().clickable {
-                                        onSongAdded(song, selectedArtistId)
+                                        onSongAdded(song, selectedArtistIds)
                                         onDismiss()
                                     }.padding(vertical = 10.dp),
                                     verticalAlignment = Alignment.CenterVertically,
