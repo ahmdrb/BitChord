@@ -1858,6 +1858,7 @@ fun NowPlayingScreen(
     val canvasTransitioningToMini = canvas != null && dock?.transitioningToMini == true
     SideEffect {
         dock?.revealMiniArtEarly = canvasTransitioningToMini
+        dock?.fullScreenCanvas = clipFullscreen
     }
     // The rest of the player gets out of the way a little ahead of the artwork,
     // so the cover lands on the bar rather than on a ghost of the player.
