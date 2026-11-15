@@ -748,6 +748,7 @@ private fun BitChordApp(
     var offlinePlaylistTarget by remember { mutableStateOf<Song?>(null) }
     var creatingOfflinePlaylist by remember { mutableStateOf(false) }
     var showSpotifyImportDialog by remember { mutableStateOf(false) }
+    var personalArtistMenuOpen by remember { mutableStateOf(false) }
     // Which album or playlist the collection menu is open on, or null when it
     // is shut. One slot for every surface that can open it — the shelves on
     // three tabs, the search rows, the artist page's carousels, the release
@@ -4102,6 +4103,35 @@ private fun BitChordApp(
                                             Icons.Rounded.MoreHoriz,
                                             contentDescription = stringResource(R.string.more),
                                             tint = MaterialTheme.colorScheme.onSurface,
+                                        )
+                                    }
+                                }
+                            }
+                            // A personal artist has its own delete action. It is deliberately
+                            // scoped to the curated collection and never calls YouTube's
+                            // channel or library APIs.
+                            if (detail != null && detail.type == BrowseType.ARTIST &&
+                                personalLibrary.artists.any { it.browseId == detail.browseId }
+                            ) {
+                                Box {
+                                    IconButton(onClick = { personalArtistMenuOpen = true }) {
+                                        Icon(
+                                            Icons.Rounded.MoreHoriz,
+                                            contentDescription = stringResource(R.string.more),
+                                            tint = MaterialTheme.colorScheme.onSurface,
+                                        )
+                                    }
+                                    DropdownMenu(
+                                        expanded = personalArtistMenuOpen,
+                                        onDismissRequest = { personalArtistMenuOpen = false },
+                                    ) {
+                                        DropdownMenuItem(
+                                            text = { Text("Delete artist") },
+                                            onClick = {
+                                                personalArtistMenuOpen = false
+                                                PersonalLibraryStore.removeArtist(detail.browseId)
+                                                viewModel.closeDetail()
+                                            },
                                         )
                                     }
                                 }
