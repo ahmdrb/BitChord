@@ -108,7 +108,11 @@ class PlayerDock {
      */
     /** True as soon as the sheet starts travelling down to the mini player. */
     var transitioningToMini by mutableStateOf(false)
-        internal set
+        private set
+
+    fun setTransitioningToMini(value: Boolean) {
+        transitioningToMini = value
+    }
 
     /** Reveal the already-mounted mini cover while full-screen Canvas has no moving sleeve. */
     var revealMiniArtEarly by mutableStateOf(false)
