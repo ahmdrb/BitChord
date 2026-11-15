@@ -189,6 +189,19 @@ fun LibraryScreen(
             when (state) {
                 is UiState.Loading -> {
                     librarySkeleton()
+                    // Keep the two editable collection shelves available while
+                    // the remote YouTube Music library is still loading.
+                    item(key = "shelf:$PLAYLISTS") {
+                        val emptyPlaylists = HomeShelf(PLAYLISTS, emptyList())
+                        PlaylistShelf(
+                            shelf = emptyPlaylists,
+                            onItemClick = onShelfItemClick,
+                            onItemLongPress = onShelfItemLongPress,
+                            onNewPlaylist = onNewPlaylist,
+                            onImportSpotifyPlaylist = onImportSpotifyPlaylist,
+                            onShowAll = { onShowAll(emptyPlaylists) },
+                        )
+                    }
                     item(key = "personal-artists") {
                         PersonalArtistShelf(
                             artists = personalArtists,
