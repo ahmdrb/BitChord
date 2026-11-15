@@ -4727,7 +4727,13 @@ private fun BitChordApp(
                 }
             }
             ModalBottomSheet(
-                onDismissRequest = { showNowPlaying = false },
+                onDismissRequest = {
+                    // The system back gesture can dismiss the sheet without going through
+                    // PlayerSheetMotion.close(); reveal the already-mounted cover before the
+                    // sheet starts leaving composition.
+                    playerDock.setTransitioningToMini(true)
+                    showNowPlaying = false
+                },
                 sheetState = nowPlayingSheetState,
                 // None of M3's: it follows the sheet's own animation, which is
                 // no longer what moves the player. The player draws its own,
