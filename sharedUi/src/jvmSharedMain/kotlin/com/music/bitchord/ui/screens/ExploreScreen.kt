@@ -195,7 +195,7 @@ fun MoodGenreSleeve(
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
-                .align(Alignment.CenterStart)
+                .align(Alignment.BottomStart)
                 .padding(horizontal = 16.dp, vertical = 12.dp),
         )
     }
