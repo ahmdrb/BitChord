@@ -115,7 +115,7 @@ private val LegacyTypography = Typography(
     displayLarge = TextStyle(fontWeight = FontWeight.W600, fontSize = 34.sp, letterSpacing = 0.05.sp),
     headlineLarge = TextStyle(fontWeight = FontWeight.W600, fontSize = 30.sp, letterSpacing = 0.15.sp),
     headlineMedium = TextStyle(fontWeight = FontWeight.W500, fontSize = 22.sp, letterSpacing = 0.15.sp),
-    titleLarge = TextStyle(fontWeight = FontWeight.W500, fontSize = 20.sp, letterSpacing = 0.15.sp),
+    titleLarge = TextStyle(fontWeight = FontWeight.W600, fontSize = 20.sp, letterSpacing = 0.15.sp),
     titleMedium = TextStyle(fontWeight = FontWeight.W600, fontSize = 16.sp, letterSpacing = 0.2.sp),
     bodyLarge = TextStyle(fontWeight = FontWeight.W400, fontSize = 16.sp, letterSpacing = 0.2.sp),
     bodyMedium = TextStyle(fontWeight = FontWeight.W400, fontSize = 14.sp, letterSpacing = 0.3.sp),
