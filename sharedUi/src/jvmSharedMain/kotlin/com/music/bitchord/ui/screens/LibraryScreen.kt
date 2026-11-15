@@ -378,21 +378,34 @@ private fun PlaylistShelf(
     onShowAll: () -> Unit,
     pinnedPlaylists: List<String> = emptyList(),
 ) {
-    LibraryGridShelf(
-        shelf = shelf,
-        onItemClick = onItemClick,
-        onItemLongPress = onItemLongPress,
-        onShowAll = onShowAll,
-        pinnedPlaylists = pinnedPlaylists,
-        leadingCard = {
-            Row(horizontalArrangement = Arrangement.spacedBy(LIBRARY_GRID_SPACING)) {
-                NewShelfCard(
-                    icon = BitChordIcons.Plus,
-                    label = stringResource(Res.string.new_playlist),
-                    subtitle = stringResource(Res.string.saved_to_youtube_music),
-                    onClick = onNewPlaylist,
-                )
-                if (onImportSpotifyPlaylist != null) {
+    val importCount = if (onImportSpotifyPlaylist != null) 1 else 0
+    val visibleItems = shelf.items.take((LIBRARY_ROW_MAX_ITEMS - importCount).coerceAtLeast(0))
+    Column(Modifier.padding(bottom = 26.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = PAGE_GUTTER),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(shelf.title, style = MaterialTheme.typography.titleLarge)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (shelf.items.size + importCount > LIBRARY_ROW_MAX_ITEMS) {
+                    androidx.compose.material3.TextButton(onClick = onShowAll) {
+                        Text(stringResource(Res.string.show_all))
+                    }
+                }
+                androidx.compose.material3.IconButton(onClick = onNewPlaylist) {
+                    Icon(BitChordIcons.Plus, contentDescription = "Create playlist")
+                }
+            }
+        }
+        ShelfRow(
+            contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
+            horizontalArrangement = Arrangement.spacedBy(LIBRARY_GRID_SPACING),
+        ) {
+            if (onImportSpotifyPlaylist != null) {
+                item(key = "import-spotify") {
                     NewShelfCard(
                         icon = BitChordIcons.Download,
                         label = stringResource(Res.string.import_spotify),
@@ -402,8 +415,16 @@ private fun PlaylistShelf(
                     )
                 }
             }
-        },
-    )
+            items(visibleItems, key = { it.browseId ?: it.title }) { item ->
+                ShelfCard(
+                    item = item,
+                    onClick = { onItemClick(item) },
+                    onLongPress = { onItemLongPress(item) },
+                    isPinned = item.browseId != null && item.browseId in pinnedPlaylists,
+                )
+            }
+        }
+    }
 }
 
 /** A Library shelf's preview row never swipes past this many cards. */
