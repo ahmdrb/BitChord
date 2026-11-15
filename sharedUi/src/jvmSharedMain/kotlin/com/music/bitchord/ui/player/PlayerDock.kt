@@ -57,6 +57,10 @@ class PlayerDock {
     var attached by mutableStateOf(false)
         internal set
 
+    /** The full-screen Canvas has no scrollable content to claim a downward sheet drag. */
+    var fullScreenCanvas by mutableStateOf(false)
+        internal set
+
     /** Reported by the mini player's cover whenever it is placed. */
     fun reportMiniArt(coordinates: LayoutCoordinates, corner: Dp) {
         miniArt = coordinates
