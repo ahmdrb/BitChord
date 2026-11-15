@@ -114,7 +114,7 @@ object PersonalLibraryStore {
                             put("durationText", song.durationText ?: JSONObject.NULL)
                             put("artistId", song.artistId ?: JSONObject.NULL)
                             put("personalArtistIds", JSONArray().apply {
-                                entry.artistBrowseIds.forEach(::put)
+                                entry.artistBrowseIds.forEach { artistId -> put(artistId) }
                             })
                         })
                     }
@@ -154,8 +154,8 @@ object PersonalLibraryStore {
                         artistId = item.nullableString("artistId"),
                     ),
                     artistBrowseIds = item.optJSONArray("personalArtistIds")?.let { ids ->
-                        (0 until ids.length()).mapNotNull { ids.optString(it).takeIf(String::isNotBlank) }.toSet()
-                    } ?: item.nullableString("personalArtistId")?.let(::setOf).orEmpty(),
+                        (0 until ids.length()).mapNotNull { ids.optString(it).takeIf { artistId -> artistId.isNotBlank() } }.toSet()
+                    } ?: item.nullableString("personalArtistId")?.let { setOf(it) }.orEmpty(),
                 )
             }
         }.getOrDefault(emptyList())
