@@ -3794,7 +3794,7 @@ private fun BitChordApp(
                                                     selectedPersonalArtistId = null
                                                 },
                                             )
-                                        } ?: run { selectedPersonalArtistId = null }
+                                        }
                                     }
                                     selectedPersonalPlaylistId?.let { playlistId ->
                                         personalLibrary.playlists.firstOrNull { it.id == playlistId }?.let { playlist ->
@@ -3823,7 +3823,7 @@ private fun BitChordApp(
                                                     selectedPersonalPlaylistId = null
                                                 },
                                             )
-                                        } ?: run { selectedPersonalPlaylistId = null }
+                                        }
                                     }
                                     addingSongToPersonalPlaylistId?.let { playlistId ->
                                         PersonalLibraryAddDialog(
