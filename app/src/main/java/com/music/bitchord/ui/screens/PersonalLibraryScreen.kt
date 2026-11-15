@@ -260,7 +260,11 @@ fun PersonalLibraryScreen(
                         Text(entry.song.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(entry.song.artist, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    IconButton(onClick = { PersonalLibraryStore.removeSong(entry.song.videoId) }) {
+                    IconButton(onClick = {
+                        val artistId = selectedArtist?.browseId
+                        if (artistId == null) PersonalLibraryStore.removeSong(entry.song.videoId)
+                        else PersonalLibraryStore.removeSongFromArtist(entry.song.videoId, artistId)
+                    }) {
                         Icon(Icons.Rounded.Close, contentDescription = "Remove song")
                     }
                 }
