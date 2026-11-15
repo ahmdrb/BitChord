@@ -304,7 +304,7 @@ class PlayerSheetMotion(
         // A flick decides on its own, either way; otherwise it is where the
         // finger left it.
         val open = if (flick) speed < 0f else held < travel / 2f
-        dock.transitioningToMini = !open
+        dock.setTransitioningToMini(!open)
         if (!open) {
             closing = true
             quietWindow()
