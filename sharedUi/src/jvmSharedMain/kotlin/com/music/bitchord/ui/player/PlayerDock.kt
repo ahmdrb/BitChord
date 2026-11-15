@@ -106,7 +106,11 @@ class PlayerDock {
      * revealed as the sleeve fades over the final 15% of the trip — before the
      * sheet lands, so the cover is already in place when the bar is fully shown.
      */
-    /** Reveal the already-mounted mini cover from the start when full-screen Canvas has no moving sleeve. */
+    /** True as soon as the sheet starts travelling down to the mini player. */
+    var transitioningToMini by mutableStateOf(false)
+        internal set
+
+    /** Reveal the already-mounted mini cover while full-screen Canvas has no moving sleeve. */
     var revealMiniArtEarly by mutableStateOf(false)
         internal set
 
