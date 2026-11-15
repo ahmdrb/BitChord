@@ -3915,8 +3915,10 @@ fun NowPlayingScreen(
                                         active = lyricsPanelVisible,
                                         onSeekToLine = seekToLyric,
                                         controlsOpen = lyricsControlsOpen,
-                                        onRevealControls = { lyricsControlsOpen = true },
-                                        onHideControls = { lyricsControlsOpen = false },
+                                        // The reader controls this layout only with the
+                                        // header's manual expand/collapse button.
+                                        onRevealControls = {},
+                                        onHideControls = {},
                                         translationProgress = particleProgress,
                                         onScrollingChange = { lyricsScrolling = it },
                                         canPick = lyricsShareEnabled,
