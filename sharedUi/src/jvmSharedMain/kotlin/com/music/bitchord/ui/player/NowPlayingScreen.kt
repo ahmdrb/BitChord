@@ -1852,11 +1852,23 @@ fun NowPlayingScreen(
     // the trip, as for the collapse into the lyrics or the queue; a paused
     // clip keeps its last frame, so nothing blinks.
     val dockMoving by remember { derivedStateOf { docking() } }
+    // Watch the sheet's actual offset so a finger drag switches artwork on
+    // its first frame, not only once Material's sheet decides to dismiss.
+    LaunchedEffect(dock) {
+        if (dock != null) {
+            var previous = dock.openFraction()
+            snapshotFlow { dock.openFraction() }.collectLatest { fraction ->
+                if (fraction < previous - 0.0005f) dock.setTransitioningToMini(true)
+                else if (fraction > previous + 0.0005f) dock.setTransitioningToMini(false)
+                previous = fraction
+            }
+        }
+    }
     // Full-screen Spotify Canvas has no sleeve to carry into the mini-player.
-    // Its cover is already mounted underneath the sheet, so reveal it as soon
-    // as the sheet starts moving instead of waiting for the final 15% hand-off.
+    // Its cover is already mounted underneath the sheet, so reveal it from the
+    // first frame of a downward transition.
     SideEffect {
-        dock?.revealMiniArtEarly = clipFullscreen && dock.transitioningToMini
+        dock?.revealMiniArtEarly = clipFullscreen && dock?.transitioningToMini == true
     }
     // The rest of the player gets out of the way a little ahead of the artwork,
     // so the cover lands on the bar rather than on a ghost of the player.
