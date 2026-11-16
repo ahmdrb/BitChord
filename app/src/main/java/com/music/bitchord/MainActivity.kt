@@ -5360,22 +5360,32 @@ private fun BitChordApp(
         if (showPersonalYtImportDialog) {
             BackHandler { showPersonalYtImportDialog = false }
             PersonalYouTubeMusicImportDialog(
-                playlists = playlists,
-                loading = playlistsLoading || personalYtImportBusy,
-                signedIn = signedIn,
-                onRefresh = { viewModel.loadPlaylists() },
-                onSignIn = { showPersonalYtImportDialog = false; webSession = WebSessionMode.SIGN_IN },
-                onImport = { source ->
-                    personalYtImportBusy = true
-                    personalPlaylistImportScope.launch {
-                        YtMusicRepository.playlistEntries(source.browseId).onSuccess { songs ->
-                            PersonalLibraryStore.addPlaylistWithSongs(source.title, songs)
-                            showQueueNotice("Imported ${songs.size} songs into BitChord Personal Playlists")
-                            showPersonalYtImportDialog = false
-                        }.onFailure { error ->
-                            showQueueNotice("Couldn't import playlist: ${error.message ?: "Please try again."}")
+                loading = personalYtImportBusy,
+                onImport = { link ->
+                    val listId = Regex("(?:[?&]list=)([A-Za-z0-9_-]+)")
+                        .find(link)?.groupValues?.get(1)
+                        ?: link.trim().removePrefix("VL").takeIf { it.matches(Regex("[A-Za-z0-9_-]{8,}")) }
+                    if (listId == null) {
+                        showQueueNotice("Paste a valid YouTube Music playlist link.")
+                    } else {
+                        val browseId = if (link.trim().startsWith("VL")) link.trim() else "VL$listId"
+                        val source = playlists.firstOrNull {
+                            it.playlistId == listId || it.browseId == browseId
                         }
-                        personalYtImportBusy = false
+                        personalYtImportBusy = true
+                        personalPlaylistImportScope.launch {
+                            YtMusicRepository.playlistEntries(source?.browseId ?: browseId).onSuccess { songs ->
+                                PersonalLibraryStore.addPlaylistWithSongs(
+                                    source?.title ?: "YouTube Music Import",
+                                    songs,
+                                )
+                                showQueueNotice("Imported ${songs.size} songs into BitChord Personal Playlists")
+                                showPersonalYtImportDialog = false
+                            }.onFailure { error ->
+                                showQueueNotice("Couldn't import playlist: ${error.message ?: "Please try again."}")
+                            }
+                            personalYtImportBusy = false
+                        }
                     }
                 },
                 onDismiss = { showPersonalYtImportDialog = false },
