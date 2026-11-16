@@ -752,10 +752,13 @@ private fun BitChordApp(
     var creatingOfflinePlaylist by remember { mutableStateOf(false) }
     var showSpotifyImportDialog by remember { mutableStateOf(false) }
     var personalPlaylistArtworkTarget by remember { mutableStateOf<String?>(null) }
+    val personalArtworkScope = rememberCoroutineScope()
     val personalPlaylistArtworkPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         val playlistId = personalPlaylistArtworkTarget
         if (uri != null && playlistId != null) {
-            PersonalLibraryStore.savePlaylistArtwork(context, playlistId, uri)
+            personalArtworkScope.launch(Dispatchers.IO) {
+                PersonalLibraryStore.savePlaylistArtwork(context, playlistId, uri)
+            }
         }
         personalPlaylistArtworkTarget = null
     }
