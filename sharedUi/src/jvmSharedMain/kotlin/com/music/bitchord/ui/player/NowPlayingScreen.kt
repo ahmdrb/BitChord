@@ -1448,7 +1448,16 @@ fun NowPlayingScreen(
     // its opacity on exactly what is mounted here: both are decided in the same
     // composition pass, so the still art is whole again in the very frame the
     // clip goes, rather than a frame later with no artwork anywhere.
-    val heroClip = canvas?.takeIf { heroMode && !collapsePastHalf }
+    // A full-screen Spotify Canvas has no sleeve to dock into. As soon as the
+    // sheet begins its downward handoff, remove the Canvas surface itself so
+    // the page and the already-mounted mini-player cover are visible from the
+    // first dismissal frame. The Canvas model and playback position remain
+    // owned by the player, so reopening restores it without touching lyrics.
+    val hideFullscreenCanvasForDock =
+        spotifyCanvasOnPhone && LocalPlayerDock.current?.transitioningToMini == true
+    val heroClip = canvas?.takeIf {
+        heroMode && !collapsePastHalf && !hideFullscreenCanvasForDock
+    }
     val spotifyCanvasFullscreen = spotifyCanvasOnPhone &&
         heroClip?.source == CanvasSource.SPOTIFY
     val spotifyCanvasPresentation = spotifyCanvasFullscreen && canvasRendered
@@ -1467,7 +1476,8 @@ fun NowPlayingScreen(
     // off that, its last few frames would resize the view and rebuild its
     // fade for a picture nobody can see.
     val heroClipMounted = canvas?.takeIf {
-        heroMode && (!(lyricsOpen || queueOpen) || !collapseDone)
+        heroMode && (!(lyricsOpen || queueOpen) || !collapseDone) &&
+            !hideFullscreenCanvasForDock
     }
     val clipFullscreen = spotifyCanvasOnPhone &&
         heroClipMounted?.source == CanvasSource.SPOTIFY
@@ -3829,7 +3839,7 @@ fun NowPlayingScreen(
                                     icon = if (lyricsControlsOpen) Icons.Rounded.Fullscreen else Icons.Rounded.FullscreenExit,
                                     contentDescription = if (lyricsControlsOpen) "Expand lyrics" else "Restore player controls",
                                     onClick = { lyricsControlsOpen = !lyricsControlsOpen },
-                                    active = !lyricsControlsOpen,
+                                    active = false,
                                     haptic = Haptic.Select,
                                 )
                                 Spacer(Modifier.width(8.dp))
