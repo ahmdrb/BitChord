@@ -142,6 +142,7 @@ import com.music.bitchord.data.canvas.ArtistSignature
 import com.music.bitchord.data.canvas.ArtistSignatureRepository
 import com.music.bitchord.data.canvas.SignatureInkTransformation
 import com.music.bitchord.data.canvas.keyColors
+import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 import com.music.bitchord.data.canvas.CanvasArtwork
@@ -918,8 +919,10 @@ fun DetailScreen(
     if (showPersonalSongPicker && isPersonalArtist) {
         PersonalLibraryAddDialog(
             mode = PersonalAddMode.SONG,
+            hazeState = remember { HazeState() },
             artists = personalLibrary.artists,
             initialArtistId = page.browseId,
+            artwork = page.thumbnailUrl,
             onDismiss = { showPersonalSongPicker = false },
             onArtistAdded = {},
             onSongAdded = { song, artistIds -> PersonalLibraryStore.addSong(song, artistIds) },
