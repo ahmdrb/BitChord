@@ -1,6 +1,8 @@
 package com.music.bitchord.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.blur
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,6 +29,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -64,6 +67,8 @@ import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.SearchFilter
 import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.model.artworkAt
+import com.music.bitchord.ui.theme.rememberArtworkPalette
 import com.music.bitchord.ui.components.PAGE_GUTTER
 import com.music.bitchord.ui.icons.BitChordIcons
 import kotlinx.coroutines.launch
@@ -78,6 +83,7 @@ internal fun PersonalArtistDetailDialog(
     onAddSongs: () -> Unit,
     onPlay: () -> Unit,
     onShuffle: () -> Unit,
+    onSongClick: (Song) -> Unit,
     onRemoveSong: (String) -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -90,6 +96,7 @@ internal fun PersonalArtistDetailDialog(
         onAddSongs = onAddSongs,
         onPlay = onPlay,
         onShuffle = onShuffle,
+        onSongClick = onSongClick,
         onRemoveSong = onRemoveSong,
         onDelete = onDelete,
     )
@@ -134,6 +141,7 @@ internal fun PersonalPlaylistDetailDialog(
     onAddSongs: () -> Unit,
     onPlay: () -> Unit,
     onShuffle: () -> Unit,
+    onSongClick: (Song) -> Unit,
     onRemoveSong: (String) -> Unit,
     onDelete: () -> Unit,
     onCustomizeArtwork: () -> Unit,
@@ -147,6 +155,7 @@ internal fun PersonalPlaylistDetailDialog(
         onAddSongs = onAddSongs,
         onPlay = onPlay,
         onShuffle = onShuffle,
+        onSongClick = onSongClick,
         onRemoveSong = onRemoveSong,
         onDelete = onDelete,
         onCustomizeArtwork = onCustomizeArtwork,
@@ -163,177 +172,270 @@ private fun PersonalCollectionDetailDialog(
     onAddSongs: () -> Unit,
     onPlay: () -> Unit,
     onShuffle: () -> Unit,
+    onSongClick: (Song) -> Unit,
     onRemoveSong: (String) -> Unit,
     onDelete: () -> Unit,
     onCustomizeArtwork: (() -> Unit)? = null,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
+    var sortMenuOpen by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var songMenuVideoId by remember { mutableStateOf<String?>(null) }
+    var searchOpen by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    var sortMode by remember { mutableStateOf("Default") }
+
+    val artworkUrl = artwork?.toString()
+    val palette = rememberArtworkPalette(artworkUrl)
+    val visibleSongs = remember(songs, searchQuery, sortMode) {
+        val filtered = songs.filter {
+            searchQuery.isBlank() ||
+                it.title.contains(searchQuery, ignoreCase = true) ||
+                it.artist.contains(searchQuery, ignoreCase = true)
+        }
+        when (sortMode) {
+            "Title" -> filtered.sortedBy { it.title.lowercase() }
+            "Artist" -> filtered.sortedBy { it.artist.lowercase() }
+            "Duration" -> filtered.sortedBy { it.durationText.orEmpty() }
+            else -> filtered
+        }
+    }
+
     androidx.compose.ui.window.Dialog(
         onDismissRequest = onDismiss,
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        Column(
-            Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
-            horizontalAlignment = Alignment.CenterHorizontally,
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(listOf(palette.background, palette.wash)),
+            ),
         ) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = onDismiss) {
-                    Icon(Icons.Rounded.ArrowBack, contentDescription = "Back")
-                }
-                Spacer(Modifier.weight(1f))
-                Box {
-                    IconButton(onClick = { menuOpen = true }) {
-                        Icon(Icons.Rounded.MoreHoriz, contentDescription = "More options")
-                    }
-                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                        if (onCustomizeArtwork != null) {
-                            DropdownMenuItem(
-                                text = { Text("Customize artwork") },
-                                onClick = {
-                                    menuOpen = false
-                                    onCustomizeArtwork()
-                                },
-                            )
-                        }
-                        DropdownMenuItem(
-                            text = { Text("Delete $collectionKind") },
-                            onClick = {
-                                menuOpen = false
-                                confirmDelete = true
-                            },
-                        )
-                    }
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-            Box(
-                Modifier.fillMaxWidth().padding(horizontal = 42.dp).aspectRatio(1f)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-            ) {
-                if (artwork != null) {
-                    AsyncImage(
-                        model = artwork,
-                        contentDescription = "$title artwork",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
-            }
-            Spacer(Modifier.height(22.dp))
-            Text(
-                title,
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onBackground,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                "${songs.size} ${if (songs.size == 1) "song" else "songs"}",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            val trackCount = if (songs.size == 1) "1 Track" else "${songs.size} Tracks"
-            val duration = collectionDurationLabel(songs)
-            Text(
-                if (duration == null) trackCount else "$trackCount · $duration",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(22.dp))
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                IconButton(
-                    onClick = onShuffle,
-                    enabled = songs.isNotEmpty(),
-                    modifier = Modifier.size(54.dp).background(
-                        MaterialTheme.colorScheme.surfaceVariant,
-                        RoundedCornerShape(50),
-                    ),
-                ) {
-                    Icon(BitChordIcons.Shuffle, contentDescription = "Shuffle")
-                }
-                Button(
-                    onClick = onPlay,
-                    enabled = songs.isNotEmpty(),
-                    modifier = Modifier.weight(1f).height(54.dp),
-                    shape = RoundedCornerShape(50),
-                ) {
-                    Icon(BitChordIcons.Play, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Play")
-                }
-                IconButton(
-                    onClick = onAddSongs,
-                    modifier = Modifier.size(54.dp).background(
-                        MaterialTheme.colorScheme.surfaceVariant,
-                        RoundedCornerShape(50),
-                    ),
-                ) {
-                    Icon(Icons.Rounded.Add, contentDescription = "Add songs")
-                }
-            }
-            Spacer(Modifier.height(18.dp))
-            if (songs.isEmpty()) {
-                Text(
-                    "Songs you add to this BitChord $collectionKind collection will appear here.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(24.dp),
+            if (artworkUrl != null) {
+                AsyncImage(
+                    model = artworkUrl.artworkAt(1200),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize().blur(42.dp).alpha(0.20f),
                 )
-            } else {
-                LazyColumn(
-                    Modifier.fillMaxWidth().weight(1f),
-                    contentPadding = PaddingValues(start = 20.dp, end = 12.dp, bottom = 24.dp),
+            }
+            Column(
+                Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    items(songs, key = { it.videoId }) { song ->
-                        Row(
-                            Modifier.fillMaxWidth().heightIn(min = 68.dp),
-                            verticalAlignment = Alignment.CenterVertically,
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(44.dp).background(palette.elevated, RoundedCornerShape(50))
+                            .border(1.dp, palette.divider, RoundedCornerShape(50)),
+                    ) {
+                        Icon(Icons.Rounded.ArrowBack, contentDescription = "Back", tint = palette.onBackground)
+                    }
+                    Spacer(Modifier.weight(1f))
+                    IconButton(
+                        onClick = { searchOpen = !searchOpen; if (!searchOpen) searchQuery = "" },
+                        modifier = Modifier.size(44.dp).background(palette.elevated, RoundedCornerShape(50))
+                            .border(1.dp, palette.divider, RoundedCornerShape(50)),
+                    ) {
+                        Icon(Icons.Rounded.Search, contentDescription = "Search songs", tint = palette.onBackground)
+                    }
+                    Box {
+                        IconButton(
+                            onClick = { sortMenuOpen = true },
+                            modifier = Modifier.size(44.dp).background(palette.elevated, RoundedCornerShape(50))
+                                .border(1.dp, palette.divider, RoundedCornerShape(50)),
                         ) {
-                            AsyncImage(
-                                model = song.thumbnailUrl,
-                                contentDescription = null,
-                                modifier = Modifier.size(54.dp).clip(RoundedCornerShape(7.dp)),
-                                contentScale = ContentScale.Crop,
-                            )
-                            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                                Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(
-                                    song.artist,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
+                            Icon(Icons.Rounded.FilterList, contentDescription = "Sort songs", tint = palette.onBackground)
+                        }
+                        DropdownMenu(expanded = sortMenuOpen, onDismissRequest = { sortMenuOpen = false }) {
+                            listOf("Default", "Title", "Artist", "Duration").forEach { option ->
+                                DropdownMenuItem(
+                                    text = { Text(if (sortMode == option) "✓ $option" else option) },
+                                    onClick = { sortMode = option; sortMenuOpen = false },
                                 )
                             }
-                            Text(
-                                song.durationText.orEmpty(),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        }
+                    }
+                    Box {
+                        IconButton(
+                            onClick = { menuOpen = true },
+                            modifier = Modifier.size(44.dp).background(palette.elevated, RoundedCornerShape(50))
+                                .border(1.dp, palette.divider, RoundedCornerShape(50)),
+                        ) {
+                            Icon(Icons.Rounded.MoreHoriz, contentDescription = "More options", tint = palette.onBackground)
+                        }
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            if (onCustomizeArtwork != null) {
+                                DropdownMenuItem(
+                                    text = { Text("Customize artwork") },
+                                    onClick = { menuOpen = false; onCustomizeArtwork() },
+                                )
+                            }
+                            DropdownMenuItem(
+                                text = { Text("Delete $collectionKind") },
+                                onClick = { menuOpen = false; confirmDelete = true },
                             )
-                            Box {
-                                IconButton(onClick = { songMenuVideoId = song.videoId }) {
-                                    Icon(Icons.Rounded.MoreVert, contentDescription = "Song options")
-                                }
-                                DropdownMenu(
-                                    expanded = songMenuVideoId == song.videoId,
-                                    onDismissRequest = { songMenuVideoId = null },
-                                ) {
-                                    DropdownMenuItem(
-                                        text = { Text("Remove from collection") },
-                                        onClick = {
-                                            songMenuVideoId = null
-                                            onRemoveSong(song.videoId)
-                                        },
+                        }
+                    }
+                }
+
+                if (searchOpen) {
+                    androidx.compose.material3.OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 4.dp),
+                        singleLine = true,
+                        placeholder = { Text("Search songs") },
+                    )
+                }
+
+                LazyColumn(
+                    Modifier.fillMaxWidth().weight(1f),
+                    contentPadding = PaddingValues(bottom = 28.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    item {
+                        Spacer(Modifier.height(8.dp))
+                        Box(
+                            Modifier.fillMaxWidth().padding(horizontal = 42.dp).aspectRatio(1f)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(palette.elevated),
+                        ) {
+                            if (artworkUrl != null) {
+                                AsyncImage(
+                                    model = artworkUrl.artworkAt(1200),
+                                    contentDescription = "$title artwork",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(20.dp))
+                        Text(
+                            title,
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = palette.onBackground,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            "${songs.size} ${if (songs.size == 1) "song" else "songs"}",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = palette.onBackgroundVariant,
+                        )
+                        val trackCount = if (songs.size == 1) "1 Track" else "${songs.size} Tracks"
+                        val duration = collectionDurationLabel(songs)
+                        Text(
+                            if (duration == null) trackCount else "$trackCount · $duration",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = palette.onBackgroundVariant,
+                        )
+                        Spacer(Modifier.height(22.dp))
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            IconButton(
+                                onClick = onShuffle,
+                                enabled = songs.isNotEmpty(),
+                                modifier = Modifier.size(56.dp).background(palette.elevated, RoundedCornerShape(50))
+                                    .border(1.dp, palette.divider, RoundedCornerShape(50)),
+                            ) {
+                                Icon(BitChordIcons.Shuffle, contentDescription = "Shuffle", tint = palette.accent)
+                            }
+                            androidx.compose.material3.Button(
+                                onClick = onPlay,
+                                enabled = songs.isNotEmpty(),
+                                modifier = Modifier.weight(1f).height(56.dp),
+                                shape = RoundedCornerShape(50),
+                                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                    containerColor = Color.White,
+                                    contentColor = Color.Black,
+                                    disabledContainerColor = Color.White.copy(alpha = 0.45f),
+                                    disabledContentColor = Color.Black.copy(alpha = 0.55f),
+                                ),
+                            ) {
+                                Icon(BitChordIcons.Play, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Play")
+                            }
+                            IconButton(
+                                onClick = onAddSongs,
+                                modifier = Modifier.size(56.dp).background(palette.elevated, RoundedCornerShape(50))
+                                    .border(1.dp, palette.divider, RoundedCornerShape(50)),
+                            ) {
+                                Icon(Icons.Rounded.Add, contentDescription = "Add songs", tint = palette.accent)
+                            }
+                        }
+                        Spacer(Modifier.height(18.dp))
+                    }
+
+                    if (visibleSongs.isEmpty()) {
+                        item {
+                            Text(
+                                if (songs.isEmpty()) {
+                                    "Songs you add to this BitChord $collectionKind collection will appear here."
+                                } else {
+                                    "No matching songs."
+                                },
+                                color = palette.onBackgroundVariant,
+                                modifier = Modifier.padding(24.dp),
+                            )
+                        }
+                    } else {
+                        items(visibleSongs, key = { it.videoId }) { song ->
+                            Row(
+                                Modifier.fillMaxWidth().heightIn(min = 72.dp)
+                                    .clickable { onSongClick(song) }
+                                    .padding(start = 24.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                AsyncImage(
+                                    model = song.thumbnailUrl.artworkAt(512),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(56.dp).clip(RoundedCornerShape(8.dp)),
+                                    contentScale = ContentScale.Crop,
+                                )
+                                Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                                    Text(
+                                        song.title,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = palette.onBackground,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
                                     )
+                                    Text(
+                                        song.artist,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = palette.onBackgroundVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                                Text(
+                                    song.durationText.orEmpty(),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = palette.onBackgroundVariant,
+                                )
+                                Box {
+                                    IconButton(onClick = { songMenuVideoId = song.videoId }) {
+                                        Icon(Icons.Rounded.MoreVert, contentDescription = "Song options", tint = palette.onBackground)
+                                    }
+                                    DropdownMenu(
+                                        expanded = songMenuVideoId == song.videoId,
+                                        onDismissRequest = { songMenuVideoId = null },
+                                    ) {
+                                        DropdownMenuItem(
+                                            text = { Text("Remove from collection") },
+                                            onClick = {
+                                                songMenuVideoId = null
+                                                onRemoveSong(song.videoId)
+                                            },
+                                        )
+                                    }
                                 }
                             }
                         }
