@@ -128,6 +128,13 @@ fun LibraryScreen(
             }
             item(key = "replay") { replay() }
 
+            // Keep Downloads and Local Music directly beneath Replay, before personal collections.
+            if (links.isNotEmpty()) {
+                item(key = "links") {
+                    LibraryLinkList(links = links, onClick = onShelfItemClick)
+                }
+            }
+
             if (!signedIn) {
                 item(key = "personal-playlists") {
                     PersonalPlaylistShelf(
@@ -235,12 +242,6 @@ fun LibraryScreen(
                 }
             }
 
-            // Downloads, Local Music and device folders stay below the personal collections.
-            if (links.isNotEmpty()) {
-                item(key = "links") {
-                    LibraryLinkList(links = links, onClick = onShelfItemClick)
-                }
-            }
             if (deviceItems.isNotEmpty()) {
                 item(key = "shelf:$onDevice") {
                     val onDeviceShelf = HomeShelf(title = onDevice, items = deviceItems)
@@ -326,7 +327,7 @@ private val LINK_ICON_GAP = 16.dp
 
 /**
  * BitChord's own playlists, not the YouTube Music account's playlist shelf.
- * The header and small add action keep the existing Library shelf treatment.
+ * Tapping the section heading opens the create-playlist action.
  */
 @Composable
 private fun PersonalPlaylistShelf(
@@ -348,18 +349,8 @@ private fun PersonalPlaylistShelf(
                 "Playlists",
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.clickable(onClick = onAdd),
             )
-            androidx.compose.material3.IconButton(
-                onClick = onAdd,
-                modifier = Modifier.size(36.dp),
-            ) {
-                Icon(
-                    BitChordIcons.Plus,
-                    contentDescription = "Create personal playlist",
-                    tint = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
         }
         if (playlists.isNotEmpty() || onImportSpotifyPlaylist != null) {
             ShelfRow(
@@ -391,7 +382,7 @@ private fun PersonalPlaylistShelf(
 
 /**
  * The original Library shelf treatment, with only its artist contents made
- * personal. The add action lives beside the heading rather than as a new card.
+ * personal. Tapping the section heading opens the add-artist action.
  */
 @Composable
 private fun PersonalArtistShelf(
@@ -411,18 +402,8 @@ private fun PersonalArtistShelf(
                 "Artists",
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.clickable(onClick = onAdd),
             )
-            androidx.compose.material3.IconButton(
-                onClick = onAdd,
-                modifier = Modifier.size(36.dp),
-            ) {
-                Icon(
-                    BitChordIcons.Plus,
-                    contentDescription = "Add artist",
-                    tint = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
         }
         if (artists.isNotEmpty()) {
             ShelfRow(
