@@ -362,7 +362,6 @@ private fun PersonalPlaylistShelf(
             }
         }
         if (playlists.isNotEmpty() || onImportSpotifyPlaylist != null) {
-            val visiblePlaylists = playlists.take((LIBRARY_ROW_MAX_ITEMS - if (onImportSpotifyPlaylist != null) 1 else 0).coerceAtLeast(0))
             ShelfRow(
                 contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
                 horizontalArrangement = Arrangement.spacedBy(LIBRARY_GRID_SPACING),
@@ -378,7 +377,7 @@ private fun PersonalPlaylistShelf(
                         )
                     }
                 }
-                items(visiblePlaylists, key = { it.browseId ?: it.title }) { playlist ->
+                items(playlists, key = { it.browseId ?: it.title }) { playlist ->
                     ShelfCard(
                         item = playlist,
                         onClick = { onItemClick(playlist) },
