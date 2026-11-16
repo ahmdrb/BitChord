@@ -751,6 +751,14 @@ private fun BitChordApp(
     var offlinePlaylistTarget by remember { mutableStateOf<Song?>(null) }
     var creatingOfflinePlaylist by remember { mutableStateOf(false) }
     var showSpotifyImportDialog by remember { mutableStateOf(false) }
+    var personalPlaylistArtworkTarget by remember { mutableStateOf<String?>(null) }
+    val personalPlaylistArtworkPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        val playlistId = personalPlaylistArtworkTarget
+        if (uri != null && playlistId != null) {
+            PersonalLibraryStore.savePlaylistArtwork(context, playlistId, uri)
+        }
+        personalPlaylistArtworkTarget = null
+    }
     var personalArtistMenuOpen by remember { mutableStateOf(false) }
     // Which album or playlist the collection menu is open on, or null when it
     // is shut. One slot for every surface that can open it — the shelves on
@@ -3705,7 +3713,7 @@ private fun BitChordApp(
                                             ShelfItem(
                                                 title = playlist.title,
                                                 subtitle = "${playlist.songs.size} songs",
-                                                thumbnailUrl = playlist.songs.firstOrNull()?.thumbnailUrl,
+                                                thumbnailUrl = playlist.artworkPath ?: playlist.songs.firstOrNull()?.thumbnailUrl,
                                                 videoId = null,
                                                 browseId = "bitchord-personal-playlist:${playlist.id}",
                                             )
@@ -3746,6 +3754,7 @@ private fun BitChordApp(
                                             )
                                         },
                                         onAddPersonalArtist = { showAddPersonalArtist = true },
+                                        onImportSpotifyPlaylist = { showSpotifyImportDialog = true },
                                     )
                                     if (showAddPersonalArtist) {
                                         PersonalLibraryAddDialog(
@@ -3786,6 +3795,15 @@ private fun BitChordApp(
                                                         )
                                                     }
                                                 },
+                                                onShuffle = {
+                                                    if (artistSongs.isNotEmpty()) {
+                                                        playFrom(
+                                                            artistSongs.shuffled(),
+                                                            0,
+                                                            QueueSource(artist.title, PlaybackSourceType.BROWSE, "personal-artist:$artistId"),
+                                                        )
+                                                    }
+                                                },
                                                 onRemoveSong = { videoId ->
                                                     PersonalLibraryStore.removeSongFromArtist(videoId, artistId)
                                                 },
@@ -3814,6 +3832,19 @@ private fun BitChordApp(
                                                             ),
                                                         )
                                                     }
+                                                },
+                                                onShuffle = {
+                                                    if (playlist.songs.isNotEmpty()) {
+                                                        playFrom(
+                                                            playlist.songs.shuffled(),
+                                                            0,
+                                                            QueueSource(playlist.title, PlaybackSourceType.BROWSE, "personal-playlist:${playlist.id}"),
+                                                        )
+                                                    }
+                                                },
+                                                onCustomizeArtwork = {
+                                                    personalPlaylistArtworkTarget = playlist.id
+                                                    personalPlaylistArtworkPicker.launch("image/*")
                                                 },
                                                 onRemoveSong = { videoId ->
                                                     PersonalLibraryStore.removeSongFromPlaylist(playlistId, videoId)
