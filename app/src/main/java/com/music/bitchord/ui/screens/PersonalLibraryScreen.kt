@@ -96,7 +96,6 @@ import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.SearchFilter
 import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.data.model.Song
-import com.music.bitchord.data.model.UserPlaylist
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.ui.theme.rememberArtworkPalette
 import com.music.bitchord.ui.components.PAGE_GUTTER
@@ -1094,76 +1093,57 @@ internal fun PersonalLibraryAddDialog(
 
 @Composable
 internal fun PersonalYouTubeMusicImportDialog(
-    playlists: List<UserPlaylist>,
     loading: Boolean,
-    signedIn: Boolean,
-    onRefresh: () -> Unit,
-    onSignIn: () -> Unit,
-    onImport: (UserPlaylist) -> Unit,
+    onImport: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    var link by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
         shape = RoundedCornerShape(28.dp),
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
         tonalElevation = 0.dp,
         title = { Text("Import YouTube Music", style = MaterialTheme.typography.headlineSmall) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    "Choose one of your YouTube Music playlists to copy into BitChord Personal Playlists. Your YouTube Music library will not be changed.",
+                    "Paste a YouTube Music playlist link to copy its songs into BitChord Personal Playlists. Your YouTube Music library will not be changed.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                when {
-                    !signedIn -> {
-                        Text("Sign in to YouTube Music to see your playlists.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        TextButton(onClick = onSignIn) { Text("Sign in") }
-                    }
-                    loading -> Box(Modifier.fillMaxWidth().height(110.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
-                    playlists.isEmpty() -> {
-                        Text("No YouTube Music playlists were found.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        TextButton(onClick = onRefresh) { Text("Refresh playlists") }
-                    }
-                    else -> LazyColumn(
-                        modifier = Modifier.heightIn(max = 340.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                OutlinedTextField(
+                    value = link,
+                    onValueChange = { link = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    placeholder = { Text("https://music.youtube.com/playlist?list=…") },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                    ),
+                )
+                if (loading) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        items(playlists, key = { it.playlistId }) { playlist ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(MaterialTheme.colorScheme.surface)
-                                    .clickable { onImport(playlist) }
-                                    .padding(10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                AsyncImage(
-                                    model = playlist.thumbnailUrl,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(48.dp).clip(RoundedCornerShape(11.dp)),
-                                    contentScale = ContentScale.Crop,
-                                )
-                                Column(Modifier.weight(1f).padding(horizontal = 11.dp)) {
-                                    Text(playlist.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Text(
-                                        playlist.subtitle,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                    )
-                                }
-                                Icon(Icons.Rounded.Add, contentDescription = "Import playlist", tint = MaterialTheme.colorScheme.primary)
-                            }
-                        }
+                        CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                        Text("Importing playlist…", modifier = Modifier.padding(start = 10.dp))
                     }
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+        confirmButton = {
+            TextButton(
+                enabled = link.isNotBlank() && !loading,
+                onClick = { onImport(link.trim()) },
+            ) { Text("Import") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !loading) { Text("Cancel") }
+        },
     )
 }
 
