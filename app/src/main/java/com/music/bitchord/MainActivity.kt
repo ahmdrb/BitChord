@@ -182,7 +182,7 @@ import com.music.bitchord.ui.screens.PersonalAddMode
 import com.music.bitchord.ui.screens.PersonalLibraryAddDialog
 import com.music.bitchord.ui.screens.PersonalArtistDetailDialog
 import com.music.bitchord.ui.screens.PersonalPlaylistCreateDialog
-import com.music.bitchord.ui.screens.PersonalYouTubeMusicImportDialog
+import com.music.bitchord.ui.components.YouTubeMusicImportAlert
 import com.music.bitchord.ui.screens.PersonalPlaylistDetailDialog
 import com.music.bitchord.data.PersonalLibraryStore
 import com.music.bitchord.ui.screens.LibraryReplayEntry
@@ -5359,7 +5359,8 @@ private fun BitChordApp(
         }
         if (showPersonalYtImportDialog) {
             BackHandler { showPersonalYtImportDialog = false }
-            PersonalYouTubeMusicImportDialog(
+            YouTubeMusicImportAlert(
+                hazeState = hazeState,
                 loading = personalYtImportBusy,
                 onImport = { link ->
                     val listId = Regex("(?:[?&]list=)([A-Za-z0-9_-]+)")
