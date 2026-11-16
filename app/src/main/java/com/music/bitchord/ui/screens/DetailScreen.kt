@@ -382,40 +382,6 @@ fun DetailScreen(
     reorder: (@Composable (ArtworkPalette) -> Unit)? = null,
  ) {
     val context = LocalContext.current
-    val artworkScope = rememberCoroutineScope()
-    val localMusicArtwork by AppSettings.localMusicFolderArtwork.collectAsStateWithLifecycle()
-    val downloadsArtwork by AppSettings.downloadsFolderArtwork.collectAsStateWithLifecycle()
-    val folderArtworkKey = if (folder != null) when (page.browseId) {
-        "local:all" -> "local_music"
-        "local:downloads" -> "downloads"
-        else -> null
-    } else null
-    val selectedFolderArtwork = when (folderArtworkKey) {
-        "local_music" -> localMusicArtwork
-        "downloads" -> downloadsArtwork
-        else -> ""
-    }.takeIf { it.isNotBlank() }
-    val folderArtworkPicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument(),
-    ) { uri: Uri? ->
-        val key = folderArtworkKey
-        if (uri != null && key != null) artworkScope.launch {
-            val savedPath = withContext(Dispatchers.IO) {
-                runCatching {
-                    val directory = File(context.filesDir, "folder-artwork").apply { mkdirs() }
-                    val destination = File(directory, "$key-${System.currentTimeMillis()}.img")
-                    context.contentResolver.openInputStream(uri)?.use { input ->
-                        destination.outputStream().use { output -> input.copyTo(output) }
-                    } ?: error("Unable to open the selected image")
-                    destination.absolutePath
-                }.getOrNull()
-            }
-            if (savedPath != null) when (key) {
-                "local_music" -> AppSettings.setLocalMusicFolderArtwork(savedPath)
-                "downloads" -> AppSettings.setDownloadsFolderArtwork(savedPath)
-            }
-        }
-    }
     val personalLibrary by PersonalLibraryStore.state.collectAsStateWithLifecycle()
     val isPersonalArtist = page.type == BrowseType.ARTIST &&
         personalLibrary.artists.any { it.browseId == page.browseId }
@@ -1003,15 +969,13 @@ private fun ReleaseHeader(
     onToggleLibrary: (() -> Unit)?,
     /** The Cached songs folder's: saves every track on it to Downloads. Null hides it. */
     onDownloadAll: (() -> Unit)? = null,
-    folderArtworkPath: String? = null,
-    onEditFolderArtwork: (() -> Unit)? = null,
 ) {
     val (credit, meta) = page.headerLines(songs.size, songs.playtime())
     // Every row on a release carries the same credit — see [pageCredit] — so
     // the first one speaks for the whole page, the same source the rows'
     // own long-press "Open artist" already reads from.
     val artist = songs.firstOrNull()
-    val sleeveArtwork: Any? = folderArtworkPath?.let(::File) ?: page.thumbnailUrl?.artworkAt(HEADER_ART_PX)
+    val sleeveArtwork: Any? = page.thumbnailUrl?.artworkAt(HEADER_ART_PX)
     var artFailed by remember(sleeveArtwork) { mutableStateOf(false) }
     // A placeholder is a sleeve or it is nothing, as on the player: blown out
     // to the page's width it would only tint the top of the screen.
