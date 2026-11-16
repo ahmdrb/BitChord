@@ -3774,6 +3774,7 @@ private fun BitChordApp(
                                     if (showAddPersonalArtist) {
                                         PersonalLibraryAddDialog(
                                             mode = PersonalAddMode.ARTIST,
+                                            hazeState = hazeState,
                                             artists = emptyList(),
                                             initialArtistId = null,
                                             onDismiss = { showAddPersonalArtist = false },
@@ -3783,6 +3784,7 @@ private fun BitChordApp(
                                     }
                                     if (showAddPersonalPlaylist) {
                                         PersonalPlaylistCreateDialog(
+                                            hazeState = hazeState,
                                             onDismiss = { showAddPersonalPlaylist = false },
                                             onCreate = PersonalLibraryStore::addPlaylist,
                                         )
@@ -3904,6 +3906,7 @@ private fun BitChordApp(
                                     addingSongToPersonalPlaylistId?.let { playlistId ->
                                         PersonalLibraryAddDialog(
                                             mode = PersonalAddMode.SONG,
+                                            hazeState = hazeState,
                                             artists = personalLibrary.artists,
                                             initialArtistId = null,
                                             artwork = personalLibrary.playlists.firstOrNull { it.id == playlistId }?.let { it.artworkPath ?: it.songs.firstOrNull()?.thumbnailUrl },
