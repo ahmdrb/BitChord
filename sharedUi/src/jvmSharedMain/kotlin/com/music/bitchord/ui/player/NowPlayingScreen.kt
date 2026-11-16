@@ -1666,32 +1666,74 @@ fun NowPlayingScreen(
     // layouts end on, and the only thing in the landscape player's left column
     // besides the sleeve.
     val playerActions: @Composable () -> Unit = {
-        PlayerActionRow(
-            lyricsOpen = lyricsOpen,
-            queueOpen = queueOpen,
-            shuffleEnabled = shuffleEnabled,
-            repeatMode = repeatMode,
-            autoplayEnabled = autoplayEnabled,
-            onToggleLyrics = toggleLyrics,
-            onToggleQueue = toggleQueue,
-            onToggleShuffle = onToggleShuffle,
-            onCycleRepeat = onCycleRepeat,
-            onToggleAutoplay = onToggleAutoplay,
-            onOpenOutput = openAudioOutput,
-            onListenTogether = onListenTogether,
-            onOpenListenTogetherMembers = openListenTogetherMembers,
-        )
-        // Keep the current output caption visible in every state.
-        Spacer(Modifier.height(18.dp))
-        Box(
-            modifier = Modifier.fillMaxWidth().height(20.dp),
-            contentAlignment = Alignment.TopCenter,
-        ) {
-            OutputCaption(
-                accountName = accountName,
+        if (lyricsOpen) {
+            // In landscape Lyrics mode, replace the source/action rail under the
+            // sleeve with the live playback timeline and transport controls.
+            val versionAligning by PlayerSettings.versionAlignmentInProgress.collectAsStateWithLifecycle()
+            val transitionWindow by PlayerSettings.smartTransitionWindow.collectAsStateWithLifecycle()
+            Column(
+                modifier = Modifier.fillMaxWidth().widthIn(max = PLAYER_MAX_WIDTH),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                PlayerScrubber(
+                    shown = shown,
+                    durationMs = durationMs,
+                    loading = versionAligning || audioVersionSwitching,
+                    mixing = mixing && !scrub.scrubbing,
+                    transitionWindow = transitionWindow
+                        ?.takeIf { !scrub.scrubbing && it.end > it.start }
+                        ?.let { it.start..it.end },
+                    onScrub = onScrub,
+                    onScrubFinished = onScrubFinished,
+                ) {
+                    PlaybackQualityLabel(
+                        song = song,
+                        isLoading = isLoading,
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(horizontal = 8.dp),
+                    )
+                }
+                Spacer(Modifier.height(10.dp))
+                TransportRow(
+                    isPlaying = isPlaying,
+                    isLoading = isLoading || audioVersionSwitching,
+                    previousEnabled = !controlsLocked && (hasPrevious || pastRestartPoint),
+                    nextEnabled = !controlsLocked && hasNext,
+                    onPrevious = onPrevious,
+                    onPlayPause = onPlayPause,
+                    onNext = onNext,
+                    compact = true,
+                )
+            }
+        } else {
+            PlayerActionRow(
+                lyricsOpen = lyricsOpen,
+                queueOpen = queueOpen,
+                shuffleEnabled = shuffleEnabled,
+                repeatMode = repeatMode,
+                autoplayEnabled = autoplayEnabled,
+                onToggleLyrics = toggleLyrics,
+                onToggleQueue = toggleQueue,
+                onToggleShuffle = onToggleShuffle,
+                onCycleRepeat = onCycleRepeat,
+                onToggleAutoplay = onToggleAutoplay,
                 onOpenOutput = openAudioOutput,
-                onOpenMembers = openListenTogetherMembers,
+                onListenTogether = onListenTogether,
+                onOpenListenTogetherMembers = openListenTogetherMembers,
             )
+            // Keep the current output caption visible in every state.
+            Spacer(Modifier.height(18.dp))
+            Box(
+                modifier = Modifier.fillMaxWidth().height(20.dp),
+                contentAlignment = Alignment.TopCenter,
+            ) {
+                OutputCaption(
+                    accountName = accountName,
+                    onOpenOutput = openAudioOutput,
+                    onOpenMembers = openListenTogetherMembers,
+                )
+            }
         }
     }
 

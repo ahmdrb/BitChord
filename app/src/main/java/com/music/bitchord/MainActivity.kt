@@ -555,6 +555,12 @@ private fun BitChordApp(
     // and the page is a sibling of the bar rather than a child.
     val navBarScroll = rememberFloatingTabBarScrollConnection()
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    // Hoisted so app-level chrome can respond while a personal collection page
+    // is open inside the Library tab.
+    var selectedPersonalPlaylistId by rememberSaveable { mutableStateOf<String?>(null) }
+    var selectedPersonalArtistId by rememberSaveable { mutableStateOf<String?>(null) }
+    val personalCollectionDetailOpen =
+        selectedPersonalPlaylistId != null || selectedPersonalArtistId != null
     // Explore loads the first time it's shown, not at launch beside Home.
     LaunchedEffect(selectedTab) {
         if (selectedTab == TAB_EXPLORE) viewModel.onExploreShown()
@@ -3688,9 +3694,7 @@ private fun BitChordApp(
                             else -> {
                                 var showAddPersonalArtist by remember { mutableStateOf(false) }
                                 var showAddPersonalPlaylist by remember { mutableStateOf(false) }
-                                var selectedPersonalPlaylistId by remember { mutableStateOf<String?>(null) }
                                 var addingSongToPersonalPlaylistId by remember { mutableStateOf<String?>(null) }
-                                var selectedPersonalArtistId by remember { mutableStateOf<String?>(null) }
                                 var addingSongToPersonalArtistId by remember { mutableStateOf<String?>(null) }
                                 Box(Modifier.fillMaxSize()) {
                                     LibraryScreen(
@@ -3715,7 +3719,7 @@ private fun BitChordApp(
                                         personalPlaylists = personalLibrary.playlists.map { playlist ->
                                             ShelfItem(
                                                 title = playlist.title,
-                                                subtitle = "${playlist.songs.size} songs",
+                                                subtitle = "",
                                                 thumbnailUrl = playlist.artworkPath ?: playlist.songs.firstOrNull()?.thumbnailUrl,
                                                 videoId = null,
                                                 browseId = "bitchord-personal-playlist:${playlist.id}",
@@ -4164,7 +4168,9 @@ private fun BitChordApp(
                             // Left of the account photo, and only on Library itself:
                             // a history is a record of what was played, which reads
                             // as that tab's business rather than every tab's.
-                            if (route == null && detail == null && selectedTab == TAB_LIBRARY) {
+                            if (route == null && detail == null && selectedTab == TAB_LIBRARY &&
+                                !personalCollectionDetailOpen
+                            ) {
                                 IconButton(
                                     onClick = {
                                         navigator.push(AppRoute.History)
@@ -4351,7 +4357,7 @@ private fun BitChordApp(
                             // Not on a release page, whose pill already carries
                             // three of its own controls — Apple Music leaves the
                             // profile off its album pages too.
-                            if (!isReleaseDetail) TopBarAccountButton(
+                            if (!isReleaseDetail && !personalCollectionDetailOpen) TopBarAccountButton(
                                 account = account,
                                 onClick = {
                                     if (signedIn) {
@@ -4455,6 +4461,7 @@ private fun BitChordApp(
                         dock = activeDock,
                         pull = playerSheetMotion.takeIf { !reducePlayerMotion },
                         modifier = Modifier.fillMaxWidth(),
+                        showTabs = !personalCollectionDetailOpen,
                     )
                 } else Column(
                     modifier = Modifier
@@ -4516,12 +4523,14 @@ private fun BitChordApp(
                         )
                         Spacer(Modifier.height(8.dp))
                     }
-                    FloatingBottomBar(
-                        tabs = tabs,
-                        selectedIndex = selectedTab,
-                        hazeState = hazeState,
-                        onTabSelected = onTabSelected,
-                    )
+                    if (!personalCollectionDetailOpen) {
+                        FloatingBottomBar(
+                            tabs = tabs,
+                            selectedIndex = selectedTab,
+                            hazeState = hazeState,
+                            onTabSelected = onTabSelected,
+                        )
+                    }
                 }
             }
 

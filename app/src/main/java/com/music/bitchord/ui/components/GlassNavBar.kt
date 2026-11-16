@@ -113,6 +113,8 @@ fun GlassNavBar(
     /** Dragging the bar's player up into the full player. */
     pull: MiniPlayerPull? = null,
     modifier: Modifier = Modifier,
+    /** Keep the mini-player while hiding app navigation on collection detail pages. */
+    showTabs: Boolean = true,
 ) {
     // Held for the same reason [tabs] is. The glass factory below closes over
     // this shape, and a fresh RoundedCornerShape each pass means a fresh factory
@@ -140,7 +142,8 @@ fun GlassNavBar(
     // The theme's own glass tint, as the liquid top bar has it — no white wash.
     val glassSurface: @Composable () -> Modifier = { Modifier.liquidGlass(shape = pillShape) }
 
-    FloatingTabBar(
+    if (showTabs) {
+        FloatingTabBar(
         selectedTabKey = selectedIndex,
         scrollConnection = scrollConnection,
         modifier = modifier
@@ -283,6 +286,31 @@ fun GlassNavBar(
                 )
             }
         }
+        }
+    } else if (song != null) {
+        GlassNowPlaying(
+            song = song,
+            isInline = false,
+            isPlaying = isPlaying,
+            isLoading = isLoading,
+            progressFraction = progressFraction,
+            contentColor = contentColor,
+            onPlayPause = onPlayPause,
+            onNext = onNext,
+            onPrevious = onPrevious,
+            onExpand = onExpand,
+            onDismiss = onDismiss,
+            controlsLocked = controlsLocked,
+            onBlockedControl = onBlockedControl,
+            dock = dock,
+            pull = pull,
+            modifier = modifier
+                .windowInsetsPadding(floatingBarInsets)
+                .padding(horizontal = NAV_BAR_GUTTER)
+                .padding(bottom = NAV_BAR_LIFT)
+                .fillMaxWidth()
+                .then(glassSurface()),
+        )
     }
 }
 

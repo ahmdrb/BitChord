@@ -1,6 +1,7 @@
 package com.music.bitchord.ui.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.ui.draw.blur
@@ -63,6 +64,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
@@ -116,6 +118,11 @@ internal fun PersonalPlaylistCreateDialog(
     var title by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(26.dp),
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
+        titleContentColor = MaterialTheme.colorScheme.onSurface,
+        textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
         title = { Text("New playlist") },
         text = {
             OutlinedTextField(
@@ -202,7 +209,7 @@ private fun PersonalCollectionDetailDialog(
         when (sortMode) {
             "Title" -> filtered.sortedBy { it.title.lowercase() }
             "Artist" -> filtered.sortedBy { it.artist.lowercase() }
-            "Duration" -> filtered.sortedBy { it.durationText.orEmpty() }
+            "Duration" -> filtered.sortedBy { durationSeconds(it.durationText) ?: Long.MAX_VALUE }
             else -> filtered
         }
     }
@@ -211,10 +218,10 @@ private fun PersonalCollectionDetailDialog(
     // the app content leaves the tab bar and mini-player in their original places.
     BackHandler { onDismiss() }
     Box(
-            Modifier.fillMaxSize().background(
-                Brush.verticalGradient(listOf(palette.background, palette.wash)),
-            ),
-        ) {
+        Modifier.fillMaxSize().background(
+            Brush.verticalGradient(listOf(palette.background, palette.wash)),
+        ),
+    ) {
             if (artworkUrl != null) {
                 AsyncImage(
                     model = artworkUrl.artworkAt(1200),
@@ -223,10 +230,11 @@ private fun PersonalCollectionDetailDialog(
                     modifier = Modifier.fillMaxSize().blur(42.dp).alpha(0.20f),
                 )
             }
-            Column(
-                Modifier.fillMaxSize().statusBarsPadding(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
+            Box(Modifier.fillMaxSize()) {
+                Column(
+                    Modifier.fillMaxWidth().align(Alignment.TopCenter).statusBarsPadding().zIndex(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -259,10 +267,24 @@ private fun PersonalCollectionDetailDialog(
                             ) {
                                 Icon(Icons.Rounded.FilterList, contentDescription = "Sort songs", tint = palette.onBackground)
                             }
-                            DropdownMenu(expanded = sortMenuOpen, onDismissRequest = { sortMenuOpen = false }) {
+                            DropdownMenu(
+                                expanded = sortMenuOpen,
+                                onDismissRequest = { sortMenuOpen = false },
+                                shape = RoundedCornerShape(18.dp),
+                                containerColor = palette.elevated,
+                                tonalElevation = 0.dp,
+                                shadowElevation = 16.dp,
+                                border = BorderStroke(1.dp, palette.divider),
+                            ) {
                                 listOf("Default", "Title", "Artist", "Duration").forEach { option ->
                                     DropdownMenuItem(
-                                        text = { Text(if (sortMode == option) "✓ $option" else option) },
+                                        text = {
+                                            Text(
+                                                if (sortMode == option) "✓  $option" else option,
+                                                style = MaterialTheme.typography.labelLarge,
+                                                color = palette.onBackground,
+                                            )
+                                        },
                                         onClick = { sortMode = option; sortMenuOpen = false },
                                     )
                                 }
@@ -275,15 +297,35 @@ private fun PersonalCollectionDetailDialog(
                             ) {
                                 Icon(Icons.Rounded.MoreHoriz, contentDescription = "More options", tint = palette.onBackground)
                             }
-                            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            DropdownMenu(
+                                expanded = menuOpen,
+                                onDismissRequest = { menuOpen = false },
+                                shape = RoundedCornerShape(18.dp),
+                                containerColor = palette.elevated,
+                                tonalElevation = 0.dp,
+                                shadowElevation = 16.dp,
+                                border = BorderStroke(1.dp, palette.divider),
+                            ) {
                                 if (onCustomizeArtwork != null) {
                                     DropdownMenuItem(
-                                        text = { Text("Customize artwork") },
+                                        text = {
+                                            Text(
+                                                "Customize artwork",
+                                                style = MaterialTheme.typography.labelLarge,
+                                                color = palette.onBackground,
+                                            )
+                                        },
                                         onClick = { menuOpen = false; onCustomizeArtwork() },
                                     )
                                 }
                                 DropdownMenuItem(
-                                    text = { Text("Delete $collectionKind") },
+                                    text = {
+                                        Text(
+                                            if (collectionKind == "playlist") "Delete playlist" else "Remove from collection",
+                                            style = MaterialTheme.typography.labelLarge,
+                                            color = MaterialTheme.colorScheme.error,
+                                        )
+                                    },
                                     onClick = { menuOpen = false; confirmDelete = true },
                                 )
                             }
@@ -297,12 +339,14 @@ private fun PersonalCollectionDetailDialog(
                         onValueChange = { searchQuery = it },
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 4.dp),
                         singleLine = true,
+                        shape = RoundedCornerShape(18.dp),
                         placeholder = { Text("Search songs") },
                     )
                 }
+                }
 
                 LazyColumn(
-                    Modifier.fillMaxWidth().weight(1f),
+                    Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = 28.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
@@ -330,11 +374,13 @@ private fun PersonalCollectionDetailDialog(
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
-                        Text(
-                            "${songs.size} ${if (songs.size == 1) "song" else "songs"}",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = palette.onBackgroundVariant,
-                        )
+                        if (collectionKind != "playlist") {
+                            Text(
+                                "${songs.size} ${if (songs.size == 1) "song" else "songs"}",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = palette.onBackgroundVariant,
+                            )
+                        }
                         val trackCount = if (songs.size == 1) "1 Track" else "${songs.size} Tracks"
                         val duration = collectionDurationLabel(songs)
                         Text(
@@ -437,9 +483,20 @@ private fun PersonalCollectionDetailDialog(
                                     DropdownMenu(
                                         expanded = songMenuVideoId == song.videoId,
                                         onDismissRequest = { songMenuVideoId = null },
+                                        shape = RoundedCornerShape(18.dp),
+                                        containerColor = palette.elevated,
+                                        tonalElevation = 0.dp,
+                                        shadowElevation = 16.dp,
+                                        border = BorderStroke(1.dp, palette.divider),
                                     ) {
                                         DropdownMenuItem(
-                                            text = { Text("Remove from collection") },
+                                            text = {
+                                                Text(
+                                                    "Remove from collection",
+                                                    style = MaterialTheme.typography.labelLarge,
+                                                    color = palette.onBackground,
+                                                )
+                                            },
                                             onClick = {
                                                 songMenuVideoId = null
                                                 onRemoveSong(song.videoId)
@@ -456,8 +513,23 @@ private fun PersonalCollectionDetailDialog(
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("Delete $collectionKind?") },
-            text = { Text("This will remove this BitChord $collectionKind collection.") },
+            shape = RoundedCornerShape(26.dp),
+            containerColor = palette.elevated,
+            tonalElevation = 0.dp,
+            titleContentColor = palette.onBackground,
+            textContentColor = palette.onBackgroundVariant,
+            title = {
+                Text(if (collectionKind == "playlist") "Delete playlist?" else "Remove artist?")
+            },
+            text = {
+                Text(
+                    if (collectionKind == "playlist") {
+                        "This will remove this playlist from your BitChord personal collection."
+                    } else {
+                        "This will remove this artist from your BitChord personal collection."
+                    },
+                )
+            },
             confirmButton = {
                 TextButton(onClick = {
                     confirmDelete = false
@@ -468,6 +540,15 @@ private fun PersonalCollectionDetailDialog(
                 TextButton(onClick = { confirmDelete = false }) { Text("Cancel") }
             },
         )
+    }
+}
+
+private fun durationSeconds(durationText: String?): Long? {
+    val parts = durationText?.split(':')?.mapNotNull { it.toLongOrNull() } ?: return null
+    return when (parts.size) {
+        2 -> parts[0] * 60 + parts[1]
+        3 -> parts[0] * 3600 + parts[1] * 60 + parts[2]
+        else -> null
     }
 }
 
@@ -727,6 +808,11 @@ internal fun PersonalLibraryAddDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(26.dp),
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
+        titleContentColor = MaterialTheme.colorScheme.onSurface,
+        textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
         title = { Text(if (mode == PersonalAddMode.ARTIST) "Add artist" else "Add song") },
         text = {
             Column {
@@ -779,6 +865,10 @@ internal fun PersonalLibraryAddDialog(
                         DropdownMenu(
                             expanded = artistMenuOpen,
                             onDismissRequest = { artistMenuOpen = false },
+                            shape = RoundedCornerShape(18.dp),
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            tonalElevation = 0.dp,
+                            shadowElevation = 16.dp,
                         ) {
                             DropdownMenuItem(
                                 text = { Text("No artist collection") },
