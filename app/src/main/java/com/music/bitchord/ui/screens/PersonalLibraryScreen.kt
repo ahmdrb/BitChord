@@ -898,8 +898,10 @@ fun PersonalLibraryScreen(
     if (addMode != null) {
         PersonalLibraryAddDialog(
             mode = addMode!!,
+            hazeState = remember { HazeState() },
             artists = collection.artists,
             initialArtistId = selectedArtist?.browseId,
+            artwork = selectedArtist?.thumbnailUrl,
             onDismiss = { addMode = null },
             onArtistAdded = { artist -> PersonalLibraryStore.addArtist(artist) },
             onSongAdded = { song, artistIds -> PersonalLibraryStore.addSong(song, artistIds) },
