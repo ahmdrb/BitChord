@@ -151,8 +151,9 @@ internal fun PersonalPlaylistCreateDialog(
     var title by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
+        modifier = Modifier.border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(26.dp)),
         shape = RoundedCornerShape(26.dp),
-        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
+        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
         tonalElevation = 0.dp,
         titleContentColor = MaterialTheme.colorScheme.onSurface,
         textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -931,8 +932,13 @@ internal fun PersonalLibraryAddDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        modifier = Modifier.border(
+            1.dp,
+            if (themedSongDialog) artworkPalette.divider else Color.White.copy(alpha = 0.12f),
+            RoundedCornerShape(26.dp),
+        ),
         shape = RoundedCornerShape(26.dp),
-        containerColor = dialogSurface,
+        containerColor = if (themedSongDialog) dialogSurface else dialogSurface.copy(alpha = 0.72f),
         tonalElevation = 0.dp,
         titleContentColor = dialogOnSurface,
         textContentColor = dialogOnSurfaceVariant,
