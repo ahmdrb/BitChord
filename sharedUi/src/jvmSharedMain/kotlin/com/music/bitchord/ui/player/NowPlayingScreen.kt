@@ -1877,32 +1877,16 @@ fun NowPlayingScreen(
         }
     }
     val dockFrame = remember { DockFrame() }
-    // 1 with the player fully open, falling to 0 as the sheet reaches the mini
-    // player. Held at 1 — the player exactly as it always was — with no dock,
-    // no cover to dock into, or before the sheet's first placement has told
-    // this where on screen it is.
-    //
-    // The sheet's fraction is read first and always, whatever comes of it: the
-    // layout and draw blocks calling this are re-run only for the state they
-    // read, and one that bailed out before reading it would never hear the
-    // sheet move.
-    // The player now travels as a full-screen sheet from/to the bottom edge.
-    // Keep the artwork at its normal full-player size instead of flying it
-    // toward the mini-player cover during open or dismiss.
+    // Opening and dismissing are now a straight vertical movement of the
+    // full-screen player from/to the bottom edge. The artwork stays at its
+    // normal player size; it no longer flies into the mini-player cover.
     val dockT: () -> Float = { 1f }
     val docking: () -> Boolean = { false }
-    // The same, for composition: derived, so it recomposes the player twice a
-    // trip — as the sheet leaves fully open and as it gets back — rather than
-    // on each frame between.
-    //
-    // What it is for: a clip decoding behind the player while the artwork is
-    // flying is work nobody can see — the player is fading out round it — and
-    // it was costing frames of exactly the movement the eye is on. Paused for
-    // the trip, as for the collapse into the lyrics or the queue; a paused
-    // clip keeps its last frame, so nothing blinks.
-    val dockMoving by remember { derivedStateOf { docking() } }
-    // Watch the sheet's actual offset so a finger drag switches artwork on
-    // its first frame, not only once Material's sheet decides to dismiss.
+    // With no artwork docking, the clip keeps rendering throughout the slide.
+    val dockMoving = false
+    // Keep the mini-player cover visibility synchronized with the sheet's
+    // direction. Full-screen Canvas uses the same signal to reveal its still
+    // cover as the player moves down.
     LaunchedEffect(dock) {
         if (dock != null) {
             var previous = dock.openFraction()
