@@ -117,7 +117,12 @@ class PlayerDock {
         get() = transitioningToMiniState
 
     fun setTransitioningToMini(value: Boolean) {
+        // Full-screen Spotify Canvas has no travelling sleeve to cover the
+        // mini-player artwork. Reveal that already-mounted cover synchronously
+        // with the close request, rather than waiting for a later composition
+        // SideEffect; this keeps the very first dismissal frame continuous.
         transitioningToMiniState = value
+        revealMiniArtEarly = value && fullScreenCanvas
     }
 
     /** Reveal the already-mounted mini cover while full-screen Canvas has no moving sleeve. */
