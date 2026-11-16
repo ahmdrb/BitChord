@@ -25,6 +25,7 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -168,6 +169,7 @@ private fun PersonalCollectionDetailDialog(
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var songMenuVideoId by remember { mutableStateOf<String?>(null) }
     androidx.compose.ui.window.Dialog(
         onDismissRequest = onDismiss,
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
@@ -186,7 +188,7 @@ private fun PersonalCollectionDetailDialog(
                 Spacer(Modifier.weight(1f))
                 Box {
                     IconButton(onClick = { menuOpen = true }) {
-                        Icon(Icons.Rounded.MoreVert, contentDescription = "More options")
+                        Icon(Icons.Rounded.MoreHoriz, contentDescription = "More options")
                     }
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                         if (onCustomizeArtwork != null) {
@@ -236,8 +238,10 @@ private fun PersonalCollectionDetailDialog(
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            val trackCount = if (songs.size == 1) "1 Track" else "${songs.size} Tracks"
+            val duration = collectionDurationLabel(songs)
             Text(
-                if (songs.isEmpty()) "Empty collection" else "${songs.size} tracks",
+                if (duration == null) trackCount else "$trackCount · $duration",
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -310,8 +314,27 @@ private fun PersonalCollectionDetailDialog(
                                     overflow = TextOverflow.Ellipsis,
                                 )
                             }
-                            IconButton(onClick = { onRemoveSong(song.videoId) }) {
-                                Icon(Icons.Rounded.Close, contentDescription = "Remove song")
+                            Text(
+                                song.durationText.orEmpty(),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Box {
+                                IconButton(onClick = { songMenuVideoId = song.videoId }) {
+                                    Icon(Icons.Rounded.MoreVert, contentDescription = "Song options")
+                                }
+                                DropdownMenu(
+                                    expanded = songMenuVideoId == song.videoId,
+                                    onDismissRequest = { songMenuVideoId = null },
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("Remove from collection") },
+                                        onClick = {
+                                            songMenuVideoId = null
+                                            onRemoveSong(song.videoId)
+                                        },
+                                    )
+                                }
                             }
                         }
                     }
@@ -335,6 +358,21 @@ private fun PersonalCollectionDetailDialog(
             },
         )
     }
+}
+
+private fun collectionDurationLabel(songs: List<Song>): String? {
+    val totalSeconds = songs.sumOf { song ->
+        val parts = song.durationText?.split(':')?.mapNotNull { it.toLongOrNull() }
+            ?: return@sumOf 0L
+        when (parts.size) {
+            2 -> parts[0] * 60 + parts[1]
+            3 -> parts[0] * 3600 + parts[1] * 60 + parts[2]
+            else -> 0L
+        }
+    }
+    if (totalSeconds <= 0L) return null
+    val minutes = (totalSeconds + 30) / 60
+    return if (minutes >= 60) "${minutes / 60} hr ${minutes % 60} min" else "$minutes min"
 }
 
 /**
