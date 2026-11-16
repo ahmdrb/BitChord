@@ -253,3 +253,72 @@ fun SpotifyImportAlert(
         }
     }
 }
+
+/**
+ * YouTube Music counterpart to the Spotify import surface: paste a playlist
+ * link and copy its tracks into BitChord's independent personal collection.
+ */
+@OptIn(ExperimentalHazeMaterialsApi::class)
+@Composable
+fun YouTubeMusicImportAlert(
+    hazeState: HazeState,
+    loading: Boolean,
+    onImport: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var link by remember { mutableStateOf("") }
+    AlertScaffold(hazeState = hazeState, onDismiss = { if (!loading) onDismiss() }) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 520.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 19.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = "Import YouTube Music",
+                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 17.sp, fontWeight = FontWeight.W600),
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                text = "Paste a YouTube Music playlist link. Its songs will be copied into BitChord Personal Playlists without changing your YouTube Music library.",
+                modifier = Modifier.padding(top = 4.dp, bottom = 14.dp),
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 17.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+            PillTextField(
+                value = link,
+                onValueChange = { link = it },
+                placeholder = "Paste YouTube Music playlist link",
+                enabled = !loading,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { if (link.isNotBlank() && !loading) onImport(link.trim()) }),
+            )
+            if (loading) {
+                Spacer(Modifier.height(12.dp))
+                androidx.compose.material3.CircularProgressIndicator(
+                    modifier = Modifier.height(24.dp),
+                    strokeWidth = 2.dp,
+                )
+            }
+        }
+        AlertRule()
+        AlertAction(
+            label = "Import",
+            emphasised = true,
+            onClick = { onImport(link.trim()) },
+            enabled = link.isNotBlank() && !loading,
+        )
+        AlertRule()
+        AlertAction(
+            label = stringResource(R.string.cancel),
+            emphasised = false,
+            onClick = onDismiss,
+            enabled = !loading,
+        )
+    }
+}
+
