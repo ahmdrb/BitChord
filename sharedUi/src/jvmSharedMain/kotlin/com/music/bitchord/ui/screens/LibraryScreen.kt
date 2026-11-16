@@ -135,6 +135,7 @@ fun LibraryScreen(
                         onItemClick = onPersonalPlaylistClick,
                         onItemLongPress = onPersonalPlaylistLongPress,
                         onAdd = onAddPersonalPlaylist,
+                                onImportSpotifyPlaylist = onImportSpotifyPlaylist,
                     )
                 }
                 item(key = "personal-artists") {
@@ -179,6 +180,7 @@ fun LibraryScreen(
                                 onItemClick = onPersonalPlaylistClick,
                                 onItemLongPress = onPersonalPlaylistLongPress,
                                 onAdd = onAddPersonalPlaylist,
+                                onImportSpotifyPlaylist = onImportSpotifyPlaylist,
                             )
                         }
                         item(key = "personal-artists") {
@@ -204,6 +206,7 @@ fun LibraryScreen(
                                 onItemClick = onPersonalPlaylistClick,
                                 onItemLongPress = onPersonalPlaylistLongPress,
                                 onAdd = onAddPersonalPlaylist,
+                                onImportSpotifyPlaylist = onImportSpotifyPlaylist,
                             )
                         }
                         item(key = "personal-artists") {
