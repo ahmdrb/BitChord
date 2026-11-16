@@ -153,11 +153,10 @@ internal fun PersonalPlaylistCreateDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         shape = RoundedCornerShape(26.dp),
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
         tonalElevation = 0.dp,
         titleContentColor = MaterialTheme.colorScheme.onSurface,
         textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        icon = { Icon(Icons.Rounded.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
         title = { Text("New playlist", style = MaterialTheme.typography.headlineSmall) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -318,7 +317,7 @@ private fun PersonalCollectionDetailDialog(
                     IconButton(
                         onClick = onDismiss,
                         modifier = Modifier.size(52.dp).background(palette.elevated, RoundedCornerShape(50))
-                            .border(1.dp, palette.accent.copy(alpha = 0.52f), RoundedCornerShape(50)),
+                            .border(1.dp, palette.divider, RoundedCornerShape(50)),
                     ) {
                         Icon(Icons.Rounded.ArrowBack, contentDescription = "Back", tint = palette.accent)
                     }
@@ -326,7 +325,7 @@ private fun PersonalCollectionDetailDialog(
                     Row(
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
-                            .background(palette.elevated.copy(alpha = 0.88f))
+                            .background(palette.elevated)
                             .border(1.dp, palette.accent.copy(alpha = 0.52f), RoundedCornerShape(50)),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -546,8 +545,8 @@ private fun PersonalCollectionDetailDialog(
                                 singleLine = true,
                                 shape = RoundedCornerShape(18.dp),
                                 colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = palette.accent,
-                                    unfocusedBorderColor = palette.accent.copy(alpha = 0.58f),
+                                    focusedBorderColor = palette.accent.copy(alpha = 0.45f),
+                                    unfocusedBorderColor = palette.divider,
                                     cursorColor = palette.accent,
                                     focusedLabelColor = palette.accent,
                                 ),
@@ -633,7 +632,6 @@ private fun PersonalCollectionDetailDialog(
             tonalElevation = 0.dp,
             titleContentColor = palette.onBackground,
             textContentColor = palette.onBackgroundVariant,
-            icon = { Icon(Icons.Rounded.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
             title = {
                 Text(
                     if (collectionKind == "playlist") "Delete playlist?" else "Remove artist?",
@@ -910,6 +908,7 @@ internal fun PersonalLibraryAddDialog(
     mode: PersonalAddMode,
     artists: List<BrowseItem>,
     initialArtistId: String?,
+    artwork: Any? = null,
     onDismiss: () -> Unit,
     onArtistAdded: (BrowseItem) -> Unit,
     onSongAdded: (Song, Set<String>) -> Unit,
@@ -924,15 +923,20 @@ internal fun PersonalLibraryAddDialog(
     }
     var artistMenuOpen by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val artworkPalette = rememberArtworkPalette(artwork?.toString())
+    val themedSongDialog = mode == PersonalAddMode.SONG && artwork != null
+    val dialogSurface = if (themedSongDialog) artworkPalette.elevated else MaterialTheme.colorScheme.surface.copy(alpha = 0.82f)
+    val dialogOnSurface = if (themedSongDialog) artworkPalette.onBackground else MaterialTheme.colorScheme.onSurface
+    val dialogOnSurfaceVariant = if (themedSongDialog) artworkPalette.onBackgroundVariant else MaterialTheme.colorScheme.onSurfaceVariant
+    val dialogAccent = if (themedSongDialog) artworkPalette.accent else MaterialTheme.colorScheme.primary
 
     AlertDialog(
         onDismissRequest = onDismiss,
         shape = RoundedCornerShape(26.dp),
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = dialogSurface,
         tonalElevation = 0.dp,
-        titleContentColor = MaterialTheme.colorScheme.onSurface,
-        textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        icon = { Icon(Icons.Rounded.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+        titleContentColor = dialogOnSurface,
+        textContentColor = dialogOnSurfaceVariant,
         title = {
             Text(if (mode == PersonalAddMode.ARTIST) "Add artist" else "Add song", style = MaterialTheme.typography.headlineSmall)
         },
@@ -953,8 +957,9 @@ internal fun PersonalLibraryAddDialog(
                         shape = RoundedCornerShape(16.dp),
                         label = { Text(if (mode == PersonalAddMode.ARTIST) "Artist name" else "Song title or artist") },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                            focusedBorderColor = dialogAccent,
+                            unfocusedBorderColor = if (themedSongDialog) artworkPalette.divider else MaterialTheme.colorScheme.outlineVariant,
+                            cursorColor = dialogAccent,
                         ),
                     )
                     IconButton(
@@ -985,7 +990,7 @@ internal fun PersonalLibraryAddDialog(
                             }
                         },
                     ) {
-                        Icon(Icons.Rounded.Search, contentDescription = "Search")
+                        Icon(Icons.Rounded.Search, contentDescription = "Search", tint = dialogAccent)
                     }
                 }
 
@@ -999,7 +1004,7 @@ internal fun PersonalLibraryAddDialog(
                             expanded = artistMenuOpen,
                             onDismissRequest = { artistMenuOpen = false },
                             shape = RoundedCornerShape(18.dp),
-                            containerColor = MaterialTheme.colorScheme.surface,
+                            containerColor = dialogSurface,
                             tonalElevation = 0.dp,
                             shadowElevation = 16.dp,
                         ) {
@@ -1102,7 +1107,6 @@ internal fun PersonalYouTubeMusicImportDialog(
         shape = RoundedCornerShape(28.dp),
         containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
-        icon = { Icon(BitChordIcons.Download, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
         title = { Text("Import YouTube Music", style = MaterialTheme.typography.headlineSmall) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
