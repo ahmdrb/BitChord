@@ -3823,6 +3823,12 @@ private fun BitChordApp(
                                                 onRemoveSong = { videoId ->
                                                     PersonalLibraryStore.removeSongFromArtist(videoId, artistId)
                                                 },
+                                                onSongMenu = { selectedSong -> openSongMenu(selectedSong) },
+                                                onPlayNextAll = { artistSongs.asReversed().forEach { playNext(it) } },
+                                                onAddAllToQueue = { artistSongs.forEach { addToQueue(it) } },
+                                                onDownloadAll = { artistSongs.forEach { downloadSong(it) } },
+                                                playingVideoId = player.song?.videoId,
+                                                isPlaying = player.isPlaying,
                                                 onDelete = {
                                                     PersonalLibraryStore.removeArtist(artistId)
                                                     selectedPersonalArtistId = null
@@ -3874,6 +3880,12 @@ private fun BitChordApp(
                                                 onRemoveSong = { videoId ->
                                                     PersonalLibraryStore.removeSongFromPlaylist(playlistId, videoId)
                                                 },
+                                                onSongMenu = { selectedSong -> openSongMenu(selectedSong) },
+                                                onPlayNextAll = { playlist.songs.asReversed().forEach { playNext(it) } },
+                                                onAddAllToQueue = { playlist.songs.forEach { addToQueue(it) } },
+                                                onDownloadAll = { playlist.songs.forEach { downloadSong(it) } },
+                                                playingVideoId = player.song?.videoId,
+                                                isPlaying = player.isPlaying,
                                                 onDelete = {
                                                     PersonalLibraryStore.removePlaylist(playlistId)
                                                     selectedPersonalPlaylistId = null
