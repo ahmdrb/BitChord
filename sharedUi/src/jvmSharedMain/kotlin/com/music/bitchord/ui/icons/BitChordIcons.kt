@@ -82,6 +82,34 @@ object BitChordIcons {
         }.build()
     }
 
+    /** Monochrome YouTube Music mark for the personal-library import tile. */
+    val YouTubeMusic: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "bc_youtube_music",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f,
+        ).apply {
+            path(
+                stroke = stroke,
+                strokeLineWidth = 2.1f,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
+            ) {
+                moveTo(12f, 3f)
+                arcToRelative(9f, 9f, 0f, true, true, 0f, 18f)
+                arcToRelative(9f, 9f, 0f, true, true, 0f, -18f)
+            }
+            path(fill = stroke) {
+                moveTo(10f, 7.8f)
+                lineTo(17f, 12f)
+                lineTo(10f, 16.2f)
+                close()
+            }
+        }.build()
+    }
+
     val Play: ImageVector by lazy {
         ImageVector.Builder(
             name = "bc_play",
