@@ -171,7 +171,7 @@ internal fun LandscapePlayerLayout(
                     .fillMaxSize()
                     .padding(
                         top = LANDSCAPE_HANDLE_STRIP,
-                        bottom = if (compact) 8.dp else 20.dp,
+                        bottom = if (compact) 16.dp else 24.dp,
                     ),
             ) {
                 Column(
@@ -194,7 +194,15 @@ internal fun LandscapePlayerLayout(
                     ) {
                         artwork(Modifier.size(minOf(maxWidth, maxHeight)))
                     }
-                    Spacer(Modifier.height(if (compact) 12.dp else 24.dp))
+                    Spacer(
+                        Modifier.height(
+                            if (pane == PlayerPane.Lyrics) {
+                                if (compact) 26.dp else 34.dp
+                            } else {
+                                if (compact) 12.dp else 24.dp
+                            },
+                        ),
+                    )
                     actions()
                 }
 
