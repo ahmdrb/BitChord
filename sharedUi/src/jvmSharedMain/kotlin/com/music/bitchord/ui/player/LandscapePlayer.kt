@@ -506,6 +506,8 @@ internal fun LandscapeLyricsPane(
     status: String,
     onStatusClick: () -> Unit,
     showStatus: Boolean = true,
+    showRomanizationToggle: Boolean = true,
+    showTranslationToggle: Boolean = true,
     /** Whether lines are being picked, which is what the bar stands in for. */
     picking: Boolean = false,
     /** The pick bar itself, drawn in place of the row below. */
@@ -552,7 +554,9 @@ internal fun LandscapeLyricsPane(
         ) {
             // Fixed slots either side whether or not the toggles are drawn, so
             // the status line stays centred as lyrics arrive.
-            Box(Modifier.size(34.dp)) { if (hasLyrics) romanizationToggle() }
+            Box(Modifier.size(34.dp)) {
+                if (hasLyrics && showRomanizationToggle) romanizationToggle()
+            }
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -566,7 +570,9 @@ internal fun LandscapeLyricsPane(
                     )
                 }
             }
-            Box(Modifier.size(34.dp)) { if (hasLyrics) translationToggle() }
+            Box(Modifier.size(34.dp)) {
+                if (hasLyrics && showTranslationToggle) translationToggle()
+            }
         }
         }
     }

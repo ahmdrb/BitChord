@@ -1666,8 +1666,8 @@ fun NowPlayingScreen(
     // layouts end on, and the only thing in the landscape player's left column
     // besides the sleeve.
     val playerActions: @Composable () -> Unit = {
-        if (lyricsOpen) {
-            // In landscape Lyrics mode, replace the source/action rail under the
+        if (lyricsOpen && sideways) {
+            // In landscape Lyrics mode only, replace the source/action rail under the
             // sleeve with the live playback timeline and transport controls.
             val versionAligning by PlayerSettings.versionAlignmentInProgress.collectAsStateWithLifecycle()
             val transitionWindow by PlayerSettings.smartTransitionWindow.collectAsStateWithLifecycle()
@@ -2340,6 +2340,8 @@ fun NowPlayingScreen(
                             status = lyricsTranslation.status,
                             onStatusClick = { showLyricsProviders = true },
                             showStatus = !hideLyricsSourceCredit,
+                            showRomanizationToggle = !hideLyricsRomanizationButton,
+                            showTranslationToggle = !hideLyricsTranslationButton,
                             picking = lyricPicker.picking,
                             pickBar = {
                                 LyricsPickBar(

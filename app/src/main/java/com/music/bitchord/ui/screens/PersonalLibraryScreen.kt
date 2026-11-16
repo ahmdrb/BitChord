@@ -1,7 +1,18 @@
 package com.music.bitchord.ui.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.ui.draw.blur
@@ -21,6 +32,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -31,8 +45,10 @@ import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.FilterList
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -62,6 +78,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.zIndex
@@ -94,6 +113,12 @@ internal fun PersonalArtistDetailDialog(
     onSongClick: (Song) -> Unit,
     onRemoveSong: (String) -> Unit,
     onDelete: () -> Unit,
+    onSongMenu: (Song) -> Unit,
+    onPlayNextAll: () -> Unit,
+    onAddAllToQueue: () -> Unit,
+    onDownloadAll: () -> Unit,
+    playingVideoId: String?,
+    isPlaying: Boolean,
 ) {
     PersonalCollectionDetailDialog(
         title = artist.title,
@@ -107,6 +132,12 @@ internal fun PersonalArtistDetailDialog(
         onSongClick = onSongClick,
         onRemoveSong = onRemoveSong,
         onDelete = onDelete,
+        onSongMenu = onSongMenu,
+        onPlayNextAll = onPlayNextAll,
+        onAddAllToQueue = onAddAllToQueue,
+        onDownloadAll = onDownloadAll,
+        playingVideoId = playingVideoId,
+        isPlaying = isPlaying,
     )
 }
 
@@ -158,6 +189,12 @@ internal fun PersonalPlaylistDetailDialog(
     onRemoveSong: (String) -> Unit,
     onDelete: () -> Unit,
     onCustomizeArtwork: () -> Unit,
+    onSongMenu: (Song) -> Unit,
+    onPlayNextAll: () -> Unit,
+    onAddAllToQueue: () -> Unit,
+    onDownloadAll: () -> Unit,
+    playingVideoId: String?,
+    isPlaying: Boolean,
 ) {
     PersonalCollectionDetailDialog(
         title = playlist.title,
@@ -172,6 +209,12 @@ internal fun PersonalPlaylistDetailDialog(
         onRemoveSong = onRemoveSong,
         onDelete = onDelete,
         onCustomizeArtwork = onCustomizeArtwork,
+        onSongMenu = onSongMenu,
+        onPlayNextAll = onPlayNextAll,
+        onAddAllToQueue = onAddAllToQueue,
+        onDownloadAll = onDownloadAll,
+        playingVideoId = playingVideoId,
+        isPlaying = isPlaying,
     )
 }
 
@@ -189,14 +232,29 @@ private fun PersonalCollectionDetailDialog(
     onRemoveSong: (String) -> Unit,
     onDelete: () -> Unit,
     onCustomizeArtwork: (() -> Unit)? = null,
+    onSongMenu: (Song) -> Unit,
+    onPlayNextAll: () -> Unit,
+    onAddAllToQueue: () -> Unit,
+    onDownloadAll: () -> Unit,
+    playingVideoId: String?,
+    isPlaying: Boolean,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     var sortMenuOpen by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
-    var songMenuVideoId by remember { mutableStateOf<String?>(null) }
     var searchOpen by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
-    var sortMode by remember { mutableStateOf("Default") }
+    var sortMode by remember { mutableStateOf("Default order") }
+    val searchFocusRequester = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    LaunchedEffect(searchOpen) {
+        if (searchOpen) {
+            searchFocusRequester.requestFocus()
+            keyboard?.show()
+        } else {
+            keyboard?.hide()
+        }
+    }
 
     val artworkUrl = artwork?.toString()
     val palette = rememberArtworkPalette(artworkUrl)
@@ -207,9 +265,9 @@ private fun PersonalCollectionDetailDialog(
                 it.artist.contains(searchQuery, ignoreCase = true)
         }
         when (sortMode) {
-            "Title" -> filtered.sortedBy { it.title.lowercase() }
-            "Artist" -> filtered.sortedBy { it.artist.lowercase() }
-            "Duration" -> filtered.sortedBy { durationSeconds(it.durationText) ?: Long.MAX_VALUE }
+            "Date added" -> filtered.reversed()
+            "Alphabetical (A to Z)" -> filtered.sortedBy { it.title.lowercase() }
+            "Alphabetical (Z to A)" -> filtered.sortedByDescending { it.title.lowercase() }
             else -> filtered
         }
     }
@@ -255,10 +313,17 @@ private fun PersonalCollectionDetailDialog(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         IconButton(
-                            onClick = { searchOpen = !searchOpen; if (!searchOpen) searchQuery = "" },
+                            onClick = {
+                                searchOpen = !searchOpen
+                                if (!searchOpen) searchQuery = ""
+                            },
                             modifier = Modifier.size(48.dp),
                         ) {
-                            Icon(Icons.Rounded.Search, contentDescription = "Search songs", tint = palette.onBackground)
+                            Icon(
+                                if (searchOpen) Icons.Rounded.Close else Icons.Rounded.Search,
+                                contentDescription = if (searchOpen) "Close search" else "Search this list",
+                                tint = palette.onBackground,
+                            )
                         }
                         Box {
                             IconButton(
@@ -276,14 +341,24 @@ private fun PersonalCollectionDetailDialog(
                                 shadowElevation = 16.dp,
                                 border = BorderStroke(1.dp, palette.divider),
                             ) {
-                                listOf("Default", "Title", "Artist", "Duration").forEach { option ->
+                                listOf(
+                                    "Date added",
+                                    "Default order",
+                                    "Alphabetical (A to Z)",
+                                    "Alphabetical (Z to A)",
+                                ).forEach { option ->
                                     DropdownMenuItem(
                                         text = {
                                             Text(
-                                                if (sortMode == option) "✓  $option" else option,
+                                                option,
                                                 style = MaterialTheme.typography.labelLarge,
                                                 color = palette.onBackground,
                                             )
+                                        },
+                                        trailingIcon = {
+                                            if (sortMode == option) {
+                                                Icon(Icons.Rounded.Check, contentDescription = "Selected", tint = palette.accent)
+                                            }
                                         },
                                         onClick = { sortMode = option; sortMenuOpen = false },
                                     )
@@ -306,6 +381,18 @@ private fun PersonalCollectionDetailDialog(
                                 shadowElevation = 16.dp,
                                 border = BorderStroke(1.dp, palette.divider),
                             ) {
+                                DropdownMenuItem(
+                                    text = { Text("Play next", color = palette.onBackground) },
+                                    onClick = { menuOpen = false; onPlayNextAll() },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Add to queue", color = palette.onBackground) },
+                                    onClick = { menuOpen = false; onAddAllToQueue() },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Download all", color = palette.onBackground) },
+                                    onClick = { menuOpen = false; onDownloadAll() },
+                                )
                                 if (onCustomizeArtwork != null) {
                                     DropdownMenuItem(
                                         text = {
@@ -333,21 +420,14 @@ private fun PersonalCollectionDetailDialog(
                     }
                 }
 
-                if (searchOpen) {
-                    androidx.compose.material3.OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 4.dp),
-                        singleLine = true,
-                        shape = RoundedCornerShape(18.dp),
-                        placeholder = { Text("Search songs") },
-                    )
-                }
                 }
 
                 LazyColumn(
                     Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 28.dp),
+                    contentPadding = PaddingValues(
+                        top = 76.dp + WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),
+                        bottom = 28.dp,
+                    ),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     item {
@@ -427,6 +507,23 @@ private fun PersonalCollectionDetailDialog(
                             }
                         }
                         Spacer(Modifier.height(18.dp))
+                        AnimatedVisibility(
+                            visible = searchOpen,
+                            enter = expandVertically() + fadeIn(),
+                            exit = shrinkVertically() + fadeOut(),
+                        ) {
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 24.dp)
+                                    .focusRequester(searchFocusRequester),
+                                singleLine = true,
+                                shape = RoundedCornerShape(18.dp),
+                                placeholder = { Text("Search this list") },
+                            )
+                        }
                     }
 
                     if (visibleSongs.isEmpty()) {
@@ -449,12 +546,23 @@ private fun PersonalCollectionDetailDialog(
                                     .padding(start = 24.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                AsyncImage(
-                                    model = song.thumbnailUrl.artworkAt(512),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(56.dp).clip(RoundedCornerShape(8.dp)),
-                                    contentScale = ContentScale.Crop,
-                                )
+                                Box(Modifier.size(56.dp).clip(RoundedCornerShape(8.dp))) {
+                                    AsyncImage(
+                                        model = song.thumbnailUrl.artworkAt(512),
+                                        contentDescription = null,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop,
+                                    )
+                                    if (playingVideoId == song.videoId) {
+                                        Box(
+                                            Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.48f)),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            if (isPlaying) NowPlayingEqualizer(palette.accent)
+                                            else Icon(Icons.Rounded.Pause, contentDescription = "Paused", tint = palette.accent)
+                                        }
+                                    }
+                                }
                                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                                     Text(
                                         song.title,
@@ -477,31 +585,8 @@ private fun PersonalCollectionDetailDialog(
                                     color = palette.onBackgroundVariant,
                                 )
                                 Box {
-                                    IconButton(onClick = { songMenuVideoId = song.videoId }) {
+                                    IconButton(onClick = { onSongMenu(song) }) {
                                         Icon(Icons.Rounded.MoreVert, contentDescription = "Song options", tint = palette.onBackground)
-                                    }
-                                    DropdownMenu(
-                                        expanded = songMenuVideoId == song.videoId,
-                                        onDismissRequest = { songMenuVideoId = null },
-                                        shape = RoundedCornerShape(18.dp),
-                                        containerColor = palette.elevated,
-                                        tonalElevation = 0.dp,
-                                        shadowElevation = 16.dp,
-                                        border = BorderStroke(1.dp, palette.divider),
-                                    ) {
-                                        DropdownMenuItem(
-                                            text = {
-                                                Text(
-                                                    "Remove from collection",
-                                                    style = MaterialTheme.typography.labelLarge,
-                                                    color = palette.onBackground,
-                                                )
-                                            },
-                                            onClick = {
-                                                songMenuVideoId = null
-                                                onRemoveSong(song.videoId)
-                                            },
-                                        )
                                     }
                                 }
                             }
@@ -952,4 +1037,43 @@ internal fun PersonalLibraryAddDialog(
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
     )
+}
+
+@Composable
+private fun NowPlayingEqualizer(color: Color) {
+    val motion = rememberInfiniteTransition(label = "personalNowPlaying")
+    val first by motion.animateFloat(
+        initialValue = 0.25f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(420), RepeatMode.Reverse),
+        label = "equalizerOne",
+    )
+    val second by motion.animateFloat(
+        initialValue = 0.85f,
+        targetValue = 0.2f,
+        animationSpec = infiniteRepeatable(tween(560), RepeatMode.Reverse),
+        label = "equalizerTwo",
+    )
+    val third by motion.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 0.95f,
+        animationSpec = infiniteRepeatable(tween(490), RepeatMode.Reverse),
+        label = "equalizerThree",
+    )
+    Canvas(Modifier.size(width = 22.dp, height = 22.dp)) {
+        val barWidth = size.width / 5f
+        val heights = listOf(first, second, third)
+        heights.forEachIndexed { index, fraction ->
+            val barHeight = size.height * fraction
+            drawRoundRect(
+                color = color,
+                topLeft = androidx.compose.ui.geometry.Offset(
+                    x = index * barWidth * 2f + barWidth * 0.5f,
+                    y = (size.height - barHeight) / 2f,
+                ),
+                size = androidx.compose.ui.geometry.Size(barWidth, barHeight),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(barWidth, barWidth),
+            )
+        }
+    }
 }

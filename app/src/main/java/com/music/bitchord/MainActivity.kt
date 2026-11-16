@@ -4801,6 +4801,23 @@ private fun BitChordApp(
                             OfflinePlaylists.remove(id, song)
                         }
                     },
+                onRemoveFromCollection = when {
+                    !fromPlayer && selectedPersonalPlaylistId != null -> {
+                        val playlistId = selectedPersonalPlaylistId!!
+                        {
+                            PersonalLibraryStore.removeSongFromPlaylist(playlistId, song.videoId)
+                            songActions = null
+                        }
+                    }
+                    !fromPlayer && selectedPersonalArtistId != null -> {
+                        val artistId = selectedPersonalArtistId!!
+                        {
+                            PersonalLibraryStore.removeSongFromArtist(song.videoId, artistId)
+                            songActions = null
+                        }
+                    }
+                    else -> null
+                },
                 onRemoveFromCache = if (inCache) {
                     {
                         songActions = null
