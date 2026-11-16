@@ -1453,8 +1453,9 @@ fun NowPlayingScreen(
     // the page and the already-mounted mini-player cover are visible from the
     // first dismissal frame. The Canvas model and playback position remain
     // owned by the player, so reopening restores it without touching lyrics.
+    val dock = LocalPlayerDock.current
     val hideFullscreenCanvasForDock =
-        spotifyCanvasOnPhone && LocalPlayerDock.current?.transitioningToMini == true
+        spotifyCanvasOnPhone && dock?.transitioningToMini == true
     val heroClip = canvas?.takeIf {
         heroMode && !collapsePastHalf && !hideFullscreenCanvasForDock
     }
@@ -1809,8 +1810,8 @@ fun NowPlayingScreen(
     // Docking into the mini player — see [PlayerDock]. Both shapes of the
     // player take part: the portrait sleeve morphs into the cover (see the
     // sleeve), the landscape one is carried and scaled onto it (see
-    // [landscapeDockPose]).
-    val dock = LocalPlayerDock.current
+    // [landscapeDockPose]). The shared dock was read above so the Canvas
+    // dismissal gate and the moving artwork always observe the same state.
     if (dock != null) {
         // Attached on first placement below rather than here: until then the
         // sheet's window may not have drawn anything, and the mini player's
