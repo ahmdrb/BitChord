@@ -231,7 +231,7 @@ fun SpotifyImportAlert(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Done),
                     )
                 }
-
+            }
         }
         AlertRule()
         if (unmatched != null) {
