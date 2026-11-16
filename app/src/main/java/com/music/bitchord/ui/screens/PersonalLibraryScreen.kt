@@ -545,7 +545,7 @@ private fun PersonalCollectionDetailDialog(
                                 singleLine = true,
                                 shape = RoundedCornerShape(18.dp),
                                 colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = palette.accent.copy(alpha = 0.45f),
+                                    focusedBorderColor = palette.divider,
                                     unfocusedBorderColor = palette.divider,
                                     cursorColor = palette.accent,
                                     focusedLabelColor = palette.accent,
