@@ -2,9 +2,6 @@ package com.music.bitchord.ui.screens
 
 import com.music.bitchord.ui.components.trackArtSize
 import android.os.Build
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import com.music.bitchord.R
 
 import androidx.compose.animation.AnimatedContent
@@ -59,7 +56,6 @@ import androidx.compose.material.icons.rounded.Check
 import com.music.bitchord.data.model.LibraryState
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Person
@@ -75,7 +71,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -195,10 +190,6 @@ import com.music.bitchord.ui.theme.ArtworkPalette
 import com.music.bitchord.ui.theme.rememberArtworkPalette
 import kotlin.math.roundToInt
 import java.util.Locale
-import java.io.File
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 private const val MAX_ARTIST_SONGS = 20
 private const val SONGS_PER_COLUMN = 4
@@ -381,7 +372,6 @@ fun DetailScreen(
      */
     reorder: (@Composable (ArtworkPalette) -> Unit)? = null,
  ) {
-    val context = LocalContext.current
     val personalLibrary by PersonalLibraryStore.state.collectAsStateWithLifecycle()
     val isPersonalArtist = page.type == BrowseType.ARTIST &&
         personalLibrary.artists.any { it.browseId == page.browseId }
