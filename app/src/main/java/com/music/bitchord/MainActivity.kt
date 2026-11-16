@@ -3750,7 +3750,7 @@ private fun BitChordApp(
                                         personalArtists = personalLibrary.artists.map { artist ->
                                             ShelfItem(
                                                 title = artist.title,
-                                                subtitle = artist.subtitle,
+                                                subtitle = "",
                                                 thumbnailUrl = artist.thumbnailUrl,
                                                 videoId = null,
                                                 browseId = artist.browseId,
