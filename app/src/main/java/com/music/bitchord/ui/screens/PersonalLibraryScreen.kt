@@ -99,6 +99,9 @@ import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.ui.theme.rememberArtworkPalette
 import com.music.bitchord.ui.components.PAGE_GUTTER
+import com.music.bitchord.ui.components.IosMenuShape
+import com.music.bitchord.ui.components.iosMenuPanel
+import dev.chrisbanes.haze.HazeState
 import com.music.bitchord.ui.icons.BitChordIcons
 import kotlinx.coroutines.launch
 
@@ -145,15 +148,16 @@ internal fun PersonalArtistDetailDialog(
 
 @Composable
 internal fun PersonalPlaylistCreateDialog(
+    hazeState: HazeState,
     onDismiss: () -> Unit,
     onCreate: (String) -> Unit,
 ) {
     var title by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        modifier = Modifier.border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(26.dp)),
-        shape = RoundedCornerShape(26.dp),
-        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
+        modifier = Modifier.iosMenuPanel(translucent = true, hazeState = hazeState),
+        shape = IosMenuShape,
+        containerColor = Color.Transparent,
         tonalElevation = 0.dp,
         titleContentColor = MaterialTheme.colorScheme.onSurface,
         textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -906,6 +910,7 @@ fun PersonalLibraryScreen(
 @Composable
 internal fun PersonalLibraryAddDialog(
     mode: PersonalAddMode,
+    hazeState: HazeState,
     artists: List<BrowseItem>,
     initialArtistId: String?,
     artwork: Any? = null,
@@ -932,13 +937,13 @@ internal fun PersonalLibraryAddDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        modifier = Modifier.border(
-            1.dp,
-            if (themedSongDialog) artworkPalette.divider else Color.White.copy(alpha = 0.12f),
-            RoundedCornerShape(26.dp),
-        ),
-        shape = RoundedCornerShape(26.dp),
-        containerColor = if (themedSongDialog) dialogSurface else dialogSurface.copy(alpha = 0.72f),
+        modifier = if (themedSongDialog) {
+            Modifier.border(1.dp, artworkPalette.divider, RoundedCornerShape(26.dp))
+        } else {
+            Modifier.iosMenuPanel(translucent = true, hazeState = hazeState)
+        },
+        shape = if (themedSongDialog) RoundedCornerShape(26.dp) else IosMenuShape,
+        containerColor = if (themedSongDialog) dialogSurface else Color.Transparent,
         tonalElevation = 0.dp,
         titleContentColor = dialogOnSurface,
         textContentColor = dialogOnSurfaceVariant,
