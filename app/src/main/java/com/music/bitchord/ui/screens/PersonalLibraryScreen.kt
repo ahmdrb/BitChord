@@ -326,7 +326,7 @@ private fun PersonalCollectionDetailDialog(
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
                             .background(palette.elevated)
-                            .border(1.dp, palette.accent.copy(alpha = 0.52f), RoundedCornerShape(50)),
+                            .border(1.dp, palette.divider, RoundedCornerShape(50)),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         IconButton(
