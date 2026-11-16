@@ -1098,62 +1098,6 @@ internal fun PersonalLibraryAddDialog(
 }
 
 @Composable
-internal fun PersonalYouTubeMusicImportDialog(
-    loading: Boolean,
-    onImport: (String) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var link by remember { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(28.dp),
-        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
-        tonalElevation = 0.dp,
-        title = { Text("Import YouTube Music", style = MaterialTheme.typography.headlineSmall) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    "Paste a YouTube Music playlist link to copy its songs into BitChord Personal Playlists. Your YouTube Music library will not be changed.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                OutlinedTextField(
-                    value = link,
-                    onValueChange = { link = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                    placeholder = { Text("https://music.youtube.com/playlist?list=…") },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                    ),
-                )
-                if (loading) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
-                        Text("Importing playlist…", modifier = Modifier.padding(start = 10.dp))
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                enabled = link.isNotBlank() && !loading,
-                onClick = { onImport(link.trim()) },
-            ) { Text("Import") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !loading) { Text("Cancel") }
-        },
-    )
-}
-
-@Composable
 private fun NowPlayingEqualizer(color: Color) {
     val motion = rememberInfiniteTransition(label = "personalNowPlaying")
     val first by motion.animateFloat(
