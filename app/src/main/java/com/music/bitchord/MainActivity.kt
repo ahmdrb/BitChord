@@ -182,6 +182,7 @@ import com.music.bitchord.ui.screens.PersonalAddMode
 import com.music.bitchord.ui.screens.PersonalLibraryAddDialog
 import com.music.bitchord.ui.screens.PersonalArtistDetailDialog
 import com.music.bitchord.ui.screens.PersonalPlaylistCreateDialog
+import com.music.bitchord.ui.screens.PersonalYouTubeMusicImportDialog
 import com.music.bitchord.ui.screens.PersonalPlaylistDetailDialog
 import com.music.bitchord.data.PersonalLibraryStore
 import com.music.bitchord.ui.screens.LibraryReplayEntry
@@ -757,6 +758,9 @@ private fun BitChordApp(
     var offlinePlaylistTarget by remember { mutableStateOf<Song?>(null) }
     var creatingOfflinePlaylist by remember { mutableStateOf(false) }
     var showSpotifyImportDialog by remember { mutableStateOf(false) }
+    var showPersonalYtImportDialog by remember { mutableStateOf(false) }
+    val personalPlaylistImportScope = rememberCoroutineScope()
+    var personalYtImportBusy by remember { mutableStateOf(false) }
     var personalPlaylistArtworkTarget by remember { mutableStateOf<String?>(null) }
     val personalArtworkScope = rememberCoroutineScope()
     val personalPlaylistArtworkPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -3762,6 +3766,10 @@ private fun BitChordApp(
                                         },
                                         onAddPersonalArtist = { showAddPersonalArtist = true },
                                         onImportSpotifyPlaylist = { showSpotifyImportDialog = true },
+                                        onImportYtMusicPlaylist = {
+                                            showPersonalYtImportDialog = true
+                                            viewModel.loadPlaylists()
+                                        },
                                     )
                                     if (showAddPersonalArtist) {
                                         PersonalLibraryAddDialog(
@@ -4422,6 +4430,7 @@ private fun BitChordApp(
                         .align(Alignment.BottomCenter)
                         .widthIn(max = FLOATING_BAR_MAX_WIDTH)
                         .fillMaxWidth()
+                        .padding(bottom = if (personalCollectionDetailOpen) 22.dp else 0.dp)
                         .onSizeChanged { floatingBarsHeight.intValue = it.height },
                 ) {
                     QueueActionNoticeHost(queueNotice)
@@ -4486,6 +4495,7 @@ private fun BitChordApp(
                         // already been bounded by the time it is applied.
                         .widthIn(max = FLOATING_BAR_MAX_WIDTH)
                         .fillMaxWidth()
+                        .padding(bottom = if (personalCollectionDetailOpen) 22.dp else 0.dp)
                         .onSizeChanged { floatingBarsHeight.intValue = it.height },
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
@@ -5338,27 +5348,35 @@ private fun BitChordApp(
             BackHandler { showSpotifyImportDialog = false }
             SpotifyImportAlert(
                 hazeState = hazeState,
-                signedIn = signedIn,
-                onImported = { title, privacy, songs ->
-                    viewModel.createPlaylistWithVideoIds(
-                        title,
-                        privacy,
-                        songs.map { it.videoId },
-                        songs,
-                    ) { browseId, pTitle, savedLocally ->
-                        showQueueNotice(
-                            context.getString(
-                                if (savedLocally && signedIn) R.string.spotify_import_local_fallback
-                                else R.string.spotify_import_done,
-                                pTitle,
-                            ),
-                        )
-                        browseId?.let { id ->
-                            viewModel.openDetail(id, pTitle, "${songs.size} songs", songs.firstOrNull()?.thumbnailUrl)
-                        }
-                    }
+                onImported = { title, songs ->
+                    PersonalLibraryStore.addPlaylistWithSongs(title, songs)
+                    showQueueNotice("Imported ${songs.size} songs into BitChord Personal Playlists")
                 },
                 onDismiss = { showSpotifyImportDialog = false },
+            )
+        }
+        if (showPersonalYtImportDialog) {
+            BackHandler { showPersonalYtImportDialog = false }
+            PersonalYouTubeMusicImportDialog(
+                playlists = playlists,
+                loading = playlistsLoading || personalYtImportBusy,
+                signedIn = signedIn,
+                onRefresh = { viewModel.loadPlaylists() },
+                onSignIn = { showPersonalYtImportDialog = false; webSession = WebSessionMode.SIGN_IN },
+                onImport = { source ->
+                    personalYtImportBusy = true
+                    personalPlaylistImportScope.launch {
+                        YtMusicRepository.playlistEntries(source.browseId).onSuccess { songs ->
+                            PersonalLibraryStore.addPlaylistWithSongs(source.title, songs)
+                            showQueueNotice("Imported ${songs.size} songs into BitChord Personal Playlists")
+                            showPersonalYtImportDialog = false
+                        }.onFailure { error ->
+                            showQueueNotice("Couldn't import playlist: ${error.message ?: "Please try again."}")
+                        }
+                        personalYtImportBusy = false
+                    }
+                },
+                onDismiss = { showPersonalYtImportDialog = false },
             )
         }
 

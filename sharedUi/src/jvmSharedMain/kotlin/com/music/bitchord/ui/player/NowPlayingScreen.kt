@@ -2018,6 +2018,41 @@ fun NowPlayingScreen(
                 }
             }
         }
+        // The entire player sheet now collapses into the mini-player's full
+        // pill bounds, not just its artwork. The sleeve portal above remains
+        // outside this transform, so the cover lands exactly on its own target
+        // while the background and controls travel together as one sheet.
+        .graphicsLayer {
+            val open = dockT()
+            val host = dockFrame.host?.takeIf { it.isAttached }
+            val hostAnchor = dockFrame.anchor
+            val sheetOffset = dock?.offset()
+            val destination = dock?.miniPlayerBoundsOnScreen()
+            if (dock != null && open < 1f && host != null && hostAnchor != null &&
+                sheetOffset != null && destination != null &&
+                host.size.width > 0 && host.size.height > 0
+            ) {
+                // Use the measured, fully-open anchor plus the sheet's current
+                // offset. Reading the transformed coordinates here would feed
+                // the layer's own translation back into its next frame.
+                val hostOrigin = hostAnchor + Offset(0f, sheetOffset.toInt().toFloat())
+                val targetScaleX = destination.width / host.size.width.toFloat()
+                val targetScaleY = destination.height / host.size.height.toFloat()
+                scaleX = targetScaleX + (1f - targetScaleX) * open
+                scaleY = targetScaleY + (1f - targetScaleY) * open
+                translationX = (destination.left - hostOrigin.x) * (1f - open)
+                translationY = (destination.top - hostOrigin.y) * (1f - open)
+                transformOrigin = TransformOrigin(0f, 0f)
+                shape = RoundedCornerShape(percent = ((1f - open) * 50f).roundToInt())
+                clip = true
+            } else {
+                scaleX = 1f
+                scaleY = 1f
+                translationX = 0f
+                translationY = 0f
+                clip = false
+            }
+        }
         // Never quite zero while docking. A layer at alpha 0 is skipped
         // outright, children and all — and the sleeve records itself for
         // the draw above from inside it, so for the last stretch of the

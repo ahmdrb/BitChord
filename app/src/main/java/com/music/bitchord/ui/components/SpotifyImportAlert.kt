@@ -37,7 +37,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.music.bitchord.R
-import com.music.bitchord.data.model.PlaylistPrivacy
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.spotify.SpotifyImportTrack
 import com.music.bitchord.data.spotify.SpotifyImporter
@@ -62,24 +61,20 @@ private val IMPORT_LANGUAGES = listOf(
  * Paste a Spotify playlist link, match its songs on YouTube Music, keep the result.
  *
  * The same frosted card as the addon editor, rather than a Material dialog.
- * The "who can see it" row exists only for [signedIn]: it is a YouTube Music
- * setting, and a playlist kept on this device has no audience to choose.
- * Songs that matched nothing are listed once the playlist is made, instead of
- * being dropped without a word.
+ * Matched tracks are saved into BitChord's own Personal Playlists, never into
+ * the signed-in YouTube Music account. Unmatched tracks are reported at the end.
  */
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 fun SpotifyImportAlert(
     hazeState: HazeState,
-    signedIn: Boolean,
-    /** Called once the songs are matched; [privacy] is meaningful only when signed in. */
-    onImported: (title: String, privacy: PlaylistPrivacy, songs: List<Song>) -> Unit,
+    /** Called once the songs are matched for a new BitChord Personal Playlist. */
+    onImported: (title: String, songs: List<Song>) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var link by remember { mutableStateOf("") }
-    var privacy by remember { mutableStateOf(PlaylistPrivacy.PRIVATE) }
     var selectedLanguage by remember { mutableStateOf("No Preference") }
     var customLanguageInput by remember { mutableStateOf("") }
     var working by remember { mutableStateOf(false) }
@@ -109,7 +104,7 @@ fun SpotifyImportAlert(
                     status = context.getString(R.string.spotify_import_matching, done, total)
                 }
                 if (songs.isEmpty()) error(context.getString(R.string.spotify_import_none))
-                onImported(name, privacy, songs)
+                onImported(name, songs)
                 if (missed.isEmpty()) onDismiss() else unmatched = missed
             } catch (e: CancellationException) {
                 throw e
@@ -165,10 +160,7 @@ fun SpotifyImportAlert(
                 }
             } else {
                 Text(
-                    text = status ?: stringResource(
-                        if (signedIn) R.string.spotify_import_description
-                        else R.string.spotify_import_description_local,
-                    ),
+                    text = status ?: stringResource(R.string.spotify_import_description_local),
                     modifier = Modifier.padding(top = 4.dp, bottom = 14.dp),
                     style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 17.sp),
                     color = when {
@@ -239,44 +231,7 @@ fun SpotifyImportAlert(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Done),
                     )
                 }
-                if (signedIn) {
-                    Text(
-                        text = stringResource(R.string.who_can_see_it),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 14.dp, bottom = 6.dp),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        PlaylistPrivacy.entries.forEach { option ->
-                            val selected = option == privacy
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(percent = 50))
-                                    .background(
-                                        if (selected) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.surfaceVariant,
-                                    )
-                                    .clickable(enabled = !working) { privacy = option }
-                                    .padding(vertical = 7.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(
-                                    text = option.label,
-                                    style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp),
-                                    color = if (selected) MaterialTheme.colorScheme.onPrimary
-                                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                    }
-                }
-            }
+
         }
         AlertRule()
         if (unmatched != null) {

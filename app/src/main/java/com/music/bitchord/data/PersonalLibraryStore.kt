@@ -67,6 +67,19 @@ object PersonalLibraryStore {
         )
     }
 
+    /** Create a BitChord playlist populated from an external source, without editing the account library. */
+    fun addPlaylistWithSongs(title: String, songs: List<Song>) = update { current ->
+        val name = title.trim()
+        if (name.isBlank()) current
+        else current.copy(
+            playlists = current.playlists + PersonalPlaylist(
+                id = java.util.UUID.randomUUID().toString(),
+                title = name,
+                songs = songs.distinctBy { it.videoId },
+            ),
+        )
+    }
+
     fun removePlaylist(id: String) = update { current ->
         current.copy(playlists = current.playlists.filterNot { it.id == id })
     }

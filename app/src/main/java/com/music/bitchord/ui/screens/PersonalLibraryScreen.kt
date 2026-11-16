@@ -49,6 +49,7 @@ import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -61,6 +62,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -94,6 +96,7 @@ import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.SearchFilter
 import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.model.UserPlaylist
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.ui.theme.rememberArtworkPalette
 import com.music.bitchord.ui.components.PAGE_GUTTER
@@ -154,14 +157,28 @@ internal fun PersonalPlaylistCreateDialog(
         tonalElevation = 0.dp,
         titleContentColor = MaterialTheme.colorScheme.onSurface,
         textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        title = { Text("New playlist") },
+        icon = { Icon(Icons.Rounded.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+        title = { Text("New playlist", style = MaterialTheme.typography.headlineSmall) },
         text = {
-            OutlinedTextField(
-                value = title,
-                onValueChange = { title = it },
-                singleLine = true,
-                label = { Text("Playlist name") },
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    "Give your personal collection a name. You can add songs and customize its artwork anytime.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    label = { Text("Playlist name") },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                    ),
+                )
+            }
         },
         confirmButton = {
             TextButton(
@@ -245,6 +262,7 @@ private fun PersonalCollectionDetailDialog(
     var searchOpen by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     var sortMode by remember { mutableStateOf("Default order") }
+    var dateAddedDescending by remember { mutableStateOf(true) }
     val searchFocusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     LaunchedEffect(searchOpen) {
@@ -265,7 +283,7 @@ private fun PersonalCollectionDetailDialog(
                 it.artist.contains(searchQuery, ignoreCase = true)
         }
         when (sortMode) {
-            "Date added" -> filtered.reversed()
+            "Date added" -> if (dateAddedDescending) filtered.reversed() else filtered
             "Alphabetical (A to Z)" -> filtered.sortedBy { it.title.lowercase() }
             "Alphabetical (Z to A)" -> filtered.sortedByDescending { it.title.lowercase() }
             else -> filtered
@@ -300,16 +318,16 @@ private fun PersonalCollectionDetailDialog(
                     IconButton(
                         onClick = onDismiss,
                         modifier = Modifier.size(52.dp).background(palette.elevated, RoundedCornerShape(50))
-                            .border(1.dp, palette.divider, RoundedCornerShape(50)),
+                            .border(1.dp, palette.accent.copy(alpha = 0.52f), RoundedCornerShape(50)),
                     ) {
-                        Icon(Icons.Rounded.ArrowBack, contentDescription = "Back", tint = palette.onBackground)
+                        Icon(Icons.Rounded.ArrowBack, contentDescription = "Back", tint = palette.accent)
                     }
                     Spacer(Modifier.weight(1f))
                     Row(
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
                             .background(palette.elevated.copy(alpha = 0.88f))
-                            .border(1.dp, palette.divider, RoundedCornerShape(50)),
+                            .border(1.dp, palette.accent.copy(alpha = 0.52f), RoundedCornerShape(50)),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         IconButton(
@@ -322,7 +340,7 @@ private fun PersonalCollectionDetailDialog(
                             Icon(
                                 if (searchOpen) Icons.Rounded.Close else Icons.Rounded.Search,
                                 contentDescription = if (searchOpen) "Close search" else "Search this list",
-                                tint = palette.onBackground,
+                                tint = palette.accent,
                             )
                         }
                         Box {
@@ -330,7 +348,7 @@ private fun PersonalCollectionDetailDialog(
                                 onClick = { sortMenuOpen = true },
                                 modifier = Modifier.size(48.dp),
                             ) {
-                                Icon(Icons.Rounded.FilterList, contentDescription = "Sort songs", tint = palette.onBackground)
+                                Icon(Icons.Rounded.FilterList, contentDescription = "Sort songs", tint = palette.accent)
                             }
                             DropdownMenu(
                                 expanded = sortMenuOpen,
@@ -356,11 +374,17 @@ private fun PersonalCollectionDetailDialog(
                                             )
                                         },
                                         trailingIcon = {
-                                            if (sortMode == option) {
+                                            if (option == "Date added" && sortMode == option) {
+                                                Text(if (dateAddedDescending) "↓" else "↑", color = palette.accent, style = MaterialTheme.typography.titleLarge)
+                                            } else if (sortMode == option) {
                                                 Icon(Icons.Rounded.Check, contentDescription = "Selected", tint = palette.accent)
                                             }
                                         },
-                                        onClick = { sortMode = option; sortMenuOpen = false },
+                                        onClick = {
+                                            if (option == "Date added" && sortMode == "Date added") dateAddedDescending = !dateAddedDescending
+                                            else sortMode = option
+                                            sortMenuOpen = false
+                                        },
                                     )
                                 }
                             }
@@ -370,7 +394,7 @@ private fun PersonalCollectionDetailDialog(
                                 onClick = { menuOpen = true },
                                 modifier = Modifier.size(48.dp),
                             ) {
-                                Icon(Icons.Rounded.MoreHoriz, contentDescription = "More options", tint = palette.onBackground)
+                                Icon(Icons.Rounded.MoreHoriz, contentDescription = "More options", tint = palette.accent)
                             }
                             DropdownMenu(
                                 expanded = menuOpen,
@@ -521,6 +545,12 @@ private fun PersonalCollectionDetailDialog(
                                     .focusRequester(searchFocusRequester),
                                 singleLine = true,
                                 shape = RoundedCornerShape(18.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = palette.accent,
+                                    unfocusedBorderColor = palette.accent.copy(alpha = 0.58f),
+                                    cursorColor = palette.accent,
+                                    focusedLabelColor = palette.accent,
+                                ),
                                 placeholder = { Text("Search this list") },
                             )
                         }
@@ -603,8 +633,12 @@ private fun PersonalCollectionDetailDialog(
             tonalElevation = 0.dp,
             titleContentColor = palette.onBackground,
             textContentColor = palette.onBackgroundVariant,
+            icon = { Icon(Icons.Rounded.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
             title = {
-                Text(if (collectionKind == "playlist") "Delete playlist?" else "Remove artist?")
+                Text(
+                    if (collectionKind == "playlist") "Delete playlist?" else "Remove artist?",
+                    style = MaterialTheme.typography.headlineSmall,
+                )
             },
             text = {
                 Text(
@@ -619,7 +653,7 @@ private fun PersonalCollectionDetailDialog(
                 TextButton(onClick = {
                     confirmDelete = false
                     onDelete()
-                }) { Text("Delete") }
+                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
                 TextButton(onClick = { confirmDelete = false }) { Text("Cancel") }
@@ -898,16 +932,30 @@ internal fun PersonalLibraryAddDialog(
         tonalElevation = 0.dp,
         titleContentColor = MaterialTheme.colorScheme.onSurface,
         textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        title = { Text(if (mode == PersonalAddMode.ARTIST) "Add artist" else "Add song") },
+        icon = { Icon(Icons.Rounded.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+        title = {
+            Text(if (mode == PersonalAddMode.ARTIST) "Add artist" else "Add song", style = MaterialTheme.typography.headlineSmall)
+        },
         text = {
-            Column {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    if (mode == PersonalAddMode.ARTIST) "Find an artist and add them to your personal collection."
+                    else "Search YouTube Music and add a track to this BitChord collection.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(
                         value = query,
                         onValueChange = { query = it },
                         modifier = Modifier.weight(1f),
                         singleLine = true,
+                        shape = RoundedCornerShape(16.dp),
                         label = { Text(if (mode == PersonalAddMode.ARTIST) "Artist name" else "Song title or artist") },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                        ),
                     )
                     IconButton(
                         enabled = query.isNotBlank() && !loading,
@@ -1005,7 +1053,7 @@ internal fun PersonalLibraryAddDialog(
                                     }.padding(vertical = 10.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    AsyncImage(artist.thumbnailUrl, null, Modifier.size(46.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
+                                    AsyncImage(artist.thumbnailUrl, null, Modifier.size(52.dp).clip(RoundedCornerShape(12.dp)), contentScale = ContentScale.Crop)
                                     Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
                                         Text(artist.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         Text(artist.subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1022,7 +1070,7 @@ internal fun PersonalLibraryAddDialog(
                                     }.padding(vertical = 10.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    AsyncImage(song.thumbnailUrl, null, Modifier.size(46.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
+                                    AsyncImage(song.thumbnailUrl, null, Modifier.size(52.dp).clip(RoundedCornerShape(12.dp)), contentScale = ContentScale.Crop)
                                     Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
                                         Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         Text(song.artist, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1036,6 +1084,82 @@ internal fun PersonalLibraryAddDialog(
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+    )
+}
+
+@Composable
+internal fun PersonalYouTubeMusicImportDialog(
+    playlists: List<UserPlaylist>,
+    loading: Boolean,
+    signedIn: Boolean,
+    onRefresh: () -> Unit,
+    onSignIn: () -> Unit,
+    onImport: (UserPlaylist) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(28.dp),
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
+        icon = { Icon(BitChordIcons.Download, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+        title = { Text("Import YouTube Music", style = MaterialTheme.typography.headlineSmall) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    "Choose one of your YouTube Music playlists to copy into BitChord Personal Playlists. Your YouTube Music library will not be changed.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                when {
+                    !signedIn -> {
+                        Text("Sign in to YouTube Music to see your playlists.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        TextButton(onClick = onSignIn) { Text("Sign in") }
+                    }
+                    loading -> Box(Modifier.fillMaxWidth().height(110.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                    playlists.isEmpty() -> {
+                        Text("No YouTube Music playlists were found.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        TextButton(onClick = onRefresh) { Text("Refresh playlists") }
+                    }
+                    else -> LazyColumn(
+                        modifier = Modifier.heightIn(max = 340.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        items(playlists, key = { it.playlistId }) { playlist ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(MaterialTheme.colorScheme.surface)
+                                    .clickable { onImport(playlist) }
+                                    .padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                AsyncImage(
+                                    model = playlist.thumbnailUrl,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(48.dp).clip(RoundedCornerShape(11.dp)),
+                                    contentScale = ContentScale.Crop,
+                                )
+                                Column(Modifier.weight(1f).padding(horizontal = 11.dp)) {
+                                    Text(playlist.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(
+                                        playlist.subtitle,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                    )
+                                }
+                                Icon(Icons.Rounded.Add, contentDescription = "Import playlist", tint = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
     )
 }
 

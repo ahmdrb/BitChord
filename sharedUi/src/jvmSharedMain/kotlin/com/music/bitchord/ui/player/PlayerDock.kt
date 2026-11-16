@@ -38,6 +38,8 @@ class PlayerDock {
      */
     private var miniArt: LayoutCoordinates? = null
     private var miniArtCorner: Dp = 8.dp
+    /** The complete mini-player pill, used as the destination for the sheet itself. */
+    private var miniPlayer: LayoutCoordinates? = null
 
     /**
      * How far the player sheet sits below fully open, in pixels. Set by the
@@ -89,6 +91,21 @@ class PlayerDock {
     }
 
     internal fun miniArtCorner(): Dp = miniArtCorner
+
+    /** Report the full mini-player surface, not just its cover. */
+    fun reportMiniPlayerBounds(coordinates: LayoutCoordinates) {
+        miniPlayer = coordinates
+    }
+
+    /** Full mini-player destination in screen coordinates. */
+    internal fun miniPlayerBoundsOnScreen(): Rect? {
+        val coordinates = miniPlayer?.takeIf { it.isAttached } ?: return null
+        val size = coordinates.size.toSize()
+        return Rect(
+            coordinates.localToScreen(Offset.Zero),
+            coordinates.localToScreen(Offset(size.width, size.height)),
+        )
+    }
 
     /** The sheet's offset this frame, or null with no sheet laid out. */
     internal fun offset(): Float? = sheetOffset?.invoke()?.takeUnless { it.isNaN() }

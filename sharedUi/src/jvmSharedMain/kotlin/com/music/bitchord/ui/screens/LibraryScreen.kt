@@ -85,6 +85,7 @@ fun LibraryScreen(
     onShelfItemLongPress: (ShelfItem) -> Unit,
     onAddPersonalPlaylist: () -> Unit = {},
     onImportSpotifyPlaylist: (() -> Unit)? = null,
+    onImportYtMusicPlaylist: (() -> Unit)? = null,
     onPersonalPlaylistClick: (ShelfItem) -> Unit = onShelfItemClick,
     onPersonalPlaylistLongPress: (ShelfItem) -> Unit = onShelfItemLongPress,
     personalPlaylists: List<ShelfItem> = emptyList(),
@@ -143,6 +144,7 @@ fun LibraryScreen(
                         onItemLongPress = onPersonalPlaylistLongPress,
                         onAdd = onAddPersonalPlaylist,
                                 onImportSpotifyPlaylist = onImportSpotifyPlaylist,
+                                onImportYtMusicPlaylist = onImportYtMusicPlaylist,
                     )
                 }
                 item(key = "personal-artists") {
@@ -169,6 +171,7 @@ fun LibraryScreen(
                                 onItemLongPress = onPersonalPlaylistLongPress,
                                 onAdd = onAddPersonalPlaylist,
                                 onImportSpotifyPlaylist = onImportSpotifyPlaylist,
+                                onImportYtMusicPlaylist = onImportYtMusicPlaylist,
                             )
                         }
                         item(key = "personal-artists") {
@@ -188,6 +191,7 @@ fun LibraryScreen(
                                 onItemLongPress = onPersonalPlaylistLongPress,
                                 onAdd = onAddPersonalPlaylist,
                                 onImportSpotifyPlaylist = onImportSpotifyPlaylist,
+                                onImportYtMusicPlaylist = onImportYtMusicPlaylist,
                             )
                         }
                         item(key = "personal-artists") {
@@ -214,6 +218,7 @@ fun LibraryScreen(
                                 onItemLongPress = onPersonalPlaylistLongPress,
                                 onAdd = onAddPersonalPlaylist,
                                 onImportSpotifyPlaylist = onImportSpotifyPlaylist,
+                                onImportYtMusicPlaylist = onImportYtMusicPlaylist,
                             )
                         }
                         item(key = "personal-artists") {
@@ -336,6 +341,7 @@ private fun PersonalPlaylistShelf(
     onItemLongPress: (ShelfItem) -> Unit,
     onAdd: () -> Unit,
     onImportSpotifyPlaylist: (() -> Unit)? = null,
+    onImportYtMusicPlaylist: (() -> Unit)? = null,
 ) {
     Column(Modifier.padding(bottom = 26.dp)) {
         Row(
@@ -352,7 +358,7 @@ private fun PersonalPlaylistShelf(
                 modifier = Modifier.clickable(onClick = onAdd),
             )
         }
-        if (playlists.isNotEmpty() || onImportSpotifyPlaylist != null) {
+        if (playlists.isNotEmpty() || onImportSpotifyPlaylist != null || onImportYtMusicPlaylist != null) {
             ShelfRow(
                 contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
                 horizontalArrangement = Arrangement.spacedBy(LIBRARY_GRID_SPACING),
@@ -365,6 +371,16 @@ private fun PersonalPlaylistShelf(
                             subtitle = stringResource(Res.string.import_spotify_subtitle),
                             onClick = onImportSpotifyPlaylist,
                             logo = Res.drawable.spotify_logo,
+                        )
+                    }
+                }
+                if (onImportYtMusicPlaylist != null) {
+                    item(key = "personal-import-youtube-music") {
+                        NewShelfCard(
+                            icon = BitChordIcons.Download,
+                            label = "Import YouTube Music",
+                            subtitle = "Copy a playlist into BitChord",
+                            onClick = onImportYtMusicPlaylist,
                         )
                     }
                 }

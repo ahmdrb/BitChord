@@ -1256,7 +1256,7 @@
     <string name="import_spotify_subtitle">From a playlist link</string>
     <string name="spotify_import_title">Import Spotify playlist</string>
     <string name="spotify_import_description">Paste a public playlist link. Songs are matched on YouTube Music.</string>
-    <string name="spotify_import_description_local">Paste a public playlist link. Songs are matched on YouTube Music and saved on this device.</string>
+    <string name="spotify_import_description_local">Paste a public playlist link. Matched songs are added to a BitChord Personal Playlist.</string>
     <string name="spotify_import_hint">open.spotify.com/playlist/…</string>
     <string name="spotify_import_invalid">That isn\'t a Spotify playlist link.</string>
     <string name="spotify_import_fetching">Reading the Spotify playlist…</string>
