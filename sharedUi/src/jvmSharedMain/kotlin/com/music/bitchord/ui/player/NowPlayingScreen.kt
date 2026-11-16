@@ -140,6 +140,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -1675,6 +1676,21 @@ fun NowPlayingScreen(
                 modifier = Modifier.fillMaxWidth().widthIn(max = PLAYER_MAX_WIDTH),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
+                Text(
+                    text = song.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = song.artist,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.72f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.height(8.dp))
                 PlayerScrubber(
                     shown = shown,
                     durationMs = durationMs,
@@ -1870,15 +1886,11 @@ fun NowPlayingScreen(
     // layout and draw blocks calling this are re-run only for the state they
     // read, and one that bailed out before reading it would never hear the
     // sheet move.
-    val dockT: () -> Float = {
-        if (dock == null) {
-            1f
-        } else {
-            val open = dock.openFraction()
-            if (dockFrame.anchor != null && dock.hasMiniArt()) open else 1f
-        }
-    }
-    val docking: () -> Boolean = { dockT() < 1f }
+    // The player now travels as a full-screen sheet from/to the bottom edge.
+    // Keep the artwork at its normal full-player size instead of flying it
+    // toward the mini-player cover during open or dismiss.
+    val dockT: () -> Float = { 1f }
+    val docking: () -> Boolean = { false }
     // The same, for composition: derived, so it recomposes the player twice a
     // trip — as the sheet leaves fully open and as it gets back — rather than
     // on each frame between.
