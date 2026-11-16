@@ -3921,6 +3921,7 @@ private fun BitChordApp(
                                     addingSongToPersonalArtistId?.let { artistId ->
                                         PersonalLibraryAddDialog(
                                             mode = PersonalAddMode.SONG,
+                                            hazeState = hazeState,
                                             artists = personalLibrary.artists,
                                             initialArtistId = artistId,
                                             artwork = personalLibrary.artists.firstOrNull { it.browseId == artistId }?.thumbnailUrl,
