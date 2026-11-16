@@ -656,8 +656,7 @@ fun DetailScreen(
                         onArtistClick = onArtistClick.takeIf { folder == null },
                         onToggleLibrary = onToggleLibrary,
                         onDownloadAll = folder?.onDownload?.let { download -> { download(songs) } },
-                        folderArtworkPath = selectedFolderArtwork,
-                        onEditFolderArtwork = folderArtworkKey?.let { { folderArtworkPicker.launch(arrayOf("image/*")) } },
+                        // Device folders retain their original built-in artwork; custom editing is not offered.
                     )
                 }
             }
@@ -1114,21 +1113,6 @@ private fun ReleaseHeader(
                     isPlaying = true,
                     modifier = Modifier.matchParentSize(),
                 )
-            }
-            onEditFolderArtwork?.let { edit ->
-                IconButton(
-                    onClick = edit,
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(10.dp)
-                        .background(Color.Black.copy(alpha = 0.58f), CircleShape),
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Edit,
-                        contentDescription = "Change folder artwork",
-                        tint = Color.White,
-                    )
-                }
             }
         }
 
