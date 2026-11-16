@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -23,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -62,6 +64,7 @@ import com.music.bitchord.data.model.SearchFilter
 import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.ui.components.PAGE_GUTTER
+import com.music.bitchord.ui.icons.BitChordIcons
 import kotlinx.coroutines.launch
 
 internal enum class PersonalAddMode { ARTIST, SONG }
@@ -73,63 +76,21 @@ internal fun PersonalArtistDetailDialog(
     onDismiss: () -> Unit,
     onAddSongs: () -> Unit,
     onPlay: () -> Unit,
+    onShuffle: () -> Unit,
     onRemoveSong: (String) -> Unit,
     onDelete: () -> Unit,
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(artist.title) },
-        text = {
-            Column {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    TextButton(onClick = onAddSongs) { Text("Add songs") }
-                    TextButton(enabled = songs.isNotEmpty(), onClick = onPlay) {
-                        Text("Play")
-                    }
-                }
-                if (songs.isEmpty()) {
-                    Text(
-                        "Songs you add to this BitChord artist collection will appear here.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                } else {
-                    LazyColumn(Modifier.heightIn(max = 320.dp)) {
-                        items(songs, key = { it.videoId }) { song ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                AsyncImage(
-                                    model = song.thumbnailUrl,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(42.dp).clip(RoundedCornerShape(6.dp)),
-                                    contentScale = ContentScale.Crop,
-                                )
-                                Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
-                                    Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Text(
-                                        song.artist,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                }
-                                IconButton(onClick = { onRemoveSong(song.videoId) }) {
-                                    Icon(Icons.Rounded.Close, contentDescription = "Remove song from artist")
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
-        dismissButton = { TextButton(onClick = onDelete) { Text("Delete artist") } },
+    PersonalCollectionDetailDialog(
+        title = artist.title,
+        artwork = artist.thumbnailUrl,
+        songs = songs,
+        collectionKind = "artist",
+        onDismiss = onDismiss,
+        onAddSongs = onAddSongs,
+        onPlay = onPlay,
+        onShuffle = onShuffle,
+        onRemoveSong = onRemoveSong,
+        onDelete = onDelete,
     )
 }
 
@@ -171,64 +132,209 @@ internal fun PersonalPlaylistDetailDialog(
     onDismiss: () -> Unit,
     onAddSongs: () -> Unit,
     onPlay: () -> Unit,
+    onShuffle: () -> Unit,
     onRemoveSong: (String) -> Unit,
     onDelete: () -> Unit,
+    onCustomizeArtwork: () -> Unit,
 ) {
-    AlertDialog(
+    PersonalCollectionDetailDialog(
+        title = playlist.title,
+        artwork = playlist.artworkPath ?: playlist.songs.firstOrNull()?.thumbnailUrl,
+        songs = playlist.songs,
+        collectionKind = "playlist",
+        onDismiss = onDismiss,
+        onAddSongs = onAddSongs,
+        onPlay = onPlay,
+        onShuffle = onShuffle,
+        onRemoveSong = onRemoveSong,
+        onDelete = onDelete,
+        onCustomizeArtwork = onCustomizeArtwork,
+    )
+}
+
+@Composable
+private fun PersonalCollectionDetailDialog(
+    title: String,
+    artwork: Any?,
+    songs: List<Song>,
+    collectionKind: String,
+    onDismiss: () -> Unit,
+    onAddSongs: () -> Unit,
+    onPlay: () -> Unit,
+    onShuffle: () -> Unit,
+    onRemoveSong: (String) -> Unit,
+    onDelete: () -> Unit,
+    onCustomizeArtwork: (() -> Unit)? = null,
+) {
+    var menuOpen by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    androidx.compose.ui.window.Dialog(
         onDismissRequest = onDismiss,
-        title = { Text(playlist.title) },
-        text = {
-            Column {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    TextButton(onClick = onAddSongs) { Text("Add songs") }
-                    TextButton(enabled = playlist.songs.isNotEmpty(), onClick = onPlay) {
-                        Text("Play")
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Column(
+            Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Rounded.ArrowBack, contentDescription = "Back")
+                }
+                Spacer(Modifier.weight(1f))
+                Box {
+                    IconButton(onClick = { menuOpen = true }) {
+                        Icon(Icons.Rounded.MoreVert, contentDescription = "More options")
+                    }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        if (onCustomizeArtwork != null) {
+                            DropdownMenuItem(
+                                text = { Text("Customize artwork") },
+                                onClick = {
+                                    menuOpen = false
+                                    onCustomizeArtwork()
+                                },
+                            )
+                        }
+                        DropdownMenuItem(
+                            text = { Text("Delete $collectionKind") },
+                            onClick = {
+                                menuOpen = false
+                                confirmDelete = true
+                            },
+                        )
                     }
                 }
-                if (playlist.songs.isEmpty()) {
-                    Text(
-                        "Songs you add to this BitChord playlist will appear here.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+            }
+            Spacer(Modifier.height(12.dp))
+            Box(
+                Modifier.fillMaxWidth().padding(horizontal = 42.dp).aspectRatio(1f)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+            ) {
+                if (artwork != null) {
+                    AsyncImage(
+                        model = artwork,
+                        contentDescription = "$title artwork",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
                     )
-                } else {
-                    LazyColumn(Modifier.heightIn(max = 320.dp)) {
-                        items(playlist.songs, key = { it.videoId }) { song ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                AsyncImage(
-                                    model = song.thumbnailUrl,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(42.dp).clip(RoundedCornerShape(6.dp)),
-                                    contentScale = ContentScale.Crop,
+                }
+            }
+            Spacer(Modifier.height(22.dp))
+            Text(
+                title,
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                "${songs.size} ${if (songs.size == 1) "song" else "songs"}",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                if (songs.isEmpty()) "Empty collection" else "${songs.size} tracks",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(22.dp))
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                IconButton(
+                    onClick = onShuffle,
+                    enabled = songs.isNotEmpty(),
+                    modifier = Modifier.size(54.dp).background(
+                        MaterialTheme.colorScheme.surfaceVariant,
+                        RoundedCornerShape(50),
+                    ),
+                ) {
+                    Icon(BitChordIcons.Shuffle, contentDescription = "Shuffle")
+                }
+                Button(
+                    onClick = onPlay,
+                    enabled = songs.isNotEmpty(),
+                    modifier = Modifier.weight(1f).height(54.dp),
+                    shape = RoundedCornerShape(50),
+                ) {
+                    Icon(BitChordIcons.Play, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Play")
+                }
+                IconButton(
+                    onClick = onAddSongs,
+                    modifier = Modifier.size(54.dp).background(
+                        MaterialTheme.colorScheme.surfaceVariant,
+                        RoundedCornerShape(50),
+                    ),
+                ) {
+                    Icon(Icons.Rounded.Add, contentDescription = "Add songs")
+                }
+            }
+            Spacer(Modifier.height(18.dp))
+            if (songs.isEmpty()) {
+                Text(
+                    "Songs you add to this BitChord $collectionKind collection will appear here.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(24.dp),
+                )
+            } else {
+                LazyColumn(
+                    Modifier.fillMaxWidth().weight(1f),
+                    contentPadding = PaddingValues(start = 20.dp, end = 12.dp, bottom = 24.dp),
+                ) {
+                    items(songs, key = { it.videoId }) { song ->
+                        Row(
+                            Modifier.fillMaxWidth().heightIn(min = 68.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            AsyncImage(
+                                model = song.thumbnailUrl,
+                                contentDescription = null,
+                                modifier = Modifier.size(54.dp).clip(RoundedCornerShape(7.dp)),
+                                contentScale = ContentScale.Crop,
+                            )
+                            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                                Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(
+                                    song.artist,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
                                 )
-                                Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
-                                    Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Text(
-                                        song.artist,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                }
-                                IconButton(onClick = { onRemoveSong(song.videoId) }) {
-                                    Icon(Icons.Rounded.Close, contentDescription = "Remove song")
-                                }
+                            }
+                            IconButton(onClick = { onRemoveSong(song.videoId) }) {
+                                Icon(Icons.Rounded.Close, contentDescription = "Remove song")
                             }
                         }
                     }
                 }
             }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
-        dismissButton = { TextButton(onClick = onDelete) { Text("Delete playlist") } },
-    )
+        }
+    }
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text("Delete $collectionKind?") },
+            text = { Text("This will remove this BitChord $collectionKind collection.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDelete = false
+                    onDelete()
+                }) { Text("Delete") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = false }) { Text("Cancel") }
+            },
+        )
+    }
 }
 
 /**
