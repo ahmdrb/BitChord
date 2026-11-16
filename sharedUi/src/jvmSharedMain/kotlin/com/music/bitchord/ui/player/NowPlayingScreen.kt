@@ -1448,17 +1448,12 @@ fun NowPlayingScreen(
     // its opacity on exactly what is mounted here: both are decided in the same
     // composition pass, so the still art is whole again in the very frame the
     // clip goes, rather than a frame later with no artwork anywhere.
-    // A full-screen Spotify Canvas has no sleeve to dock into. As soon as the
-    // sheet begins its downward handoff, remove the Canvas surface itself so
-    // the page and the already-mounted mini-player cover are visible from the
-    // first dismissal frame. The Canvas model and playback position remain
-    // owned by the player, so reopening restores it without touching lyrics.
+    // A full-screen Spotify Canvas stays mounted while the sheet travels down.
+    // Its TextureView fades with the player's dock fade below; unmounting it on
+    // the first downward frame made the Canvas vanish instantly instead of
+    // following the visible Canvas-to-mini-player handoff.
     val dock = LocalPlayerDock.current
-    val hideFullscreenCanvasForDock =
-        spotifyCanvasOnPhone && dock?.transitioningToMini == true
-    val heroClip = canvas?.takeIf {
-        heroMode && !collapsePastHalf && !hideFullscreenCanvasForDock
-    }
+    val heroClip = canvas?.takeIf { heroMode && !collapsePastHalf }
     val spotifyCanvasFullscreen = spotifyCanvasOnPhone &&
         heroClip?.source == CanvasSource.SPOTIFY
     val spotifyCanvasPresentation = spotifyCanvasFullscreen && canvasRendered
@@ -1477,8 +1472,7 @@ fun NowPlayingScreen(
     // off that, its last few frames would resize the view and rebuild its
     // fade for a picture nobody can see.
     val heroClipMounted = canvas?.takeIf {
-        heroMode && (!(lyricsOpen || queueOpen) || !collapseDone) &&
-            !hideFullscreenCanvasForDock
+        heroMode && (!(lyricsOpen || queueOpen) || !collapseDone)
     }
     val clipFullscreen = spotifyCanvasOnPhone &&
         heroClipMounted?.source == CanvasSource.SPOTIFY
@@ -2507,12 +2501,11 @@ fun NowPlayingScreen(
                             //
                             // Out of sight altogether while its still stands in for it.
                             presentationAlpha = {
-                                // Spotify Canvas is replaced by the still cover on the
-                                // very first downward movement, not halfway through the
-                                // sheet animation. Moving back up restores Canvas at once.
-                                if (lyricsOpen || (stillTakesOver() && !dockMoving) ||
-                                    canvasTransitioningToMini
-                                ) 0f
+                                // Keep the full-screen Canvas visible during the
+                                // downward movement, then fade it with the rest of the
+                                // player as it reaches the mini-player. dockFade reverses
+                                // with the sheet, so catching the gesture restores Canvas.
+                                if (lyricsOpen || (stillTakesOver() && !dockMoving)) 0f
                                 else (1f - 2f * p()).coerceIn(0f, 1f) * dockFade()
                             },
                             // A full-screen Spotify Canvas holds its frame for a beat
