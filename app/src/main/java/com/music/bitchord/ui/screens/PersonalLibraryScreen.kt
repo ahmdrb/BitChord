@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -60,6 +61,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -222,7 +224,7 @@ private fun PersonalCollectionDetailDialog(
                 )
             }
             Column(
-                Modifier.fillMaxSize(),
+                Modifier.fillMaxSize().statusBarsPadding(),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Row(
@@ -231,55 +233,60 @@ private fun PersonalCollectionDetailDialog(
                 ) {
                     IconButton(
                         onClick = onDismiss,
-                        modifier = Modifier.size(44.dp).background(palette.elevated, RoundedCornerShape(50))
+                        modifier = Modifier.size(52.dp).background(palette.elevated, RoundedCornerShape(50))
                             .border(1.dp, palette.divider, RoundedCornerShape(50)),
                     ) {
                         Icon(Icons.Rounded.ArrowBack, contentDescription = "Back", tint = palette.onBackground)
                     }
                     Spacer(Modifier.weight(1f))
-                    IconButton(
-                        onClick = { searchOpen = !searchOpen; if (!searchOpen) searchQuery = "" },
-                        modifier = Modifier.size(44.dp).background(palette.elevated, RoundedCornerShape(50))
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(palette.elevated.copy(alpha = 0.88f))
                             .border(1.dp, palette.divider, RoundedCornerShape(50)),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Icon(Icons.Rounded.Search, contentDescription = "Search songs", tint = palette.onBackground)
-                    }
-                    Box {
                         IconButton(
-                            onClick = { sortMenuOpen = true },
-                            modifier = Modifier.size(44.dp).background(palette.elevated, RoundedCornerShape(50))
-                                .border(1.dp, palette.divider, RoundedCornerShape(50)),
+                            onClick = { searchOpen = !searchOpen; if (!searchOpen) searchQuery = "" },
+                            modifier = Modifier.size(48.dp),
                         ) {
-                            Icon(Icons.Rounded.FilterList, contentDescription = "Sort songs", tint = palette.onBackground)
+                            Icon(Icons.Rounded.Search, contentDescription = "Search songs", tint = palette.onBackground)
                         }
-                        DropdownMenu(expanded = sortMenuOpen, onDismissRequest = { sortMenuOpen = false }) {
-                            listOf("Default", "Title", "Artist", "Duration").forEach { option ->
-                                DropdownMenuItem(
-                                    text = { Text(if (sortMode == option) "✓ $option" else option) },
-                                    onClick = { sortMode = option; sortMenuOpen = false },
-                                )
+                        Box {
+                            IconButton(
+                                onClick = { sortMenuOpen = true },
+                                modifier = Modifier.size(48.dp),
+                            ) {
+                                Icon(Icons.Rounded.FilterList, contentDescription = "Sort songs", tint = palette.onBackground)
+                            }
+                            DropdownMenu(expanded = sortMenuOpen, onDismissRequest = { sortMenuOpen = false }) {
+                                listOf("Default", "Title", "Artist", "Duration").forEach { option ->
+                                    DropdownMenuItem(
+                                        text = { Text(if (sortMode == option) "✓ $option" else option) },
+                                        onClick = { sortMode = option; sortMenuOpen = false },
+                                    )
+                                }
                             }
                         }
-                    }
-                    Box {
-                        IconButton(
-                            onClick = { menuOpen = true },
-                            modifier = Modifier.size(44.dp).background(palette.elevated, RoundedCornerShape(50))
-                                .border(1.dp, palette.divider, RoundedCornerShape(50)),
-                        ) {
-                            Icon(Icons.Rounded.MoreHoriz, contentDescription = "More options", tint = palette.onBackground)
-                        }
-                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                            if (onCustomizeArtwork != null) {
+                        Box {
+                            IconButton(
+                                onClick = { menuOpen = true },
+                                modifier = Modifier.size(48.dp),
+                            ) {
+                                Icon(Icons.Rounded.MoreHoriz, contentDescription = "More options", tint = palette.onBackground)
+                            }
+                            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                                if (onCustomizeArtwork != null) {
+                                    DropdownMenuItem(
+                                        text = { Text("Customize artwork") },
+                                        onClick = { menuOpen = false; onCustomizeArtwork() },
+                                    )
+                                }
                                 DropdownMenuItem(
-                                    text = { Text("Customize artwork") },
-                                    onClick = { menuOpen = false; onCustomizeArtwork() },
+                                    text = { Text("Delete $collectionKind") },
+                                    onClick = { menuOpen = false; confirmDelete = true },
                                 )
                             }
-                            DropdownMenuItem(
-                                text = { Text("Delete $collectionKind") },
-                                onClick = { menuOpen = false; confirmDelete = true },
-                            )
                         }
                     }
                 }
@@ -363,7 +370,7 @@ private fun PersonalCollectionDetailDialog(
                             ) {
                                 Icon(BitChordIcons.Play, contentDescription = null)
                                 Spacer(Modifier.width(8.dp))
-                                Text("Play")
+                                Text("Play", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
                             }
                             IconButton(
                                 onClick = onAddSongs,
