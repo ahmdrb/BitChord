@@ -5369,9 +5369,10 @@ private fun BitChordApp(
                     if (listId == null) {
                         showQueueNotice("Paste a valid YouTube Music playlist link.")
                     } else {
-                        val browseId = if (link.trim().startsWith("VL")) link.trim() else "VL$listId"
+                        val normalizedListId = listId.removePrefix("VL")
+                        val browseId = if (listId.startsWith("VL")) listId else "VL$listId"
                         val source = playlists.firstOrNull {
-                            it.playlistId == listId || it.browseId == browseId
+                            it.playlistId == normalizedListId || it.browseId == browseId
                         }
                         personalYtImportBusy = true
                         personalPlaylistImportScope.launch {
