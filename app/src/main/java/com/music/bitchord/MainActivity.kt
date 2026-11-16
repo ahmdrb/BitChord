@@ -3807,6 +3807,15 @@ private fun BitChordApp(
                                                         )
                                                     }
                                                 },
+                                                onSongClick = { selectedSong ->
+                                                    val index = artistSongs.indexOfFirst { it.videoId == selectedSong.videoId }
+                                                        .coerceAtLeast(0)
+                                                    playFrom(
+                                                        artistSongs,
+                                                        index,
+                                                        QueueSource(artist.title, PlaybackSourceType.BROWSE, "personal-artist:$artistId"),
+                                                    )
+                                                },
                                                 onRemoveSong = { videoId ->
                                                     PersonalLibraryStore.removeSongFromArtist(videoId, artistId)
                                                 },
@@ -3844,6 +3853,15 @@ private fun BitChordApp(
                                                             QueueSource(playlist.title, PlaybackSourceType.BROWSE, "personal-playlist:${playlist.id}"),
                                                         )
                                                     }
+                                                },
+                                                onSongClick = { selectedSong ->
+                                                    val index = playlist.songs.indexOfFirst { it.videoId == selectedSong.videoId }
+                                                        .coerceAtLeast(0)
+                                                    playFrom(
+                                                        playlist.songs,
+                                                        index,
+                                                        QueueSource(playlist.title, PlaybackSourceType.BROWSE, "personal-playlist:${playlist.id}"),
+                                                    )
                                                 },
                                                 onCustomizeArtwork = {
                                                     personalPlaylistArtworkTarget = playlist.id
