@@ -1,6 +1,8 @@
 package com.music.bitchord.data
 
 import android.content.Context
+import android.net.Uri
+import java.io.File
 import com.music.bitchord.data.model.BrowseItem
 import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.Song
@@ -25,6 +27,7 @@ object PersonalLibraryStore {
         val id: String,
         val title: String,
         val songs: List<Song> = emptyList(),
+        val artworkPath: String? = null,
     )
 
     data class Snapshot(
@@ -66,6 +69,32 @@ object PersonalLibraryStore {
 
     fun removePlaylist(id: String) = update { current ->
         current.copy(playlists = current.playlists.filterNot { it.id == id })
+    }
+
+    /** Copy a gallery selection into app-private storage so it survives restarts. */
+    fun savePlaylistArtwork(context: Context, id: String, uri: Uri) {
+        val mimeExtension = context.contentResolver.getType(uri)
+            ?.substringAfter('/', "jpg")
+            ?.filter { it.isLetterOrDigit() }
+            ?.take(8)
+            ?.ifBlank { "jpg" } ?: "jpg"
+        val directory = File(context.filesDir, "personal-playlist-artwork")
+        if (!directory.exists() && !directory.mkdirs()) return
+        val target = File(directory, "$id-${System.currentTimeMillis()}.$mimeExtension")
+        val copied = runCatching {
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                target.outputStream().use { output -> input.copyTo(output) }
+            } ?: return
+            target.toURI().toString()
+        }.getOrNull() ?: run {
+            target.delete()
+            return
+        }
+        update { current ->
+            current.copy(playlists = current.playlists.map { playlist ->
+                if (playlist.id == id) playlist.copy(artworkPath = copied) else playlist
+            })
+        }
     }
 
     fun addSongToPlaylist(id: String, song: Song) = update { current ->
@@ -163,6 +192,7 @@ object PersonalLibraryStore {
                         put(JSONObject().apply {
                             put("id", playlist.id)
                             put("title", playlist.title)
+                            put("artworkPath", playlist.artworkPath ?: JSONObject.NULL)
                             put("songs", JSONArray().apply {
                                 playlist.songs.forEach { song ->
                                     put(JSONObject().apply {
@@ -239,7 +269,7 @@ object PersonalLibraryStore {
                         )
                     }
                 }.orEmpty()
-                PersonalPlaylist(id = id, title = title, songs = playlistSongs)
+                PersonalPlaylist(id = id, title = title, songs = playlistSongs, artworkPath = item.nullableString("artworkPath"))
             }
         }.getOrDefault(emptyList())
         return Snapshot(artists, songs, playlists)
