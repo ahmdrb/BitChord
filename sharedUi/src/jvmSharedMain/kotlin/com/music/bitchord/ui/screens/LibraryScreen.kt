@@ -377,9 +377,9 @@ private fun PersonalPlaylistShelf(
                 if (onImportYtMusicPlaylist != null) {
                     item(key = "personal-import-youtube-music") {
                         NewShelfCard(
-                            icon = BitChordIcons.Download,
+                            icon = BitChordIcons.YouTubeMusic,
                             label = "Import YouTube Music",
-                            subtitle = "Copy a playlist into BitChord",
+                            subtitle = "Paste a playlist link to copy it",
                             onClick = onImportYtMusicPlaylist,
                         )
                     }
