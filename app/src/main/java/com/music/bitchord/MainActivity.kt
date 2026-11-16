@@ -3906,6 +3906,7 @@ private fun BitChordApp(
                                             mode = PersonalAddMode.SONG,
                                             artists = personalLibrary.artists,
                                             initialArtistId = null,
+                                            artwork = personalLibrary.playlists.firstOrNull { it.id == playlistId }?.let { it.artworkPath ?: it.songs.firstOrNull()?.thumbnailUrl },
                                             onDismiss = { addingSongToPersonalPlaylistId = null },
                                             onArtistAdded = { },
                                             onSongAdded = { song, artistIds ->
@@ -3919,6 +3920,7 @@ private fun BitChordApp(
                                             mode = PersonalAddMode.SONG,
                                             artists = personalLibrary.artists,
                                             initialArtistId = artistId,
+                                            artwork = personalLibrary.artists.firstOrNull { it.browseId == artistId }?.thumbnailUrl,
                                             onDismiss = { addingSongToPersonalArtistId = null },
                                             onArtistAdded = { },
                                             onSongAdded = { song, artistIds ->
