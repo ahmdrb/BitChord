@@ -1,5 +1,6 @@
 package com.music.bitchord.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.blur
@@ -204,11 +205,10 @@ private fun PersonalCollectionDetailDialog(
         }
     }
 
-    androidx.compose.ui.window.Dialog(
-        onDismissRequest = onDismiss,
-        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
-    ) {
-        Box(
+    // This is a real Library detail page, not a modal window: keeping it in
+    // the app content leaves the tab bar and mini-player in their original places.
+    BackHandler { onDismiss() }
+    Box(
             Modifier.fillMaxSize().background(
                 Brush.verticalGradient(listOf(palette.background, palette.wash)),
             ),
@@ -445,7 +445,6 @@ private fun PersonalCollectionDetailDialog(
                     }
                 }
             }
-        }
     }
     if (confirmDelete) {
         AlertDialog(
