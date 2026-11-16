@@ -84,6 +84,7 @@ fun LibraryScreen(
     onShelfItemClick: (ShelfItem) -> Unit,
     onShelfItemLongPress: (ShelfItem) -> Unit,
     onAddPersonalPlaylist: () -> Unit = {},
+    onImportSpotifyPlaylist: (() -> Unit)? = null,
     onPersonalPlaylistClick: (ShelfItem) -> Unit = onShelfItemClick,
     onPersonalPlaylistLongPress: (ShelfItem) -> Unit = onShelfItemLongPress,
     personalPlaylists: List<ShelfItem> = emptyList(),
@@ -159,6 +160,7 @@ fun LibraryScreen(
                                 onItemClick = onPersonalPlaylistClick,
                                 onItemLongPress = onPersonalPlaylistLongPress,
                                 onAdd = onAddPersonalPlaylist,
+                                onImportSpotifyPlaylist = onImportSpotifyPlaylist,
                             )
                         }
                         item(key = "personal-artists") {
@@ -214,7 +216,8 @@ fun LibraryScreen(
                         // Never show the YouTube Music account's Artists or Playlists shelves.
                         shelves.filterNot {
                             it.title.equals("Artists", ignoreCase = true) ||
-                                it.title.equals(PLAYLISTS, ignoreCase = true)
+                                it.title.equals(PLAYLISTS, ignoreCase = true) ||
+                                it.title.equals("Podcasts", ignoreCase = true)
                         }.forEach { shelf ->
                             item(key = "shelf:${shelf.title}") {
                                 LibraryGridShelf(
@@ -328,6 +331,7 @@ private fun PersonalPlaylistShelf(
     onItemClick: (ShelfItem) -> Unit,
     onItemLongPress: (ShelfItem) -> Unit,
     onAdd: () -> Unit,
+    onImportSpotifyPlaylist: (() -> Unit)? = null,
 ) {
     Column(Modifier.padding(bottom = 26.dp)) {
         Row(
@@ -354,12 +358,24 @@ private fun PersonalPlaylistShelf(
                 )
             }
         }
-        if (playlists.isNotEmpty()) {
+        if (playlists.isNotEmpty() || onImportSpotifyPlaylist != null) {
+            val visiblePlaylists = playlists.take((LIBRARY_ROW_MAX_ITEMS - if (onImportSpotifyPlaylist != null) 1 else 0).coerceAtLeast(0))
             ShelfRow(
                 contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
                 horizontalArrangement = Arrangement.spacedBy(LIBRARY_GRID_SPACING),
             ) {
-                items(playlists, key = { it.browseId ?: it.title }) { playlist ->
+                if (onImportSpotifyPlaylist != null) {
+                    item(key = "personal-import-spotify") {
+                        NewShelfCard(
+                            icon = BitChordIcons.Download,
+                            label = stringResource(Res.string.import_spotify),
+                            subtitle = stringResource(Res.string.import_spotify_subtitle),
+                            onClick = onImportSpotifyPlaylist,
+                            logo = Res.drawable.spotify_logo,
+                        )
+                    }
+                }
+                items(visiblePlaylists, key = { it.browseId ?: it.title }) { playlist ->
                     ShelfCard(
                         item = playlist,
                         onClick = { onItemClick(playlist) },
