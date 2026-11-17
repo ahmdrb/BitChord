@@ -17,6 +17,8 @@ import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
@@ -70,6 +72,7 @@ import com.music.bitchord.ui.haptics.rememberHaptics
 import com.music.bitchord.playback.MusicOnlyPlayback
 import com.music.bitchord.ui.player.PlayerDock
 import com.music.bitchord.ui.player.AndroidMusicVideo
+import com.music.bitchord.ui.theme.rememberArtworkPalette
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.layout.fillMaxSize
@@ -136,6 +139,19 @@ fun GlassNavBar(
     // Held through a state that is always current instead, which also keeps the
     // handler out of the key.
     val currentOnTabSelected by rememberUpdatedState(onTabSelected)
+    // FloatingTabBar retains its accessory factories while the tab layout is
+    // stable. Keep the playback values live inside those retained factories.
+    val latestSong = rememberUpdatedState(song)
+    val latestIsPlaying = rememberUpdatedState(isPlaying)
+    val latestIsLoading = rememberUpdatedState(isLoading)
+    val latestProgress = rememberUpdatedState(progressFraction)
+    val latestPlayPause = rememberUpdatedState(onPlayPause)
+    val latestNext = rememberUpdatedState(onNext)
+    val latestPrevious = rememberUpdatedState(onPrevious)
+    val latestExpand = rememberUpdatedState(onExpand)
+    val latestDismiss = rememberUpdatedState(onDismiss)
+    val latestControlsLocked = rememberUpdatedState(controlsLocked)
+    val latestBlockedControl = rememberUpdatedState(onBlockedControl)
 
     // Search is the odd one out in the iOS 26 layout: a circle of its own beside
     // the pill rather than a quarter of it. It is the last tab in BitChord's
@@ -157,48 +173,50 @@ fun GlassNavBar(
             .padding(bottom = NAV_BAR_LIFT)
             .fillMaxWidth(),
         tabBarContentModifier = glassSurface,
-        inlineAccessory = song?.let { current ->
+        inlineAccessory = song?.let {
             { accessoryModifier, _ ->
-                GlassNowPlaying(
-                    song = current,
-                    isInline = true,
-                    isPlaying = isPlaying,
-                    isLoading = isLoading,
-                    progressFraction = progressFraction,
-                    contentColor = contentColor,
-                    onPlayPause = onPlayPause,
-                    onNext = onNext,
-                    onPrevious = onPrevious,
-                    onExpand = onExpand,
-                    onDismiss = onDismiss,
-                    controlsLocked = controlsLocked,
-                    onBlockedControl = onBlockedControl,
-                    dock = dock,
-                    pull = pull,
-                    modifier = accessoryModifier.then(glassSurface()),
-                )
+                latestSong.value?.let { activeSong ->
+                    GlassNowPlaying(
+                        song = activeSong,
+                        isInline = true,
+                        isPlaying = latestIsPlaying.value,
+                        isLoading = latestIsLoading.value,
+                        progressFraction = latestProgress.value,
+                        onPlayPause = { latestPlayPause.value() },
+                        onNext = { latestNext.value() },
+                        onPrevious = { latestPrevious.value() },
+                        onExpand = { latestExpand.value() },
+                        onDismiss = { latestDismiss.value() },
+                        controlsLocked = latestControlsLocked.value,
+                        onBlockedControl = { latestBlockedControl.value() },
+                        dock = dock,
+                        pull = pull,
+                        modifier = accessoryModifier.then(glassSurface()),
+                    )
+                }
             }
         },
-        expandedAccessory = song?.let { current ->
+        expandedAccessory = song?.let {
             { accessoryModifier, _ ->
-                GlassNowPlaying(
-                    song = current,
-                    isInline = false,
-                    isPlaying = isPlaying,
-                    isLoading = isLoading,
-                    progressFraction = progressFraction,
-                    contentColor = contentColor,
-                    onPlayPause = onPlayPause,
-                    onNext = onNext,
-                    onPrevious = onPrevious,
-                    onExpand = onExpand,
-                    onDismiss = onDismiss,
-                    controlsLocked = controlsLocked,
-                    onBlockedControl = onBlockedControl,
-                    dock = dock,
-                    pull = pull,
-                    modifier = accessoryModifier.fillMaxWidth().then(glassSurface()),
-                )
+                latestSong.value?.let { activeSong ->
+                    GlassNowPlaying(
+                        song = activeSong,
+                        isInline = false,
+                        isPlaying = latestIsPlaying.value,
+                        isLoading = latestIsLoading.value,
+                        progressFraction = latestProgress.value,
+                        onPlayPause = { latestPlayPause.value() },
+                        onNext = { latestNext.value() },
+                        onPrevious = { latestPrevious.value() },
+                        onExpand = { latestExpand.value() },
+                        onDismiss = { latestDismiss.value() },
+                        controlsLocked = latestControlsLocked.value,
+                        onBlockedControl = { latestBlockedControl.value() },
+                        dock = dock,
+                        pull = pull,
+                        modifier = accessoryModifier.fillMaxWidth().then(glassSurface()),
+                    )
+                }
             }
         },
         // Transparent: the glass surface underneath is the background, and a
@@ -340,7 +358,6 @@ private fun GlassNowPlaying(
     isPlaying: Boolean,
     isLoading: Boolean,
     progressFraction: Float,
-    contentColor: Color,
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
@@ -370,6 +387,14 @@ private fun GlassNowPlaying(
         fontSize = ACCESSORY_ARTIST_SIZE,
         letterSpacing = ACCESSORY_ARTIST_TRACKING,
     )
+    val artworkPalette = rememberArtworkPalette(song.thumbnailUrl, artPx = ROW_ART_PX)
+    val surfaceTint by animateColorAsState(
+        targetValue = artworkPalette.elevated,
+        animationSpec = tween(durationMillis = 460),
+        label = "glassMiniPlayerArtworkTint",
+    )
+    val foreground = artworkPalette.onBackground
+    val secondaryForeground = artworkPalette.onBackgroundVariant
     val glyphSlot = if (isInline) 32.dp else 40.dp
     val glyphSize = if (isInline) 24.dp else EXPANDED_GLYPH_SIZE
 
@@ -407,6 +432,7 @@ private fun GlassNowPlaying(
                 scaleY = pressScale
             }
             .then(modifier)
+            .background(surfaceTint.copy(alpha = 0.48f), RoundedCornerShape(percent = 50))
             .onGloballyPositioned { dock?.reportMiniPlayerBounds(it) }
             .clickable(
                 interactionSource = pressSource,
@@ -434,14 +460,15 @@ private fun GlassNowPlaying(
                 modifier = Modifier.weight(1f).height(ACCESSORY_ART_SIZE),
                 transitionSpec = {
                     (androidx.compose.animation.slideInHorizontally(
-                        initialOffsetX = { it / 4 },
-                        animationSpec = androidx.compose.animation.core.tween(210),
-                    ) + androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(210))) togetherWith
+                        initialOffsetX = { it / 3 },
+                        animationSpec = tween(360),
+                    ) + androidx.compose.animation.fadeIn(tween(360))) togetherWith
                         (androidx.compose.animation.slideOutHorizontally(
-                            targetOffsetX = { -it / 4 },
-                            animationSpec = androidx.compose.animation.core.tween(210),
-                        ) + androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(210)))
+                            targetOffsetX = { -it / 3 },
+                            animationSpec = tween(360),
+                        ) + androidx.compose.animation.fadeOut(tween(360)))
                 },
+                contentKey = { it.videoId },
                 label = "glassMiniPlayerTrackChange",
             ) { displayedSong ->
                 Row(
@@ -482,11 +509,11 @@ private fun GlassNowPlaying(
                     }
                     Spacer(Modifier.width(if (isInline) 8.dp else 9.dp))
                     Column(Modifier.weight(1f)) {
-                        val secondary = contentColor.copy(alpha = 0.7f)
+                        val secondary = secondaryForeground
                         ExplicitSongTitle(
                             song = displayedSong,
                             style = titleStyle,
-                            color = contentColor,
+                            color = foreground,
                             badgeColor = secondary,
                             fadeOverflow = true,
                         )
@@ -509,7 +536,7 @@ private fun GlassNowPlaying(
                 ) {
                     if (isLoading) {
                         CircularProgressIndicator(
-                            color = contentColor,
+                            color = foreground,
                             strokeWidth = 2.dp,
                             modifier = Modifier.size(if (isInline) 18.dp else 20.dp),
                         )
@@ -517,7 +544,7 @@ private fun GlassNowPlaying(
                         Icon(
                             imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                             contentDescription = stringResource(if (isPlaying) R.string.pause else R.string.play),
-                            tint = contentColor,
+                            tint = foreground,
                             modifier = Modifier.size(glyphSize),
                         )
                     }
@@ -528,7 +555,7 @@ private fun GlassNowPlaying(
                         cap = androidx.compose.ui.graphics.StrokeCap.Round,
                     )
                     drawArc(
-                        color = contentColor.copy(alpha = 0.20f),
+                        color = foreground.copy(alpha = 0.20f),
                         startAngle = -90f,
                         sweepAngle = 360f,
                         useCenter = false,
@@ -558,7 +585,7 @@ private fun GlassNowPlaying(
                     modifier = Modifier.size(glyphSlot),
                 ) {
                     MiniPlayerNextGlyph(
-                        tint = contentColor.copy(alpha = if (controlsLocked) 0.3f else 1f),
+                        tint = foreground.copy(alpha = if (controlsLocked) 0.3f else 1f),
                     )
                 }
             }
