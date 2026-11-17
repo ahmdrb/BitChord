@@ -3563,6 +3563,7 @@ private fun BitChordApp(
                                         artworkUrl = song.thumbnailUrl,
                                         entityType = EntityType.TRACK,
                                     ))
+                                    PersonalLibraryStore.initialize(context)
                                     personalPlaylistTarget = song
                                 },
                                 onBrowseClick = { item ->
@@ -4815,6 +4816,7 @@ private fun BitChordApp(
                 },
                 onAddToPlaylist = {
                     songActions = null
+                    PersonalLibraryStore.initialize(context)
                     personalPlaylistTarget = song
                 },
                 onRemoveFromPlaylist = editable?.let {
