@@ -641,6 +641,7 @@ fun MiniPlayer(
             // controls, so the bar keeps its shape — see [controlsLocked].
             IconButton(
                 onClick = {
+                    trackTransitionDirection.intValue = 1
                     haptics.play(Haptic.SkipNext)
                     onNext()
                 },
