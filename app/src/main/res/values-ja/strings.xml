@@ -1409,10 +1409,9 @@
     <string name="show_listen_together_button_subtitle">オフにすると、プレーヤーの歌詞と再生キューの間にはオーディオ出力ボタンだけが表示されます</string>
     <string name="font">フォント</string>
     <string name="font_default">デフォルト</string>
-    <string name="font_legacy">従来</string>
+    <string name="font_legacy">Classic</string>
     <string name="font_default_subtitle">SF Pro Display · Apple Music のウェイト</string>
-    <string name="font_legacy_subtitle">SF Pro Display · 元の太いウェイト</string>
-    <string name="font_footer">「従来」では、Apple Music に合わせる前にアプリで使われていた、太めで詰まった書体に戻します。</string>
+    <string name="font_legacy_subtitle">SF Pro Display · Tall medium weights</string>
     <string name="bit_perfect_output">ビットパーフェクト出力</string>
     <string name="bit_perfect_bypassed_footer">ビットパーフェクト出力の準備ができているため、淡色表示の設定はバイパスされ、Dolby Atmos 版はリクエストされません。DAC を取り外すかモードをオフにすると、再び機能します。</string>
     <string name="bit_perfect_sheet_warning">トラックを変更せずに DAC に送ります。イコライザー、音量の正規化、クロスフェード、オートミックス、再生速度、BitChord の音量はバイパスされます。</string>
