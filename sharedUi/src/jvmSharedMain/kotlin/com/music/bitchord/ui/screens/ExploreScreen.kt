@@ -181,16 +181,23 @@ fun MoodGenreSleeve(
     titleStyle: TextStyle = MaterialTheme.typography.headlineSmall,
     cardSurfaceModifier: @Composable (Modifier) -> Modifier = { it },
 ) {
+    val tone = moodTone(item)
     val surface = Modifier
-        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.78f), MOOD_CARD_SHAPE)
+        .background(tone.stripe, MOOD_CARD_SHAPE)
         .then(cardSurfaceModifier(Modifier))
-        .border(1.dp, Color.White.copy(alpha = 0.14f), MOOD_CARD_SHAPE)
+        .border(1.dp, Color.White.copy(alpha = 0.18f), MOOD_CARD_SHAPE)
     Box(
         modifier = modifier.then(surface),
     ) {
         Box(
             Modifier.fillMaxSize().background(
-                Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.055f), Color.Transparent, Color.Black.copy(alpha = 0.08f))),
+                Brush.verticalGradient(
+                    listOf(
+                        Color.White.copy(alpha = 0.12f),
+                        tone.stripe.copy(alpha = 0.08f),
+                        tone.placeholder.copy(alpha = 0.42f),
+                    ),
+                ),
             ),
         )
         Text(
@@ -199,9 +206,9 @@ fun MoodGenreSleeve(
                 fontSize = 23.sp,
                 lineHeight = 27.sp,
                 fontWeight = FontWeight.ExtraBold,
-                shadow = Shadow(Color.Black.copy(alpha = .16f), offset = Offset(0f, 1f), blurRadius = 4f),
+                shadow = Shadow(Color.Black.copy(alpha = .28f), offset = Offset(0f, 1f), blurRadius = 5f),
             ),
-            color = MaterialTheme.colorScheme.onSurface,
+            color = Color.White,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier

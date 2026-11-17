@@ -34,6 +34,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.music.bitchord.ui.components.liquidGlass
+import com.music.bitchord.ui.components.lightweightLiquidGlass
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -58,7 +59,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.lazy.LazyListState
@@ -397,8 +397,8 @@ private const val INITIAL_RADIO_TRACKS = 24
 
 /** Keep the floating navigation controls in a separate layer above the top fade. */
 private fun Modifier.navigationChromeLayer(): Modifier =
-    zIndex(Float.MAX_VALUE)
-        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+    graphicsLayer { clip = false }
+        .zIndex(100f)
 
 
 internal fun shouldSkipAfterDislike(
@@ -3520,7 +3520,14 @@ private fun BitChordApp(
                                 pullState = explorePull,
                                 contentPadding = listPadding,
                                 cardSurfaceModifier = { surface ->
-                                    if (glassActive) surface.liquidGlass(shape = RoundedCornerShape(18.dp)) else surface
+                                    if (glassActive) {
+                                        surface.lightweightLiquidGlass(
+                                            shape = RoundedCornerShape(18.dp),
+                                            fallbackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.78f),
+                                        )
+                                    } else {
+                                        surface
+                                    }
                                 },
                             )
                             TAB_SEARCH -> SearchScreen(
