@@ -5354,8 +5354,8 @@ private fun BitChordApp(
             BackHandler { showSpotifyImportDialog = false }
             SpotifyImportAlert(
                 hazeState = hazeState,
-                onImported = { title, songs ->
-                    PersonalLibraryStore.addPlaylistWithSongs(title, songs)
+                onImported = { title, songs, artworkUrl ->
+                    PersonalLibraryStore.addPlaylistWithSongs(title, songs, artworkUrl)
                     showQueueNotice("Imported ${songs.size} songs into BitChord Personal Playlists")
                 },
                 onDismiss = { showSpotifyImportDialog = false },
@@ -5380,10 +5380,21 @@ private fun BitChordApp(
                         }
                         personalYtImportBusy = true
                         personalPlaylistImportScope.launch {
-                            YtMusicRepository.playlistEntries(source?.browseId ?: browseId).onSuccess { songs ->
+                            val importBrowseId = source?.browseId ?: browseId
+                            val sourceMetadata = YtMusicRepository.browseSongs(importBrowseId)
+                                .getOrNull()?.header
+                            YtMusicRepository.playlistEntries(importBrowseId).onSuccess { songs ->
+                                val importedTitle = sourceMetadata?.title
+                                    ?.takeIf { it.isNotBlank() }
+                                    ?: source?.title?.takeIf { it.isNotBlank() }
+                                    ?: "YouTube Music Import"
+                                val importedArtwork = sourceMetadata?.thumbnailUrl
+                                    ?: source?.thumbnailUrl
+                                    ?: songs.firstOrNull()?.thumbnailUrl
                                 PersonalLibraryStore.addPlaylistWithSongs(
-                                    source?.title ?: "YouTube Music Import",
+                                    importedTitle,
                                     songs,
+                                    importedArtwork,
                                 )
                                 showQueueNotice("Imported ${songs.size} songs into BitChord Personal Playlists")
                                 showPersonalYtImportDialog = false
