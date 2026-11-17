@@ -347,7 +347,8 @@ private fun PersonalPlaylistShelf(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = PAGE_GUTTER),
+                .padding(horizontal = PAGE_GUTTER)
+                .padding(bottom = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Start,
         ) {
@@ -410,7 +411,8 @@ private fun PersonalArtistShelf(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = PAGE_GUTTER),
+                .padding(horizontal = PAGE_GUTTER)
+                .padding(bottom = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Start,
         ) {
