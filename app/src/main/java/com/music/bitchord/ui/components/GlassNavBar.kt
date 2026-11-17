@@ -10,6 +10,8 @@
 package com.music.bitchord.ui.components
 
 import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.Spring
@@ -26,6 +28,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -426,57 +429,74 @@ private fun GlassNowPlaying(
                     bottom = 4.dp,
                 ),
         ) {
-            // A music video plays in the cover's place at its own 16:9, as in
-            // the floating mini player; the full player takes it over when up.
-            val showsPicture = song.isVideo && MusicOnlyPlayback.showsPicture(song.videoId)
-            val artWidth by animateDpAsState(
-                targetValue = if (showsPicture && !VideoThumbnails.square) ACCESSORY_ART_SIZE * (16f / 9f) else ACCESSORY_ART_SIZE,
-                label = "glassMiniArtWidth",
-            )
-            Box(
-                modifier = Modifier
-                    .size(width = artWidth, height = ACCESSORY_ART_SIZE)
-                    // Whichever of the two densities is on screen is the one
-                    // the player flies to: only one is composed at rest.
-                    .playerDockArt(dock, ACCESSORY_ART_CORNER)
-                    .clip(RoundedCornerShape(ACCESSORY_ART_CORNER))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-            ) {
-                AsyncImage(
-                    model = rememberRemoteArtworkUrl(song)?.artworkAt(ROW_ART_PX),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
+            AnimatedContent(
+                targetState = song,
+                modifier = Modifier.weight(1f).height(ACCESSORY_ART_SIZE),
+                transitionSpec = {
+                    (androidx.compose.animation.slideInHorizontally(
+                        initialOffsetX = { it / 4 },
+                        animationSpec = androidx.compose.animation.core.tween(210),
+                    ) + androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(210))) togetherWith
+                        (androidx.compose.animation.slideOutHorizontally(
+                            targetOffsetX = { -it / 4 },
+                            animationSpec = androidx.compose.animation.core.tween(210),
+                        ) + androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(210)))
+                },
+                label = "glassMiniPlayerTrackChange",
+            ) { displayedSong ->
+                Row(
                     modifier = Modifier.fillMaxSize(),
-                )
-                if (showsPicture) {
-                    AndroidMusicVideo(
-                        videoId = song.videoId,
-                        fit = false,
-                        onRenderedChanged = {},
-                        modifier = Modifier.fillMaxSize(),
-                        priority = 0,
-                    )
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    val showsPicture = displayedSong.isVideo &&
+                        MusicOnlyPlayback.showsPicture(displayedSong.videoId)
+                    val artWidth = if (showsPicture && !VideoThumbnails.square) {
+                        ACCESSORY_ART_SIZE * (16f / 9f)
+                    } else ACCESSORY_ART_SIZE
+                    Box(
+                        modifier = Modifier
+                            .size(width = artWidth, height = ACCESSORY_ART_SIZE)
+                            .then(
+                                if (displayedSong.videoId == song.videoId) {
+                                    Modifier.playerDockArt(dock, ACCESSORY_ART_CORNER)
+                                } else Modifier
+                            )
+                            .clip(RoundedCornerShape(ACCESSORY_ART_CORNER))
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                    ) {
+                        AsyncImage(
+                            model = rememberRemoteArtworkUrl(displayedSong)?.artworkAt(ROW_ART_PX),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                        if (showsPicture) {
+                            AndroidMusicVideo(
+                                videoId = displayedSong.videoId,
+                                fit = false,
+                                onRenderedChanged = {},
+                                modifier = Modifier.fillMaxSize(),
+                                priority = 0,
+                            )
+                        }
+                    }
+                    Spacer(Modifier.width(if (isInline) 8.dp else 9.dp))
+                    Column(Modifier.weight(1f)) {
+                        val secondary = contentColor.copy(alpha = 0.7f)
+                        ExplicitSongTitle(
+                            song = displayedSong,
+                            style = titleStyle,
+                            color = contentColor,
+                            badgeColor = secondary,
+                            fadeOverflow = true,
+                        )
+                        FadingLine(
+                            text = displayedSong.artist,
+                            style = artistStyle,
+                            color = secondary,
+                        )
+                    }
                 }
-            }
-            Spacer(Modifier.width(if (isInline) 8.dp else 9.dp))
-            // Title and artist at both densities, as Apple Music has them, in its
-            // small, openly spaced type (see [ACCESSORY_TITLE_SIZE]). The inline
-            // row shares its width with the tab pill and the Search circle, so
-            // a long line fades out at its end, as Apple's does.
-            Column(Modifier.weight(1f)) {
-                val secondary = contentColor.copy(alpha = 0.7f)
-                ExplicitSongTitle(
-                    song = song,
-                    style = titleStyle,
-                    color = contentColor,
-                    badgeColor = secondary,
-                    fadeOverflow = true,
-                )
-                FadingLine(
-                    text = song.artist,
-                    style = artistStyle,
-                    color = secondary,
-                )
             }
             Box(Modifier.size(glyphSlot), contentAlignment = Alignment.Center) {
                 IconButton(
