@@ -747,14 +747,10 @@ private fun BitChordApp(
     // is still in flight — read by the long-press sheet so it can show a
     // loading row instead of the two just being absent while it waits.
     var linksLoading by remember { mutableStateOf(false) }
-    // Which track the playlist picker is adding, or null when it's closed.
-    // Separate from [songActions] so the menu can close behind it — the picker
-    // is the next step, not a second sheet stacked on the first.
-    var playlistTarget by remember { mutableStateOf<Song?>(null) }
     // Track actions use BitChord's own saved playlists, never the account picker.
+    // Separate from [songActions] so the menu can close behind the picker.
     var personalPlaylistTarget by remember { mutableStateOf<Song?>(null) }
-    // The picker opened from the Library tab, where there is no track and
-    // creating the playlist is the whole errand.
+    // The account playlist form is only opened from the Library's own create action.
     var creatingPlaylist by remember { mutableStateOf(false) }
     // The same two, over the device's own playlists — for a track that is a
     // file on it, and for "New playlist" on Local Music's Playlists tab.
@@ -5344,12 +5340,9 @@ private fun BitChordApp(
         // One sheet for both, because they are one decision: the list of
         // playlists with a way to make another. `creatingPlaylist` opens it
         // straight onto the form, which is what the Library tile means.
-        if (playlistTarget != null || creatingPlaylist) {
-            val target = playlistTarget
-            val dismiss = {
-                playlistTarget = null
-                creatingPlaylist = false
-            }
+        if (creatingPlaylist) {
+            val target: Song? = null
+            val dismiss = { creatingPlaylist = false }
             PlaylistPickerSheet(
                 playlists = playlists,
                 loading = playlistsLoading,
