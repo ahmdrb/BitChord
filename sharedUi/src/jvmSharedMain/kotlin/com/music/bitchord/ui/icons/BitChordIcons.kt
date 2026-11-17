@@ -91,23 +91,26 @@ object BitChordIcons {
             viewportWidth = 24f,
             viewportHeight = 24f,
         ).apply {
-            path(
-                stroke = stroke,
-                strokeLineWidth = 1.35f,
-                strokeLineCap = StrokeCap.Round,
-                strokeLineJoin = StrokeJoin.Round,
-            ) {
-                moveTo(12f, 1.9f)
-                arcToRelative(10.1f, 10.1f, 0f, true, true, 0f, 20.2f)
-                arcToRelative(10.1f, 10.1f, 0f, true, true, 0f, -20.2f)
-            }
+            // The outer ring is a filled annulus, not a hairline-stroked circle.
             path(
                 fill = stroke,
                 pathFillType = androidx.compose.ui.graphics.PathFillType.EvenOdd,
             ) {
-                moveTo(12f, 4.8f)
-                arcToRelative(7.2f, 7.2f, 0f, true, true, 0f, 14.4f)
-                arcToRelative(7.2f, 7.2f, 0f, true, true, 0f, -14.4f)
+                moveTo(12f, 1f)
+                arcToRelative(11f, 11f, 0f, true, true, 0f, 22f)
+                arcToRelative(11f, 11f, 0f, true, true, 0f, -22f)
+                moveTo(12f, 3.1f)
+                arcToRelative(8.9f, 8.9f, 0f, true, false, 0f, 17.8f)
+                arcToRelative(8.9f, 8.9f, 0f, true, false, 0f, -17.8f)
+            }
+            // Solid centre disc with the play triangle cut out of its middle.
+            path(
+                fill = stroke,
+                pathFillType = androidx.compose.ui.graphics.PathFillType.EvenOdd,
+            ) {
+                moveTo(12f, 4.35f)
+                arcToRelative(7.65f, 7.65f, 0f, true, true, 0f, 15.3f)
+                arcToRelative(7.65f, 7.65f, 0f, true, true, 0f, -15.3f)
                 moveTo(10f, 8.2f)
                 lineTo(16.1f, 12f)
                 lineTo(10f, 15.8f)
