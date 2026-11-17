@@ -355,6 +355,7 @@ fun GlassNavBar(
     } else if (song != null) {
         GlassNowPlaying(
             song = song,
+            trackTransition = miniTrackTransition,
             isInline = false,
             isPlaying = isPlaying,
             isLoading = isLoading,
