@@ -112,6 +112,8 @@ fun PlaylistPickerSheet(
     song: Song? = null,
     startCreating: Boolean = false,
     offline: Boolean = false,
+    /** Store playlists inside BitChord rather than in the YouTube Music account. */
+    personal: Boolean = false,
 ) {
     var creating by remember { mutableStateOf(startCreating) }
     // By id rather than by value: the list is re-fetched under an open sheet,
@@ -161,6 +163,7 @@ fun PlaylistPickerSheet(
                     onClose = { closeAfter {} },
                     onCreate = { name, privacy -> closeAfter { onCreate(name, privacy) } },
                     offline = offline,
+                    personal = personal,
                 )
             } else {
                 SheetTopBar(
@@ -341,6 +344,7 @@ private fun NewPlaylistForm(
     onClose: () -> Unit,
     onCreate: (String, PlaylistPrivacy) -> Unit,
     offline: Boolean,
+    personal: Boolean = false,
 ) {
     var name by remember { mutableStateOf("") }
     var privacy by remember { mutableStateOf(PlaylistPrivacy.PRIVATE) }
@@ -377,9 +381,11 @@ private fun NewPlaylistForm(
                         color = MaterialTheme.colorScheme.onBackground,
                     )
                     Text(
-                        text = stringResource(
-                            if (offline) R.string.saved_on_this_device else R.string.saved_to_youtube_music_account,
-                        ),
+                        text = when {
+                            personal -> "Saved in BitChord"
+                            offline -> stringResource(R.string.saved_on_this_device)
+                            else -> stringResource(R.string.saved_to_youtube_music_account)
+                        },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -438,7 +444,7 @@ private fun NewPlaylistForm(
         }
 
         // A playlist on the device is seen by whoever holds the device.
-        if (!offline) {
+        if (!offline && !personal) {
             SheetHeading(stringResource(R.string.who_can_see_it).uppercase(Locale.getDefault()))
             Row(
                 modifier = Modifier
