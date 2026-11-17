@@ -544,12 +544,20 @@ fun MiniPlayer(
                     enabled = !isLoading,
                     modifier = Modifier.size(GLYPH_SLOT),
                 ) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        contentDescription = stringResource(if (isPlaying) R.string.pause else R.string.play),
-                        tint = MaterialTheme.colorScheme.onBackground,
-                        modifier = Modifier.size(GLYPH_SIZE),
-                    )
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            color = MaterialTheme.colorScheme.onBackground,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(GLYPH_SIZE * 0.72f),
+                        )
+                    } else {
+                        Icon(
+                            imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                            contentDescription = stringResource(if (isPlaying) R.string.pause else R.string.play),
+                            tint = MaterialTheme.colorScheme.onBackground,
+                            modifier = Modifier.size(GLYPH_SIZE),
+                        )
+                    }
                 }
                 Canvas(Modifier.size(38.dp)) {
                     val stroke = Stroke(width = 1.5.dp.toPx(), cap = StrokeCap.Round)
@@ -566,15 +574,6 @@ fun MiniPlayer(
                         sweepAngle = 360f * progressFraction.coerceIn(0f, 1f),
                         useCenter = false,
                         style = stroke,
-                    )
-                }
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f),
-                        strokeWidth = 1.5.dp,
-                        modifier = Modifier
-                            .size(12.dp)
-                            .align(Alignment.BottomEnd),
                     )
                 }
             }
