@@ -317,7 +317,6 @@ fun GlassNavBar(
             isPlaying = isPlaying,
             isLoading = isLoading,
             progressFraction = progressFraction,
-            contentColor = contentColor,
             onPlayPause = onPlayPause,
             onNext = onNext,
             onPrevious = onPrevious,
@@ -562,7 +561,7 @@ private fun GlassNowPlaying(
                         style = stroke,
                     )
                     drawArc(
-                        color = contentColor,
+                        color = foreground,
                         startAngle = -90f,
                         sweepAngle = 360f * progressFraction.coerceIn(0f, 1f),
                         useCenter = false,
