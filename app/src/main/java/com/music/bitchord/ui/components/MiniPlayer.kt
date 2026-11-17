@@ -41,6 +41,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -256,6 +257,7 @@ interface MiniPlayerPull {
 internal fun Modifier.miniPlayerGestures(
     pull: MiniPlayerPull?,
     trackDragOffset: androidx.compose.runtime.MutableFloatState? = null,
+    trackTransitionDirection: androidx.compose.runtime.MutableIntState? = null,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
     onDismiss: () -> Unit,
@@ -329,6 +331,10 @@ internal fun Modifier.miniPlayerGestures(
                     change.consume()
                 }
                 val crossed = finished && (dragged <= -trackThreshold || dragged >= trackThreshold)
+                if (crossed) {
+                    // Next enters from the right; Previous enters from the left.
+                    trackTransitionDirection?.intValue = if (dragged < 0f) 1 else -1
+                }
                 when {
                     currentLocked -> if (crossed) currentOnBlocked()
                     crossed && dragged <= -trackThreshold -> currentOnNext()
@@ -445,6 +451,7 @@ fun MiniPlayer(
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val haptics = rememberHaptics()
     val trackDragOffset = remember { mutableFloatStateOf(0f) }
+    val trackTransitionDirection = remember { mutableIntStateOf(1) }
     val trackPalette = rememberArtworkPalette(rememberRemoteArtworkUrl(song), artPx = ROW_ART_PX)
     val trackTint by animateColorAsState(
         targetValue = trackPalette.elevated.copy(alpha = 0.18f),
@@ -463,6 +470,7 @@ fun MiniPlayer(
             .miniPlayerGestures(
                 pull = pull,
                 trackDragOffset = trackDragOffset,
+                trackTransitionDirection = trackTransitionDirection,
                 onNext = {
                     haptics.play(Haptic.SkipNext)
                     onNext()
@@ -515,12 +523,13 @@ fun MiniPlayer(
                     },
                 contentAlignment = Alignment.CenterStart,
                 transitionSpec = {
+                    val direction = trackTransitionDirection.intValue
                     (androidx.compose.animation.slideInHorizontally(
-                        initialOffsetX = { it },
+                        initialOffsetX = { width -> width * direction },
                         animationSpec = tween(280),
                     ) + androidx.compose.animation.fadeIn(tween(280))) togetherWith
                         (androidx.compose.animation.slideOutHorizontally(
-                            targetOffsetX = { -it },
+                            targetOffsetX = { width -> -width * direction },
                             animationSpec = tween(220),
                         ) + androidx.compose.animation.fadeOut(tween(220)))
                 },
