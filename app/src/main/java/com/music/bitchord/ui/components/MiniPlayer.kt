@@ -277,7 +277,7 @@ internal fun Modifier.miniPlayerGestures(
     val settle = remember { arrayOfNulls<Job>(1) }
     return pointerInput(Unit) {
         val trackThreshold = TRACK_SWIPE_THRESHOLD.toPx()
-        val dismissThreshold = TRACK_SWIPE_THRESHOLD.toPx()
+        val dismissThreshold = 48.dp.toPx()
         val liftEase = PULL_LIFT_EASE.toPx()
         val maxVelocity = viewConfiguration.maximumFlingVelocity
         awaitEachGesture {
