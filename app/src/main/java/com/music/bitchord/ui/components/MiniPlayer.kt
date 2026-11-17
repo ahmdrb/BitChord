@@ -10,7 +10,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.animate
-import androidx.compose.animation.core.animateColorAsState
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.spring
@@ -255,7 +255,7 @@ interface MiniPlayerPull {
 @Composable
 internal fun Modifier.miniPlayerGestures(
     pull: MiniPlayerPull?,
-    trackDragOffset: androidx.compose.runtime.MutableFloatState,
+    trackDragOffset: androidx.compose.runtime.MutableFloatState? = null,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
     onDismiss: () -> Unit,
@@ -321,11 +321,11 @@ internal fun Modifier.miniPlayerGestures(
             if (!vertical) {
                 var dragged = slopped.position.x - down.position.x
                 val dragWidth = size.width.toFloat().coerceAtLeast(1f)
-                trackDragOffset.floatValue = (dragged / dragWidth).coerceIn(-0.85f, 0.85f)
+                trackDragOffset?.let { it.floatValue = (dragged / dragWidth).coerceIn(-0.85f, 0.85f) }
                 // Read before consuming: a consumed change reports no movement.
                 val finished = drag(pointer) { change ->
                     dragged += change.positionChange().x
-                    trackDragOffset.floatValue = (dragged / dragWidth).coerceIn(-0.85f, 0.85f)
+                    trackDragOffset?.let { it.floatValue = (dragged / dragWidth).coerceIn(-0.85f, 0.85f) }
                     change.consume()
                 }
                 val crossed = finished && (dragged <= -trackThreshold || dragged >= trackThreshold)
@@ -335,13 +335,13 @@ internal fun Modifier.miniPlayerGestures(
                     crossed && dragged >= trackThreshold -> currentOnPrevious()
                 }
                 // The content follows the finger while held, then eases home.
-                val from = trackDragOffset.floatValue
+                val from = trackDragOffset?.floatValue ?: 0f
                 scope.launch {
                     animate(
                         initialValue = from,
                         targetValue = 0f,
                         animationSpec = tween(durationMillis = 220),
-                    ) { value, _ -> trackDragOffset.floatValue = value }
+                    ) { value, _ -> trackDragOffset?.floatValue = value }
                 }
                 return@awaitEachGesture
             }
