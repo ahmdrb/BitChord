@@ -3057,7 +3057,7 @@ fun SettingsChoicePage(
                     selected = selected,
                     label = { it.localizedLabel() },
                     detail = { it.description() },
-                    footer = stringResource(R.string.font_footer),
+                    footer = null,
                 ) { font ->
                     AppSettings.setAppFont(font)
                     onChosen()
