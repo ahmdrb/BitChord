@@ -382,6 +382,7 @@ private fun PersonalPlaylistShelf(
                             label = "Import YouTube Music",
                             subtitle = "Paste a playlist link to copy it",
                             onClick = onImportYtMusicPlaylist,
+                            iconTint = MaterialTheme.colorScheme.onBackground,
                         )
                     }
                 }
