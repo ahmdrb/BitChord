@@ -93,18 +93,24 @@ object BitChordIcons {
         ).apply {
             path(
                 stroke = stroke,
-                strokeLineWidth = 2.1f,
+                strokeLineWidth = 1.35f,
                 strokeLineCap = StrokeCap.Round,
                 strokeLineJoin = StrokeJoin.Round,
             ) {
-                moveTo(12f, 3f)
-                arcToRelative(9f, 9f, 0f, true, true, 0f, 18f)
-                arcToRelative(9f, 9f, 0f, true, true, 0f, -18f)
+                moveTo(12f, 1.9f)
+                arcToRelative(10.1f, 10.1f, 0f, true, true, 0f, 20.2f)
+                arcToRelative(10.1f, 10.1f, 0f, true, true, 0f, -20.2f)
             }
-            path(fill = stroke) {
-                moveTo(10f, 7.8f)
-                lineTo(17f, 12f)
-                lineTo(10f, 16.2f)
+            path(
+                fill = stroke,
+                pathFillType = androidx.compose.ui.graphics.PathFillType.EvenOdd,
+            ) {
+                moveTo(12f, 4.8f)
+                arcToRelative(7.2f, 7.2f, 0f, true, true, 0f, 14.4f)
+                arcToRelative(7.2f, 7.2f, 0f, true, true, 0f, -14.4f)
+                moveTo(10f, 8.2f)
+                lineTo(16.1f, 12f)
+                lineTo(10f, 15.8f)
                 close()
             }
         }.build()
