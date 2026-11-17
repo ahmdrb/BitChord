@@ -10,13 +10,13 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.animate
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.drag
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -42,6 +42,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -49,6 +50,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -86,6 +88,7 @@ import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.painterResource
 import kotlin.math.abs
 import kotlin.math.sqrt
@@ -258,6 +261,8 @@ internal fun Modifier.miniPlayerGestures(
     pull: MiniPlayerPull?,
     trackDragOffset: androidx.compose.runtime.MutableFloatState? = null,
     trackTransitionDirection: androidx.compose.runtime.MutableIntState? = null,
+    draggedTrackId: androidx.compose.runtime.MutableState<String?>? = null,
+    trackId: String? = null,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
     onDismiss: () -> Unit,
@@ -274,11 +279,13 @@ internal fun Modifier.miniPlayerGestures(
     val currentOnDismiss by rememberUpdatedState(onDismiss)
     val currentLocked by rememberUpdatedState(locked)
     val currentOnBlocked by rememberUpdatedState(onBlocked)
+    val currentTrackId by rememberUpdatedState(trackId)
     val scope = rememberCoroutineScope()
     // Read at draw only, in the layer below: a pull moves the bar without
     // recomposing it.
     val lift = remember { mutableFloatStateOf(0f) }
     val settle = remember { arrayOfNulls<Job>(1) }
+    val trackReset = remember { arrayOfNulls<Job>(1) }
     return pointerInput(Unit) {
         val trackThreshold = TRACK_SWIPE_THRESHOLD.toPx()
         val dismissThreshold = 48.dp.toPx()
@@ -323,31 +330,43 @@ internal fun Modifier.miniPlayerGestures(
             if (!vertical) {
                 var dragged = slopped.position.x - down.position.x
                 val dragWidth = size.width.toFloat().coerceAtLeast(1f)
-                trackDragOffset?.let { it.floatValue = (dragged / dragWidth).coerceIn(-0.85f, 0.85f) }
+                trackReset[0]?.cancel()
+                draggedTrackId?.value = currentTrackId
+                trackDragOffset?.let { it.floatValue = dragged.coerceIn(-dragWidth, dragWidth) }
                 // Read before consuming: a consumed change reports no movement.
                 val finished = drag(pointer) { change ->
                     dragged += change.positionChange().x
-                    trackDragOffset?.let { it.floatValue = (dragged / dragWidth).coerceIn(-0.85f, 0.85f) }
+                    trackDragOffset?.let { it.floatValue = dragged.coerceIn(-dragWidth, dragWidth) }
                     change.consume()
                 }
                 val crossed = finished && (dragged <= -trackThreshold || dragged >= trackThreshold)
-                if (crossed) {
-                    // Next enters from the right; Previous enters from the left.
+                if (crossed && !currentLocked) {
+                    // The old item remains tied to the finger while it exits;
+                    // the new item enters from the opposite side of each viewport.
                     trackTransitionDirection?.intValue = if (dragged < 0f) 1 else -1
-                }
-                when {
-                    currentLocked -> if (crossed) currentOnBlocked()
-                    crossed && dragged <= -trackThreshold -> currentOnNext()
-                    crossed && dragged >= trackThreshold -> currentOnPrevious()
-                }
-                // The content follows the finger while held, then eases home.
-                val from = trackDragOffset?.floatValue ?: 0f
-                scope.launch {
-                    animate(
-                        initialValue = from,
-                        targetValue = 0f,
-                        animationSpec = tween(durationMillis = 220),
-                    ) { value, _ -> trackDragOffset?.floatValue = value }
+                    when {
+                        dragged <= -trackThreshold -> currentOnNext()
+                        dragged >= trackThreshold -> currentOnPrevious()
+                    }
+                    // If playback cannot advance (end of queue, for example),
+                    // do not leave the current item parked outside its viewport.
+                    trackReset[0] = scope.launch {
+                        delay(600)
+                        draggedTrackId?.value = null
+                        trackDragOffset?.floatValue = 0f
+                    }
+                } else {
+                    if (currentLocked && crossed) currentOnBlocked()
+                    // A short swipe or cancellation snaps back to the same track.
+                    val from = trackDragOffset?.floatValue ?: 0f
+                    trackReset[0] = scope.launch {
+                        animate(
+                            initialValue = from,
+                            targetValue = 0f,
+                            animationSpec = tween(durationMillis = 220),
+                        ) { value, _ -> trackDragOffset?.floatValue = value }
+                        draggedTrackId?.value = null
+                    }
                 }
                 return@awaitEachGesture
             }
@@ -452,12 +471,9 @@ fun MiniPlayer(
     val haptics = rememberHaptics()
     val trackDragOffset = remember { mutableFloatStateOf(0f) }
     val trackTransitionDirection = remember { mutableIntStateOf(1) }
-    val trackPalette = rememberArtworkPalette(rememberRemoteArtworkUrl(song), artPx = ROW_ART_PX)
-    val trackTint by animateColorAsState(
-        targetValue = trackPalette.elevated.copy(alpha = 0.18f),
-        animationSpec = tween(durationMillis = 360),
-        label = "miniPlayerArtworkTint",
-    )
+    // Keep the mini-player surface neutral and theme-aware; only the content
+    // transitions with the track, never the pill's background colour.
+    val draggedTrackId = remember { mutableStateOf<String?>(null) }
     // percent rather than a dp figure, so the corner stays exactly half the
     // height if the row's contents ever change it — which is what keeps a pill
     // a pill instead of a rounded rectangle. Same idiom as [FloatingBottomBar]
@@ -471,6 +487,8 @@ fun MiniPlayer(
                 pull = pull,
                 trackDragOffset = trackDragOffset,
                 trackTransitionDirection = trackTransitionDirection,
+                draggedTrackId = draggedTrackId,
+                trackId = song.videoId,
                 onNext = {
                     haptics.play(Haptic.SkipNext)
                     onNext()
@@ -494,7 +512,6 @@ fun MiniPlayer(
                     )
                 },
             )
-            .background(trackTint, shape)
             .border(0.5.dp, Color.White.copy(alpha = 0.10f), shape)
             .onGloballyPositioned { dock?.reportMiniPlayerBounds(it) }
             // Deliberately silent: the whole bar is the target, so it catches
@@ -511,16 +528,84 @@ fun MiniPlayer(
                 ),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            val showsPicture = song.isVideo &&
+                MusicOnlyPlayback.showsPicture(song.videoId)
+            val artWidth = if (showsPicture && !VideoThumbnails.square) VIDEO_ART_WIDTH else 40.dp
+
+            // The thumbnail has its own fixed, rounded viewport. Both the live
+            // finger drag and the outgoing/incoming track animation are clipped
+            // here, rather than by the much wider metadata row.
+            Box(
+                modifier = Modifier
+                    .size(width = artWidth, height = 40.dp)
+                    .clip(RoundedCornerShape(ART_CORNER))
+                    .thumbnailBorder(RoundedCornerShape(ART_CORNER))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+            ) {
+                AnimatedContent(
+                    targetState = song,
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                    transitionSpec = {
+                        val direction = trackTransitionDirection.intValue
+                        (androidx.compose.animation.slideInHorizontally(
+                            initialOffsetX = { width -> width * direction },
+                            animationSpec = tween(280),
+                        ) + androidx.compose.animation.fadeIn(tween(280))) togetherWith
+                            (androidx.compose.animation.slideOutHorizontally(
+                                targetOffsetX = { width -> -width * direction },
+                                animationSpec = tween(220),
+                            ) + androidx.compose.animation.fadeOut(tween(220)))
+                    },
+                    contentKey = { it.videoId },
+                    label = "miniPlayerArtworkChange",
+                ) { displayedSong ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .then(
+                                if (displayedSong.videoId == song.videoId) {
+                                    Modifier.playerDockArt(dock, ART_CORNER)
+                                } else Modifier
+                            )
+                            .graphicsLayer {
+                                translationX = if (displayedSong.videoId == draggedTrackId.value) {
+                                    trackDragOffset.floatValue
+                                } else {
+                                    0f
+                                }
+                            },
+                    ) {
+                        AsyncImage(
+                            model = rememberRemoteArtworkUrl(displayedSong)?.artworkAt(ROW_ART_PX),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                        val displayedShowsPicture = displayedSong.isVideo &&
+                            MusicOnlyPlayback.showsPicture(displayedSong.videoId)
+                        if (displayedShowsPicture) {
+                            AndroidMusicVideo(
+                                videoId = displayedSong.videoId,
+                                fit = false,
+                                onRenderedChanged = {},
+                                modifier = Modifier.fillMaxSize(),
+                                priority = 0,
+                            )
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.width(10.dp))
+
+            // Metadata follows the same direction and drag distance, but has a
+            // separate clip so long titles cannot cross into the artwork or controls.
             AnimatedContent(
                 targetState = song,
                 modifier = Modifier
                     .weight(1f)
                     .height(40.dp)
-                    .clip(RoundedCornerShape(ART_CORNER))
-                    .graphicsLayer {
-                        translationX = trackDragOffset.floatValue * size.width
-                        alpha = 1f - abs(trackDragOffset.floatValue) * 0.22f
-                    },
+                    .clipToBounds(),
                 contentAlignment = Alignment.CenterStart,
                 transitionSpec = {
                     val direction = trackTransitionDirection.intValue
@@ -534,59 +619,32 @@ fun MiniPlayer(
                         ) + androidx.compose.animation.fadeOut(tween(220)))
                 },
                 contentKey = { it.videoId },
-                label = "miniPlayerTrackChange",
+                label = "miniPlayerMetadataChange",
             ) { displayedSong ->
-                Row(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalAlignment = Alignment.CenterVertically,
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            translationX = if (displayedSong.videoId == draggedTrackId.value) {
+                                trackDragOffset.floatValue
+                            } else {
+                                0f
+                            }
+                        },
+                    verticalArrangement = Arrangement.Center,
                 ) {
-                    // Artwork and metadata move together; the transport stays outside this transition.
-                    val showsPicture = displayedSong.isVideo &&
-                        MusicOnlyPlayback.showsPicture(displayedSong.videoId)
-                    val artWidth = if (showsPicture && !VideoThumbnails.square) VIDEO_ART_WIDTH else 40.dp
-                    Box(
-                        modifier = Modifier
-                            .size(width = artWidth, height = 40.dp)
-                            .then(
-                                if (displayedSong.videoId == song.videoId) {
-                                    Modifier.playerDockArt(dock, ART_CORNER)
-                                } else Modifier
-                            )
-                            .clip(RoundedCornerShape(ART_CORNER))
-                            .thumbnailBorder(RoundedCornerShape(ART_CORNER))
-                            .background(MaterialTheme.colorScheme.surfaceVariant),
-                    ) {
-                        AsyncImage(
-                            model = rememberRemoteArtworkUrl(displayedSong)?.artworkAt(ROW_ART_PX),
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                        if (showsPicture) {
-                            AndroidMusicVideo(
-                                videoId = displayedSong.videoId,
-                                fit = false,
-                                onRenderedChanged = {},
-                                modifier = Modifier.fillMaxSize(),
-                                priority = 0,
-                            )
-                        }
-                    }
-                    Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) {
-                        ExplicitSongTitle(
-                            song = displayedSong,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onBackground,
-                            badgeColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fadeOverflow = true,
-                        )
-                        FadingLine(
-                            text = displayedSong.artist,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                    ExplicitSongTitle(
+                        song = displayedSong,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        badgeColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fadeOverflow = true,
+                    )
+                    FadingLine(
+                        text = displayedSong.artist,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
             // Keep the transport glyph in place while a track is buffering.

@@ -397,8 +397,14 @@ private const val INITIAL_RADIO_TRACKS = 24
 
 /** Keep the floating navigation controls in a separate layer above the top fade. */
 private fun Modifier.navigationChromeLayer(): Modifier =
-    graphicsLayer { clip = false }
-        .zIndex(100f)
+    graphicsLayer {
+        clip = false
+        // Haze's progressive strip is a GPU-backed layer. Give the controls an
+        // Android RenderNode elevation as well as Compose sibling ordering so
+        // the strip cannot wash over their icons on hardware-rendered devices.
+        translationZ = 8.dp.toPx()
+    }
+        .zIndex(Float.MAX_VALUE)
 
 
 internal fun shouldSkipAfterDislike(
