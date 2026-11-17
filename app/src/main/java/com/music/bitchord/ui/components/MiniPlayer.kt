@@ -10,6 +10,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.spring
@@ -444,6 +445,12 @@ fun MiniPlayer(
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val haptics = rememberHaptics()
     val trackDragOffset = remember { mutableFloatStateOf(0f) }
+    val trackPalette = rememberArtworkPalette(rememberRemoteArtworkUrl(song), artPx = ROW_ART_PX)
+    val trackTint by animateColorAsState(
+        targetValue = trackPalette.elevated.copy(alpha = 0.18f),
+        animationSpec = tween(durationMillis = 360),
+        label = "miniPlayerArtworkTint",
+    )
     // percent rather than a dp figure, so the corner stays exactly half the
     // height if the row's contents ever change it — which is what keeps a pill
     // a pill instead of a rounded rectangle. Same idiom as [FloatingBottomBar]
@@ -479,6 +486,7 @@ fun MiniPlayer(
                     )
                 },
             )
+            .background(trackTint, shape)
             .border(0.5.dp, Color.White.copy(alpha = 0.10f), shape)
             .onGloballyPositioned { dock?.reportMiniPlayerBounds(it) }
             // Deliberately silent: the whole bar is the target, so it catches
