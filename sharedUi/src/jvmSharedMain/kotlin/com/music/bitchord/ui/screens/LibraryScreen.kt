@@ -383,6 +383,7 @@ private fun PersonalPlaylistShelf(
                             subtitle = "Paste a playlist link to copy it",
                             onClick = onImportYtMusicPlaylist,
                             iconTint = MaterialTheme.colorScheme.onBackground,
+                            iconSize = 44.dp,
                         )
                     }
                 }
