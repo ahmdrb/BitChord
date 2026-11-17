@@ -4523,10 +4523,7 @@ private fun BitChordApp(
                     QueueActionNoticeHost(queueNotice)
                     player.song?.let { song ->
                         MiniPlayer(
-                            song = song,
-                            previousSong = player.previousSong.takeIf { player.hasPrevious },
-                            nextSong = player.nextSong.takeIf { player.hasNext },
-                            isPlaying = player.isPlaying,
+                            playerState = player,
                             isLoading = playPauseBusy,
                             hazeState = hazeState,
                             onPlayPause = {
@@ -4546,9 +4543,6 @@ private fun BitChordApp(
                                 }
                                 showNowPlaying = false
                             },
-                            progressFraction = if (player.durationMs > 0L) {
-                                (player.position.positionMs.toFloat() / player.durationMs.toFloat()).coerceIn(0f, 1f)
-                            } else 0f,
                             onSeekFraction = { fraction ->
                                 controller?.let { activePlayer ->
                                     val duration = activePlayer.duration

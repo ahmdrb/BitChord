@@ -79,6 +79,7 @@ import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import com.music.bitchord.playback.MusicOnlyPlayback
+import com.music.bitchord.playback.PlayerState
 import com.music.bitchord.ui.player.PlayerDock
 import com.music.bitchord.ui.player.AndroidMusicVideo
 import com.music.bitchord.ui.theme.rememberArtworkPalette
@@ -546,10 +547,7 @@ private fun MiniPlayerTrackMetadata(
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 fun MiniPlayer(
-    song: Song,
-    previousSong: Song? = null,
-    nextSong: Song? = null,
-    isPlaying: Boolean,
+    playerState: PlayerState,
     isLoading: Boolean,
     hazeState: HazeState,
     onPlayPause: () -> Unit,
@@ -558,8 +556,6 @@ fun MiniPlayer(
     onExpand: () -> Unit,
     /** Dismisses the bar and stops the current playback session. */
     onDismiss: () -> Unit = {},
-    /** Fraction of the current track already played, from 0 to 1. */
-    progressFraction: Float = 0f,
     onSeekFraction: (Float) -> Unit = {},
     /** @see com.music.bitchord.data.listentogether.ListenTogether.State.controlsLocked */
     controlsLocked: Boolean = false,
@@ -570,6 +566,15 @@ fun MiniPlayer(
     pull: MiniPlayerPull? = null,
     modifier: Modifier = Modifier,
 ) {
+    val song = playerState.song ?: return
+    val previousSong = playerState.previousSong.takeIf { playerState.hasPrevious }
+    val nextSong = playerState.nextSong.takeIf { playerState.hasNext }
+    val isPlaying = playerState.isPlaying
+    val progressFraction = if (playerState.durationMs > 0L) {
+        (playerState.position.positionMs.toFloat() / playerState.durationMs.toFloat()).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val haptics = rememberHaptics()
     val trackDragOffset = remember { mutableFloatStateOf(0f) }
