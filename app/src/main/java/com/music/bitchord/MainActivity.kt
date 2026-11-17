@@ -58,6 +58,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.lazy.LazyListState
@@ -4084,7 +4085,13 @@ private fun BitChordApp(
                     },
                     // Keep the controls above the progressive blur strip; the blur
                     // should frost the scrolling page, never the navigation itself.
-                    modifier = Modifier.align(Alignment.TopCenter).zIndex(10f),
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        // Isolate the navigation chrome in its own composited layer.
+                        // This keeps Haze's progressive strip strictly behind the
+                        // back button and the trailing action pill on GPU-backed devices.
+                        .zIndex(Float.MAX_VALUE)
+                        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen },
                     // Only on the Search tab itself, not on anything pushed over it.
                     accessory = if (
                         selectedTab == TAB_SEARCH && route == null && detail == null && selectedMoodGenre == null
