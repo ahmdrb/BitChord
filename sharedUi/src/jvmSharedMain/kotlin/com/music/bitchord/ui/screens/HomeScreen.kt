@@ -850,6 +850,7 @@ internal fun NewShelfCard(
     logo: DrawableResource? = null,
     /** Optional tint for monochrome marks; null keeps the standard accent tint. */
     iconTint: Color? = null,
+    iconSize: Dp = 34.dp,
 ) {
     Column(
         modifier = modifier.clickable(onClick = onClick),
@@ -876,7 +877,7 @@ internal fun NewShelfCard(
                     imageVector = icon,
                     contentDescription = null,
                     tint = iconTint ?: MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(34.dp),
+                    modifier = Modifier.size(iconSize),
                 )
             }
         }
