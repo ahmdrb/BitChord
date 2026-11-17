@@ -55,6 +55,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
@@ -70,6 +71,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.music.bitchord.R
 import com.music.bitchord.data.model.PlaylistPrivacy
+import com.music.bitchord.data.model.CARD_ART_PX
 import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.UserPlaylist
@@ -297,12 +299,13 @@ private fun PlaylistRow(playlist: UserPlaylist, selected: Boolean, onClick: () -
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AsyncImage(
-            model = playlist.thumbnailUrl.artworkAt(ROW_ART_PX),
+            model = playlist.thumbnailUrl.artworkAt(CARD_ART_PX),
             contentDescription = null,
+            contentScale = ContentScale.Crop,
             modifier = Modifier
                 .size(44.dp)
-                .clip(RoundedCornerShape(7.dp))
-                .thumbnailBorder(RoundedCornerShape(7.dp))
+                .clip(RoundedCornerShape(12.dp))
+                .thumbnailBorder(RoundedCornerShape(12.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant),
         )
         Spacer(Modifier.width(16.dp))

@@ -3,6 +3,7 @@ package com.music.bitchord.ui.screens
 import com.music.bitchord.sharedui.resources.*
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -69,6 +70,8 @@ fun ExploreScreen(
     modifier: Modifier = Modifier,
     /** The big "Explore" heading; the desktop's pages carry none. */
     showTitle: Boolean = true,
+    /** App-provided glass surface; Liquid Glass owns its reduced-blur fallback. */
+    cardSurfaceModifier: @Composable (Modifier) -> Modifier = { it },
 ) {
     PullToRefresh(
         refreshing = refreshing,
@@ -112,7 +115,7 @@ fun ExploreScreen(
                             .distinctBy { it.browseId to it.params }
                             .chunked(columns)
                         items(rows, key = { row -> row.first().let { "${it.browseId}|${it.params}" } }) { row ->
-                            MoodGenreRow(row = row, columns = columns, onCategoryClick = onCategoryClick)
+                            MoodGenreRow(row = row, columns = columns, onCategoryClick = onCategoryClick, cardSurfaceModifier = cardSurfaceModifier)
                         }
                     }
                 }
@@ -126,6 +129,7 @@ private fun MoodGenreRow(
     row: List<MoodGenre>,
     columns: Int,
     onCategoryClick: (MoodGenre) -> Unit,
+    cardSurfaceModifier: @Composable (Modifier) -> Modifier,
 ) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(MOOD_SPACING),
@@ -138,6 +142,7 @@ private fun MoodGenreRow(
                 item = item,
                 onClick = { onCategoryClick(item) },
                 modifier = Modifier.weight(1f),
+                cardSurfaceModifier = cardSurfaceModifier,
             )
         }
         // Short rows keep their cards the size of a full row's.
@@ -150,6 +155,7 @@ private fun MoodGenreCard(
     item: MoodGenre,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    cardSurfaceModifier: @Composable (Modifier) -> Modifier,
 ) {
     MoodGenreSleeve(
         item = item,
@@ -157,6 +163,7 @@ private fun MoodGenreCard(
             .aspectRatio(MOOD_CARD_ASPECT)
             .clip(MOOD_CARD_SHAPE)
             .clickable(onClick = onClick),
+        cardSurfaceModifier = cardSurfaceModifier,
     )
 }
 
@@ -172,17 +179,20 @@ fun MoodGenreSleeve(
     item: MoodGenre,
     modifier: Modifier = Modifier,
     titleStyle: TextStyle = MaterialTheme.typography.headlineSmall,
+    cardSurfaceModifier: @Composable (Modifier) -> Modifier = { it },
 ) {
-    val tone = remember(item.stripeColor, item.title) { moodTone(item) }
+    val surface = Modifier
+        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.78f), MOOD_CARD_SHAPE)
+        .then(cardSurfaceModifier(Modifier))
+        .border(1.dp, Color.White.copy(alpha = 0.14f), MOOD_CARD_SHAPE)
     Box(
-        modifier = modifier.background(
-            Brush.linearGradient(
-                colors = listOf(tone.stripe, tone.placeholder, lerp(tone.stripe, Color.Black, .18f)),
-                start = Offset.Zero,
-                end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
-            ),
-        ),
+        modifier = modifier.then(surface),
     ) {
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.055f), Color.Transparent, Color.Black.copy(alpha = 0.08f))),
+            ),
+        )
         Text(
             text = item.title,
             style = titleStyle.copy(
@@ -191,7 +201,7 @@ fun MoodGenreSleeve(
                 fontWeight = FontWeight.ExtraBold,
                 shadow = Shadow(Color.Black.copy(alpha = .16f), offset = Offset(0f, 1f), blurRadius = 4f),
             ),
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onSurface,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier

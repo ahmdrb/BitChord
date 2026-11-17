@@ -32,6 +32,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import com.music.bitchord.ui.components.liquidGlass
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -3510,6 +3512,9 @@ private fun BitChordApp(
                                 onRefresh = { viewModel.refresh(MainViewModel.Feed.EXPLORE) },
                                 pullState = explorePull,
                                 contentPadding = listPadding,
+                                cardSurfaceModifier = { surface ->
+                                    if (glassActive) surface.liquidGlass(shape = RoundedCornerShape(18.dp)) else surface
+                                },
                             )
                             TAB_SEARCH -> SearchScreen(
                                 query = query,
@@ -4079,7 +4084,7 @@ private fun BitChordApp(
                     },
                     // Keep the controls above the progressive blur strip; the blur
                     // should frost the scrolling page, never the navigation itself.
-                    modifier = Modifier.align(Alignment.TopCenter).zIndex(1f),
+                    modifier = Modifier.align(Alignment.TopCenter).zIndex(10f),
                     // Only on the Search tab itself, not on anything pushed over it.
                     accessory = if (
                         selectedTab == TAB_SEARCH && route == null && detail == null && selectedMoodGenre == null
@@ -5270,7 +5275,7 @@ private fun BitChordApp(
                             playlist.songs.size,
                         ),
                         thumbnailUrl = playlist.artworkPath
-                            ?: playlist.songs.firstNotNullOfOrNull { it.thumbnailUrl },
+                            ?: playlist.songs.firstOrNull { !it.thumbnailUrl.isNullOrBlank() }?.thumbnailUrl,
                     )
                 }
                 val isDeviceFile = target?.localUri != null &&

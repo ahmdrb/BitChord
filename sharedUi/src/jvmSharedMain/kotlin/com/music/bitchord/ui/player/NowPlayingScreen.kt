@@ -1678,19 +1678,19 @@ fun NowPlayingScreen(
             ) {
                 Text(
                     text = song.title,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleLarge,
                     color = Color.White,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     text = song.artist,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.72f),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color.White.copy(alpha = 0.78f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(6.dp))
                 PlayerScrubber(
                     shown = shown,
                     durationMs = durationMs,
@@ -1710,7 +1710,7 @@ fun NowPlayingScreen(
                             .padding(horizontal = 8.dp),
                     )
                 }
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(4.dp))
                 TransportRow(
                     isPlaying = isPlaying,
                     isLoading = isLoading || audioVersionSwitching,
@@ -1720,6 +1720,7 @@ fun NowPlayingScreen(
                     onPlayPause = onPlayPause,
                     onNext = onNext,
                     compact = true,
+                    extraCompact = true,
                 )
             }
         } else {

@@ -15,10 +15,11 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
@@ -45,12 +46,15 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -72,10 +76,44 @@ import com.music.bitchord.ui.haptics.rememberHaptics
 import com.music.bitchord.playback.MusicOnlyPlayback
 import com.music.bitchord.ui.player.PlayerDock
 import com.music.bitchord.ui.player.AndroidMusicVideo
-import com.music.bitchord.ui.theme.rememberArtworkPalette
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.layout.fillMaxSize
+
+
+private class MiniPlayerTrackTransition {
+    val currentSong = mutableStateOf<Song?>(null)
+    val outgoingSong = mutableStateOf<Song?>(null)
+    val progress = Animatable(1f)
+
+    suspend fun update(song: Song?) {
+        if (song == null) {
+            currentSong.value = null
+            outgoingSong.value = null
+            progress.snapTo(1f)
+            return
+        }
+        val previous = currentSong.value
+        if (previous == null) {
+            currentSong.value = song
+            outgoingSong.value = null
+            progress.snapTo(1f)
+            return
+        }
+        if (previous.videoId == song.videoId) {
+            currentSong.value = song
+            return
+        }
+        outgoingSong.value = previous
+        currentSong.value = song
+        progress.snapTo(0f)
+        progress.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(durationMillis = 440, easing = FastOutSlowInEasing),
+        )
+        outgoingSong.value = null
+    }
+}
 
 /**
  * The liquid glass navigation bar: the iOS 26 shape where the now playing
@@ -152,6 +190,8 @@ fun GlassNavBar(
     val latestDismiss = rememberUpdatedState(onDismiss)
     val latestControlsLocked = rememberUpdatedState(controlsLocked)
     val latestBlockedControl = rememberUpdatedState(onBlockedControl)
+    val miniTrackTransition = remember { MiniPlayerTrackTransition() }
+    LaunchedEffect(song?.videoId) { miniTrackTransition.update(song) }
 
     // Search is the odd one out in the iOS 26 layout: a circle of its own beside
     // the pill rather than a quarter of it. It is the last tab in BitChord's
@@ -178,6 +218,7 @@ fun GlassNavBar(
                 latestSong.value?.let { activeSong ->
                     GlassNowPlaying(
                         song = activeSong,
+                        trackTransition = miniTrackTransition,
                         isInline = true,
                         isPlaying = latestIsPlaying.value,
                         isLoading = latestIsLoading.value,
@@ -201,6 +242,7 @@ fun GlassNavBar(
                 latestSong.value?.let { activeSong ->
                     GlassNowPlaying(
                         song = activeSong,
+                        trackTransition = miniTrackTransition,
                         isInline = false,
                         isPlaying = latestIsPlaying.value,
                         isLoading = latestIsLoading.value,
@@ -353,6 +395,7 @@ fun GlassNavBar(
 @Composable
 private fun GlassNowPlaying(
     song: Song,
+    trackTransition: MiniPlayerTrackTransition,
     isInline: Boolean,
     isPlaying: Boolean,
     isLoading: Boolean,
@@ -386,14 +429,9 @@ private fun GlassNowPlaying(
         fontSize = ACCESSORY_ARTIST_SIZE,
         letterSpacing = ACCESSORY_ARTIST_TRACKING,
     )
-    val artworkPalette = rememberArtworkPalette(song.thumbnailUrl, artPx = ROW_ART_PX)
-    val surfaceTint by animateColorAsState(
-        targetValue = artworkPalette.elevated,
-        animationSpec = tween(durationMillis = 460),
-        label = "glassMiniPlayerArtworkTint",
-    )
-    val foreground = artworkPalette.onBackground
-    val secondaryForeground = artworkPalette.onBackgroundVariant
+    // Liquid Glass stays neutral and theme-aware; artwork colours belong to the full player.
+    val foreground = MaterialTheme.colorScheme.onSurface
+    val secondaryForeground = MaterialTheme.colorScheme.onSurfaceVariant
     val glyphSlot = if (isInline) 32.dp else 40.dp
     val glyphSize = if (isInline) 24.dp else EXPANDED_GLYPH_SIZE
 
@@ -431,7 +469,7 @@ private fun GlassNowPlaying(
                 scaleY = pressScale
             }
             .then(modifier)
-            .background(surfaceTint.copy(alpha = 0.48f), RoundedCornerShape(percent = 50))
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.48f), RoundedCornerShape(percent = 50))
             .onGloballyPositioned { dock?.reportMiniPlayerBounds(it) }
             .clickable(
                 interactionSource = pressSource,
@@ -454,75 +492,45 @@ private fun GlassNowPlaying(
                     bottom = 4.dp,
                 ),
         ) {
-            AnimatedContent(
-                targetState = song,
-                modifier = Modifier.weight(1f).height(ACCESSORY_ART_SIZE),
-                transitionSpec = {
-                    (androidx.compose.animation.slideInHorizontally(
-                        initialOffsetX = { it / 3 },
-                        animationSpec = tween(360),
-                    ) + androidx.compose.animation.fadeIn(tween(360))) togetherWith
-                        (androidx.compose.animation.slideOutHorizontally(
-                            targetOffsetX = { -it / 3 },
-                            animationSpec = tween(360),
-                        ) + androidx.compose.animation.fadeOut(tween(360)))
-                },
-                contentKey = { it.videoId },
-                label = "glassMiniPlayerTrackChange",
-            ) { displayedSong ->
-                Row(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    val showsPicture = displayedSong.isVideo &&
-                        MusicOnlyPlayback.showsPicture(displayedSong.videoId)
-                    val artWidth = if (showsPicture && !VideoThumbnails.square) {
-                        ACCESSORY_ART_SIZE * (16f / 9f)
-                    } else ACCESSORY_ART_SIZE
-                    Box(
-                        modifier = Modifier
-                            .size(width = artWidth, height = ACCESSORY_ART_SIZE)
-                            .then(
-                                if (displayedSong.videoId == song.videoId) {
-                                    Modifier.playerDockArt(dock, ACCESSORY_ART_CORNER)
-                                } else Modifier
-                            )
-                            .clip(RoundedCornerShape(ACCESSORY_ART_CORNER))
-                            .background(MaterialTheme.colorScheme.surfaceVariant),
-                    ) {
-                        AsyncImage(
-                            model = rememberRemoteArtworkUrl(displayedSong)?.artworkAt(ROW_ART_PX),
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                        if (showsPicture) {
-                            AndroidMusicVideo(
-                                videoId = displayedSong.videoId,
-                                fit = false,
-                                onRenderedChanged = {},
-                                modifier = Modifier.fillMaxSize(),
-                                priority = 0,
-                            )
-                        }
-                    }
-                    Spacer(Modifier.width(if (isInline) 8.dp else 9.dp))
-                    Column(Modifier.weight(1f)) {
-                        val secondary = secondaryForeground
-                        ExplicitSongTitle(
-                            song = displayedSong,
-                            style = titleStyle,
-                            color = foreground,
-                            badgeColor = secondary,
-                            fadeOverflow = true,
-                        )
-                        FadingLine(
-                            text = displayedSong.artist,
-                            style = artistStyle,
-                            color = secondary,
-                        )
-                    }
+            val currentTransitionSong = trackTransition.currentSong.value
+            val displayedSong = if (currentTransitionSong == null || currentTransitionSong.videoId == song.videoId) {
+                song
+            } else {
+                currentTransitionSong
+            }
+            val outgoingSong = trackTransition.outgoingSong.value
+            val transitionProgress = trackTransition.progress
+            Box(
+                modifier = Modifier.weight(1f).height(ACCESSORY_ART_SIZE).clipToBounds(),
+            ) {
+                outgoingSong?.let { previousSong ->
+                    GlassTrackContent(
+                        displayedSong = previousSong,
+                        isInline = isInline,
+                        isCurrent = false,
+                        dock = dock,
+                        foreground = foreground,
+                        secondaryForeground = secondaryForeground,
+                        modifier = Modifier.fillMaxSize().graphicsLayer {
+                            val progress = transitionProgress.value
+                            alpha = 1f - progress
+                            translationX = -size.width * 0.28f * progress
+                        },
+                    )
                 }
+                GlassTrackContent(
+                    displayedSong = displayedSong,
+                    isInline = isInline,
+                    isCurrent = displayedSong.videoId == song.videoId,
+                    dock = dock,
+                    foreground = foreground,
+                    secondaryForeground = secondaryForeground,
+                    modifier = Modifier.fillMaxSize().graphicsLayer {
+                        val progress = transitionProgress.value
+                        alpha = progress
+                        translationX = size.width * 0.28f * (1f - progress)
+                    },
+                )
             }
             Box(Modifier.size(glyphSlot), contentAlignment = Alignment.Center) {
                 IconButton(
@@ -628,3 +636,70 @@ private val ACCESSORY_ART_CORNER = 5.7.dp
 
 /** The expanded play glyph: its triangle about Apple's 15pt tall. */
 private val EXPANDED_GLYPH_SIZE = 29.dp
+
+
+/**
+ * Artwork and metadata move as one unit, like Mochy's mini-player carousel.
+ * Transport controls remain outside this row, so they never shift on a track change.
+ */
+@Composable
+private fun GlassTrackContent(
+    displayedSong: Song,
+    isInline: Boolean,
+    isCurrent: Boolean,
+    dock: PlayerDock?,
+    foreground: Color,
+    secondaryForeground: Color,
+    modifier: Modifier = Modifier,
+) {
+    val titleStyle = MaterialTheme.typography.titleMedium.copy(
+        fontSize = ACCESSORY_TITLE_SIZE,
+        fontWeight = ACCESSORY_TITLE_WEIGHT,
+        letterSpacing = ACCESSORY_TITLE_TRACKING,
+    )
+    val artistStyle = MaterialTheme.typography.bodyMedium.copy(
+        fontSize = ACCESSORY_ARTIST_SIZE,
+        letterSpacing = ACCESSORY_ARTIST_TRACKING,
+    )
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+        val showsPicture = isCurrent && displayedSong.isVideo &&
+            MusicOnlyPlayback.showsPicture(displayedSong.videoId)
+        val artWidth = if (showsPicture && !VideoThumbnails.square) {
+            ACCESSORY_ART_SIZE * (16f / 9f)
+        } else ACCESSORY_ART_SIZE
+        Box(
+            modifier = Modifier
+                .size(width = artWidth, height = ACCESSORY_ART_SIZE)
+                .then(if (isCurrent) Modifier.playerDockArt(dock, ACCESSORY_ART_CORNER) else Modifier)
+                .clip(RoundedCornerShape(ACCESSORY_ART_CORNER))
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+        ) {
+            AsyncImage(
+                model = rememberRemoteArtworkUrl(displayedSong)?.artworkAt(ROW_ART_PX),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+            if (showsPicture) {
+                AndroidMusicVideo(
+                    videoId = displayedSong.videoId,
+                    fit = false,
+                    onRenderedChanged = {},
+                    modifier = Modifier.fillMaxSize(),
+                    priority = 0,
+                )
+            }
+        }
+        Spacer(Modifier.width(if (isInline) 8.dp else 9.dp))
+        Column(Modifier.weight(1f)) {
+            ExplicitSongTitle(
+                song = displayedSong,
+                style = titleStyle,
+                color = foreground,
+                badgeColor = secondaryForeground,
+                fadeOverflow = true,
+            )
+            FadingLine(text = displayedSong.artist, style = artistStyle, color = secondaryForeground)
+        }
+    }
+}

@@ -197,7 +197,7 @@ internal fun LandscapePlayerLayout(
                     Spacer(
                         Modifier.height(
                             if (pane == PlayerPane.Lyrics) {
-                                if (compact) 26.dp else 34.dp
+                                if (compact) 12.dp else 16.dp
                             } else {
                                 if (compact) 12.dp else 24.dp
                             },
