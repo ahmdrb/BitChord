@@ -100,27 +100,24 @@ private val BitChordTypography = Typography(
  */
 val SFProDisplayLegacy = FontFamily(
     Font(R.font.sf_pro_display_regular, FontWeight.W400),
-    Font(R.font.sf_pro_display_medium, FontWeight.W500),
-    Font(R.font.sf_pro_display_semibold, FontWeight.W600),
-    Font(R.font.sf_pro_display_bold, FontWeight.W700),
-    Font(R.font.sf_pro_display_heavy, FontWeight.W800),
+    Font(R.font.sf_pro_display_regular, FontWeight.W500),
+    Font(R.font.sf_pro_display_medium, FontWeight.W600),
+    Font(R.font.sf_pro_display_semibold, FontWeight.W700),
+    Font(R.font.sf_pro_display_bold, FontWeight.W800),
 )
 
-// Apple Music-inspired heavy typography: retain the original heavy cuts,
-// but open the tracking so tight pairs (such as "rt") stay clearly separated.
+// Classic keeps SF Pro Display's character while using medium-led weights and
+// a little more line height, so the type reads taller without looking heavy.
 private val LegacyTypography = Typography(
-    // One cut lighter than Default for the large display and lyric styles:
-    // semibold rather than bold, while keeping the open tracking that prevents
-    // tight pairs such as "rt" from visually colliding.
-    displayLarge = TextStyle(fontWeight = FontWeight.W600, fontSize = 34.sp, letterSpacing = 0.05.sp),
-    headlineLarge = TextStyle(fontWeight = FontWeight.W600, fontSize = 30.sp, letterSpacing = 0.15.sp),
-    headlineMedium = TextStyle(fontWeight = FontWeight.W500, fontSize = 22.sp, letterSpacing = 0.15.sp),
-    titleLarge = TextStyle(fontWeight = FontWeight.W700, fontSize = 20.sp, letterSpacing = 0.15.sp),
-    titleMedium = TextStyle(fontWeight = FontWeight.W700, fontSize = 16.sp, letterSpacing = 0.2.sp),
-    bodyLarge = TextStyle(fontWeight = FontWeight.W400, fontSize = 16.sp, letterSpacing = 0.2.sp),
-    bodyMedium = TextStyle(fontWeight = FontWeight.W400, fontSize = 14.sp, letterSpacing = 0.3.sp),
-    labelMedium = TextStyle(fontWeight = FontWeight.W400, fontSize = 12.sp, letterSpacing = 0.3.sp),
-    labelSmall = TextStyle(fontWeight = FontWeight.W400, fontSize = 11.sp, letterSpacing = 0.3.sp),
+    displayLarge = TextStyle(fontWeight = FontWeight.W600, fontSize = 34.sp, lineHeight = 39.sp, letterSpacing = 0.08.sp),
+    headlineLarge = TextStyle(fontWeight = FontWeight.W600, fontSize = 30.sp, lineHeight = 35.sp, letterSpacing = 0.16.sp),
+    headlineMedium = TextStyle(fontWeight = FontWeight.W500, fontSize = 22.sp, lineHeight = 26.sp, letterSpacing = 0.16.sp),
+    titleLarge = TextStyle(fontWeight = FontWeight.W600, fontSize = 20.sp, lineHeight = 24.sp, letterSpacing = 0.16.sp),
+    titleMedium = TextStyle(fontWeight = FontWeight.W600, fontSize = 16.sp, lineHeight = 20.sp, letterSpacing = 0.22.sp),
+    bodyLarge = TextStyle(fontWeight = FontWeight.W400, fontSize = 16.sp, lineHeight = 20.sp, letterSpacing = 0.2.sp),
+    bodyMedium = TextStyle(fontWeight = FontWeight.W400, fontSize = 14.sp, lineHeight = 18.sp, letterSpacing = 0.3.sp),
+    labelMedium = TextStyle(fontWeight = FontWeight.W400, fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.3.sp),
+    labelSmall = TextStyle(fontWeight = FontWeight.W400, fontSize = 11.sp, lineHeight = 15.sp, letterSpacing = 0.3.sp),
 ).withFamily(SFProDisplayLegacy)
 
 /** Applies [family] to every style in the scale, so nothing is left on Roboto. */
