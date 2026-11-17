@@ -20,6 +20,37 @@ import androidx.compose.ui.input.pointer.pointerInput
 private const val TAP_SLOP_FACTOR = 2.5f
 
 /**
+ * Pause automatic lyric following for the duration of a touch without
+ * consuming any pointer changes. The rows' own click handlers remain the sole
+ * owners of line taps; this only prevents an auto-scroll from moving a row out
+ * from under the finger between down and up.
+ */
+@Composable
+internal fun Modifier.holdLyricsAutoFollowWhileTouched(
+    onTouchChanged: (Boolean) -> Unit,
+): Modifier {
+    val currentOnTouchChanged = rememberUpdatedState(onTouchChanged)
+    return pointerInput(Unit) {
+        awaitEachGesture {
+            val down = awaitFirstDown(
+                requireUnconsumed = false,
+                pass = PointerEventPass.Initial,
+            )
+            currentOnTouchChanged.value(true)
+            try {
+                do {
+                    val event = awaitPointerEvent(PointerEventPass.Final)
+                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                    if (!change.pressed) break
+                } while (true)
+            } finally {
+                currentOnTouchChanged.value(false)
+            }
+        }
+    }
+}
+
+/**
  * Reveal the player's controls from an otherwise unhandled tap in the lower
  * half of the lyrics panel.
  *
