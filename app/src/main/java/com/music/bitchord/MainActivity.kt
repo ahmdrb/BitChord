@@ -4032,6 +4032,8 @@ private fun BitChordApp(
                     TopFadeBlur(
                         hazeState = hazeState,
                         pageColor = chromePageColor,
+                        protectNavigationChrome = detail?.type == BrowseType.PLAYLIST ||
+                            detail?.type == BrowseType.ARTIST,
                         modifier = Modifier
                             .align(Alignment.TopCenter)
                             .zIndex(0f)

@@ -92,6 +92,7 @@ import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.painterResource
 import kotlin.math.abs
 import kotlin.math.sqrt
+import kotlin.math.roundToInt
 
 /**
  * The transport buttons' touch target. Material's default 48dp is what a bar
@@ -188,6 +189,13 @@ private val ART_CORNER = 8.dp
 
 /** Distance that makes a horizontal drag an intentional track change. */
 private val TRACK_SWIPE_THRESHOLD = 72.dp
+
+/**
+ * The outgoing cover travels this fraction of its own clipped frame as the
+ * finger crosses the skip threshold. It leaves enough of the image visible
+ * for the incoming cover to slide over it instead of leaving a blank frame.
+ */
+private const val TRACK_ART_DRAG_FRACTION = 0.42f
 
 /**
  * How much further a drag may go sideways than up and still be a pull. A
@@ -329,14 +337,18 @@ internal fun Modifier.miniPlayerGestures(
 
             if (!vertical) {
                 var dragged = slopped.position.x - down.position.x
-                val dragWidth = size.width.toFloat().coerceAtLeast(1f)
                 trackReset[0]?.cancel()
                 draggedTrackId?.value = currentTrackId
-                trackDragOffset?.let { it.floatValue = dragged.coerceIn(-dragWidth, dragWidth) }
+                val dragProgress = {
+                    (dragged / trackThreshold).coerceIn(-1f, 1f) * TRACK_ART_DRAG_FRACTION
+                }
+                trackDragOffset?.floatValue = dragProgress()
                 // Read before consuming: a consumed change reports no movement.
+                // Store progress, not bar-width pixels: the art and metadata
+                // translate against their own clipped viewports below.
                 val finished = drag(pointer) { change ->
                     dragged += change.positionChange().x
-                    trackDragOffset?.let { it.floatValue = dragged.coerceIn(-dragWidth, dragWidth) }
+                    trackDragOffset?.floatValue = dragProgress()
                     change.consume()
                 }
                 val crossed = finished && (dragged <= -trackThreshold || dragged >= trackThreshold)
@@ -548,14 +560,21 @@ fun MiniPlayer(
                     contentAlignment = Alignment.Center,
                     transitionSpec = {
                         val direction = trackTransitionDirection.intValue
-                        (androidx.compose.animation.slideInHorizontally(
-                            initialOffsetX = { width -> width * direction },
-                            animationSpec = tween(280),
-                        ) + androidx.compose.animation.fadeIn(tween(280))) togetherWith
-                            (androidx.compose.animation.slideOutHorizontally(
-                                targetOffsetX = { width -> -width * direction },
-                                animationSpec = tween(220),
-                            ) + androidx.compose.animation.fadeOut(tween(220)))
+                        (
+                            (
+                                androidx.compose.animation.slideInHorizontally(
+                                    // Arrive within the same clipped thumbnail frame,
+                                    // overlapping the outgoing cover from the start.
+                                    initialOffsetX = { width -> (width * 0.32f * direction).roundToInt() },
+                                    animationSpec = tween(300),
+                                ) + androidx.compose.animation.fadeIn(tween(280))
+                            ) togetherWith (
+                                androidx.compose.animation.slideOutHorizontally(
+                                    targetOffsetX = { width -> (-width * 0.28f * direction).roundToInt() },
+                                    animationSpec = tween(260),
+                                ) + androidx.compose.animation.fadeOut(tween(260))
+                            )
+                        ).apply { targetContentZIndex = 1f }
                     },
                     contentKey = { it.videoId },
                     label = "miniPlayerArtworkChange",
@@ -570,7 +589,7 @@ fun MiniPlayer(
                             )
                             .graphicsLayer {
                                 translationX = if (displayedSong.videoId == draggedTrackId.value) {
-                                    trackDragOffset.floatValue
+                                    trackDragOffset.floatValue * size.width
                                 } else {
                                     0f
                                 }
@@ -609,14 +628,21 @@ fun MiniPlayer(
                 contentAlignment = Alignment.CenterStart,
                 transitionSpec = {
                     val direction = trackTransitionDirection.intValue
-                    (androidx.compose.animation.slideInHorizontally(
-                        initialOffsetX = { width -> width * direction },
-                        animationSpec = tween(280),
-                    ) + androidx.compose.animation.fadeIn(tween(280))) togetherWith
-                        (androidx.compose.animation.slideOutHorizontally(
-                            targetOffsetX = { width -> -width * direction },
-                            animationSpec = tween(220),
-                        ) + androidx.compose.animation.fadeOut(tween(220)))
+                    (
+                        (
+                            androidx.compose.animation.slideInHorizontally(
+                                // Text remains nearly in place; its blend is carried
+                                // mainly by opacity rather than a hard horizontal push.
+                                initialOffsetX = { width -> (width * 0.08f * direction).roundToInt() },
+                                animationSpec = tween(300),
+                            ) + androidx.compose.animation.fadeIn(tween(300))
+                        ) togetherWith (
+                            androidx.compose.animation.slideOutHorizontally(
+                                targetOffsetX = { width -> (-width * 0.08f * direction).roundToInt() },
+                                animationSpec = tween(280),
+                            ) + androidx.compose.animation.fadeOut(tween(280))
+                        )
+                    ).apply { targetContentZIndex = 1f }
                 },
                 contentKey = { it.videoId },
                 label = "miniPlayerMetadataChange",
@@ -626,7 +652,7 @@ fun MiniPlayer(
                         .fillMaxSize()
                         .graphicsLayer {
                             translationX = if (displayedSong.videoId == draggedTrackId.value) {
-                                trackDragOffset.floatValue
+                                trackDragOffset.floatValue * size.width * 0.12f
                             } else {
                                 0f
                             }

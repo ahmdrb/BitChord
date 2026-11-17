@@ -5,10 +5,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.PointerType
-import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.pointerInput
 
 /**
@@ -44,6 +41,17 @@ private const val TAP_SLOP_FACTOR = 2.5f
  * used. So a mouse click goes to the line, and only a click no row claimed
  * brings the controls back.
  */
+/**
+ * Reveal the player's controls from an otherwise unhandled tap in the lower
+ * half of the lyrics panel.
+ *
+ * Observe at PointerEventPass.Final rather than consuming in Initial. The
+ * previous initial-pass detector treated every lower-half tap as a control
+ * reveal while controls were hidden, stealing taps from the lyric rows before
+ * their seek click could run. Listening at Final lets a row handle its own tap;
+ * only an unclaimed tap reveals the controls. Scroll gestures are observed but
+ * never delayed or consumed by this helper.
+ */
 @Composable
 internal fun Modifier.revealLyricsControlsOnTap(
     enabled: Boolean,
@@ -54,40 +62,24 @@ internal fun Modifier.revealLyricsControlsOnTap(
         if (!enabled) return@pointerInput
         val tapSlop = viewConfiguration.touchSlop * TAP_SLOP_FACTOR
         awaitEachGesture {
-            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            val down = awaitFirstDown(
+                requireUnconsumed = false,
+                pass = PointerEventPass.Final,
+            )
             if (down.position.y < size.height / 2f) return@awaitEachGesture
-            if (down.type == PointerType.Mouse) {
-                var claimed = down.isConsumed
-                do {
-                    val event = awaitPointerEvent(PointerEventPass.Final)
-                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                    claimed = claimed || change.isConsumed
-                    if (!change.pressed) {
-                        if (!claimed) currentOnReveal.value()
-                        break
-                    }
-                } while (true)
-                return@awaitEachGesture
-            }
             var dragged = false
+            var claimed = down.isConsumed
             do {
-                val event = awaitPointerEvent(PointerEventPass.Initial)
+                val event = awaitPointerEvent(PointerEventPass.Final)
                 val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                claimed = claimed || change.isConsumed
                 if ((change.position - down.position).getDistance() > tapSlop ||
                     event.changes.size > 1
                 ) {
                     dragged = true
-                } else if (change.positionChange() != Offset.Zero) {
-                    // Still a tap as far as this is concerned, so hold the list
-                    // still rather than let it read the wobble as the start of a
-                    // scroll it would then own.
-                    change.consume()
                 }
                 if (!change.pressed) {
-                    if (!dragged) {
-                        change.consume()
-                        currentOnReveal.value()
-                    }
+                    if (!dragged && !claimed) currentOnReveal.value()
                     break
                 }
             } while (true)
