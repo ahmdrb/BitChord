@@ -4019,27 +4019,17 @@ private fun BitChordApp(
                             (header * fadeRamp)).coerceIn(0f, 1f)
                     }
                 }
-                if (reduceDynamicBlur || !glassActive || !progressiveBlur) {
-                    BottomFadeScrim(
-                        pageColor = chromePageColor,
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .zIndex(0f)
-                            .rotate(180f)
-                            .graphicsLayer { alpha = topFadeAlpha },
-                    )
-                } else {
-                    TopFadeBlur(
-                        hazeState = hazeState,
-                        pageColor = chromePageColor,
-                        protectNavigationChrome = detail?.type == BrowseType.PLAYLIST ||
-                            detail?.type == BrowseType.ARTIST,
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .zIndex(0f)
-                            .graphicsLayer { alpha = topFadeAlpha },
-                    )
-                }
+                DetailAwareTopFadeLayer(
+                    hazeState = hazeState,
+                    pageColor = chromePageColor,
+                    useBlur = !reduceDynamicBlur && glassActive && progressiveBlur,
+                    protectNavigationChrome = detail?.type == BrowseType.PLAYLIST ||
+                        detail?.type == BrowseType.ARTIST,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .zIndex(0f)
+                        .graphicsLayer { alpha = topFadeAlpha },
+                )
 
                 FrostedTopBar(
                     title = when (route) {
