@@ -254,6 +254,7 @@ interface MiniPlayerPull {
 @Composable
 internal fun Modifier.miniPlayerGestures(
     pull: MiniPlayerPull?,
+    trackDragOffset: androidx.compose.runtime.MutableFloatState,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
     onDismiss: () -> Unit,
@@ -318,17 +319,28 @@ internal fun Modifier.miniPlayerGestures(
 
             if (!vertical) {
                 var dragged = slopped.position.x - down.position.x
+                val dragWidth = size.width.toFloat().coerceAtLeast(1f)
+                trackDragOffset.floatValue = (dragged / dragWidth).coerceIn(-0.85f, 0.85f)
                 // Read before consuming: a consumed change reports no movement.
                 val finished = drag(pointer) { change ->
                     dragged += change.positionChange().x
+                    trackDragOffset.floatValue = (dragged / dragWidth).coerceIn(-0.85f, 0.85f)
                     change.consume()
                 }
-                if (!finished) return@awaitEachGesture
-                val crossed = dragged <= -trackThreshold || dragged >= trackThreshold
+                val crossed = finished && (dragged <= -trackThreshold || dragged >= trackThreshold)
                 when {
                     currentLocked -> if (crossed) currentOnBlocked()
-                    dragged <= -trackThreshold -> currentOnNext()
-                    dragged >= trackThreshold -> currentOnPrevious()
+                    crossed && dragged <= -trackThreshold -> currentOnNext()
+                    crossed && dragged >= trackThreshold -> currentOnPrevious()
+                }
+                // The content follows the finger while held, then eases home.
+                val from = trackDragOffset.floatValue
+                scope.launch {
+                    animate(
+                        initialValue = from,
+                        targetValue = 0f,
+                        animationSpec = tween(durationMillis = 220),
+                    ) { value, _ -> trackDragOffset.floatValue = value }
                 }
                 return@awaitEachGesture
             }
@@ -431,6 +443,7 @@ fun MiniPlayer(
 ) {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val haptics = rememberHaptics()
+    val trackDragOffset = remember { mutableFloatStateOf(0f) }
     // percent rather than a dp figure, so the corner stays exactly half the
     // height if the row's contents ever change it — which is what keeps a pill
     // a pill instead of a rounded rectangle. Same idiom as [FloatingBottomBar]
@@ -442,6 +455,7 @@ fun MiniPlayer(
             // Ahead of the surface, so a pull lifts the whole of it, frost and all.
             .miniPlayerGestures(
                 pull = pull,
+                trackDragOffset = trackDragOffset,
                 onNext = {
                     haptics.play(Haptic.SkipNext)
                     onNext()
@@ -483,16 +497,24 @@ fun MiniPlayer(
         ) {
             AnimatedContent(
                 targetState = song,
-                modifier = Modifier.weight(1f).height(40.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(40.dp)
+                    .clip(RoundedCornerShape(ART_CORNER))
+                    .graphicsLayer {
+                        translationX = trackDragOffset.floatValue * size.width
+                        alpha = 1f - abs(trackDragOffset.floatValue) * 0.22f
+                    },
+                contentAlignment = Alignment.CenterStart,
                 transitionSpec = {
                     (androidx.compose.animation.slideInHorizontally(
-                        initialOffsetX = { it / 3 },
-                        animationSpec = tween(360),
-                    ) + androidx.compose.animation.fadeIn(tween(360))) togetherWith
+                        initialOffsetX = { it },
+                        animationSpec = tween(280),
+                    ) + androidx.compose.animation.fadeIn(tween(280))) togetherWith
                         (androidx.compose.animation.slideOutHorizontally(
-                            targetOffsetX = { -it / 3 },
-                            animationSpec = tween(360),
-                        ) + androidx.compose.animation.fadeOut(tween(360)))
+                            targetOffsetX = { -it },
+                            animationSpec = tween(220),
+                        ) + androidx.compose.animation.fadeOut(tween(220)))
                 },
                 contentKey = { it.videoId },
                 label = "miniPlayerTrackChange",

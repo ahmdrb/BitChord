@@ -395,6 +395,12 @@ private const val TOP_FADE_RAMP = 0.3f
 
 private const val INITIAL_RADIO_TRACKS = 24
 
+/** Keep the floating navigation controls in a separate layer above the top fade. */
+private fun Modifier.navigationChromeLayer(): Modifier =
+    zIndex(Float.MAX_VALUE)
+        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+
+
 internal fun shouldSkipAfterDislike(
     previousStatus: LikeStatus,
     targetVideoId: String,
@@ -4087,11 +4093,7 @@ private fun BitChordApp(
                     // should frost the scrolling page, never the navigation itself.
                     modifier = Modifier
                         .align(Alignment.TopCenter)
-                        // Isolate the navigation chrome in its own composited layer.
-                        // This keeps Haze's progressive strip strictly behind the
-                        // back button and the trailing action pill on GPU-backed devices.
-                        .zIndex(Float.MAX_VALUE)
-                        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen },
+                        .navigationChromeLayer(),
                     // Only on the Search tab itself, not on anything pushed over it.
                     accessory = if (
                         selectedTab == TAB_SEARCH && route == null && detail == null && selectedMoodGenre == null
