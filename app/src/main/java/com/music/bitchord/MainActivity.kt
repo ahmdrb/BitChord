@@ -323,6 +323,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.unit.Density
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
@@ -4008,6 +4009,7 @@ private fun BitChordApp(
                         pageColor = chromePageColor,
                         modifier = Modifier
                             .align(Alignment.TopCenter)
+                            .zIndex(0f)
                             .rotate(180f)
                             .graphicsLayer { alpha = topFadeAlpha },
                     )
@@ -4017,6 +4019,7 @@ private fun BitChordApp(
                         pageColor = chromePageColor,
                         modifier = Modifier
                             .align(Alignment.TopCenter)
+                            .zIndex(0f)
                             .graphicsLayer { alpha = topFadeAlpha },
                     )
                 }
@@ -4077,7 +4080,9 @@ private fun BitChordApp(
                         route != null || detail != null || selectedMoodGenre != null -> goBack
                         else -> null
                     },
-                    modifier = Modifier.align(Alignment.TopCenter),
+                    // Keep the controls above the progressive blur strip; the blur
+                    // should frost the scrolling page, never the navigation itself.
+                    modifier = Modifier.align(Alignment.TopCenter).zIndex(1f),
                     // Only on the Search tab itself, not on anything pushed over it.
                     accessory = if (
                         selectedTab == TAB_SEARCH && route == null && detail == null && selectedMoodGenre == null
