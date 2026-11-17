@@ -16,6 +16,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -410,11 +411,6 @@ private fun GlassNowPlaying(
                 onClick = onExpand,
             ),
     ) {
-        MiniPlayerProgressFill(
-            song = song,
-            progressFraction = progressFraction,
-            modifier = Modifier.matchParentSize(),
-        )
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
@@ -482,27 +478,48 @@ private fun GlassNowPlaying(
                     color = secondary,
                 )
             }
-            if (isLoading) {
-                Box(Modifier.size(glyphSlot), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(
-                        color = contentColor,
-                        strokeWidth = 2.dp,
-                        modifier = Modifier.size(if (isInline) 18.dp else 20.dp),
-                    )
-                }
-            } else {
+            Box(Modifier.size(glyphSlot), contentAlignment = Alignment.Center) {
                 IconButton(
                     onClick = {
                         haptics.play(if (isPlaying) Haptic.Pause else Haptic.Resume)
                         onPlayPause()
                     },
+                    enabled = !isLoading,
                     modifier = Modifier.size(glyphSlot),
                 ) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        contentDescription = stringResource(if (isPlaying) R.string.pause else R.string.play),
-                        tint = contentColor,
-                        modifier = Modifier.size(glyphSize),
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            color = contentColor,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(if (isInline) 18.dp else 20.dp),
+                        )
+                    } else {
+                        Icon(
+                            imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                            contentDescription = stringResource(if (isPlaying) R.string.pause else R.string.play),
+                            tint = contentColor,
+                            modifier = Modifier.size(glyphSize),
+                        )
+                    }
+                }
+                Canvas(Modifier.size(if (isInline) 32.dp else 38.dp)) {
+                    val stroke = androidx.compose.ui.graphics.drawscope.Stroke(
+                        width = 1.5.dp.toPx(),
+                        cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                    )
+                    drawArc(
+                        color = contentColor.copy(alpha = 0.20f),
+                        startAngle = -90f,
+                        sweepAngle = 360f,
+                        useCenter = false,
+                        style = stroke,
+                    )
+                    drawArc(
+                        color = contentColor,
+                        startAngle = -90f,
+                        sweepAngle = 360f * progressFraction.coerceIn(0f, 1f),
+                        useCenter = false,
+                        style = stroke,
                     )
                 }
             }
