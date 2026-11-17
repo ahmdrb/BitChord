@@ -56,13 +56,14 @@ object PersonalLibraryStore {
         }
     }
 
-    fun addPlaylist(title: String) = update { current ->
+    fun addPlaylist(title: String, song: Song? = null) = update { current ->
         val name = title.trim()
         if (name.isBlank()) current
         else current.copy(
             playlists = current.playlists + PersonalPlaylist(
                 id = java.util.UUID.randomUUID().toString(),
                 title = name,
+                songs = listOfNotNull(song),
             ),
         )
     }
@@ -111,12 +112,18 @@ object PersonalLibraryStore {
         }
     }
 
-    fun addSongToPlaylist(id: String, song: Song) = update { current ->
-        current.copy(playlists = current.playlists.map { playlist ->
-            if (playlist.id == id && playlist.songs.none { it.videoId == song.videoId }) {
-                playlist.copy(songs = playlist.songs + song)
-            } else playlist
-        })
+    /** Returns true only when this call added a new track to the playlist. */
+    fun addSongToPlaylist(id: String, song: Song): Boolean {
+        var added = false
+        update { current ->
+            current.copy(playlists = current.playlists.map { playlist ->
+                if (playlist.id == id && playlist.songs.none { it.videoId == song.videoId }) {
+                    added = true
+                    playlist.copy(songs = playlist.songs + song)
+                } else playlist
+            })
+        }
+        return added
     }
 
     fun removeSongFromPlaylist(id: String, videoId: String) = update { current ->
