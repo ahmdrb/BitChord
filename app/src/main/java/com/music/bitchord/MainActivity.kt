@@ -750,6 +750,8 @@ private fun BitChordApp(
     // Separate from [songActions] so the menu can close behind it — the picker
     // is the next step, not a second sheet stacked on the first.
     var playlistTarget by remember { mutableStateOf<Song?>(null) }
+    // Track actions use BitChord's own saved playlists, never the account picker.
+    var personalPlaylistTarget by remember { mutableStateOf<Song?>(null) }
     // The picker opened from the Library tab, where there is no track and
     // creating the playlist is the whole errand.
     var creatingPlaylist by remember { mutableStateOf(false) }
@@ -3560,8 +3562,7 @@ private fun BitChordApp(
                                         artworkUrl = song.thumbnailUrl,
                                         entityType = EntityType.TRACK,
                                     ))
-                                    viewModel.loadPlaylists()
-                                    playlistTarget = song
+                                    personalPlaylistTarget = song
                                 },
                                 onBrowseClick = { item ->
                                     viewModel.recordEntity(SearchHistoryEntity(
@@ -4809,12 +4810,7 @@ private fun BitChordApp(
                 },
                 onAddToPlaylist = {
                     songActions = null
-                    if (song.localUri != null && (song.videoId.startsWith("content://") || song.videoId.startsWith("file://"))) {
-                        offlinePlaylistTarget = song
-                    } else {
-                        viewModel.loadPlaylists()
-                        playlistTarget = song
-                    }
+                    personalPlaylistTarget = song
                 },
                 onRemoveFromPlaylist = editable?.let {
                     {
@@ -5252,6 +5248,89 @@ private fun BitChordApp(
                     menuFromHistory = false
                 }
             }
+        }
+
+        // ---- Add to BitChord's own playlists ----
+        // This picker is deliberately independent of YouTube Music's account
+        // playlist API. Local files can additionally be filed into device playlists.
+        if (personalPlaylistTarget != null) {
+            val target = personalPlaylistTarget
+            val dismiss = { personalPlaylistTarget = null }
+            val choices = remember(personalLibrary.playlists, offlinePlaylists, target?.videoId) {
+                val personalChoices = personalLibrary.playlists.map { playlist ->
+                    UserPlaylist(
+                        playlistId = "personal:${playlist.id}",
+                        title = playlist.title,
+                        subtitle = context.resources.getQuantityString(
+                            R.plurals.song_count_plural,
+                            playlist.songs.size,
+                            playlist.songs.size,
+                        ),
+                        thumbnailUrl = playlist.artworkPath
+                            ?: playlist.songs.firstNotNullOfOrNull { it.thumbnailUrl },
+                    )
+                }
+                val isDeviceFile = target?.localUri != null &&
+                    (target.videoId.startsWith("content://") || target.videoId.startsWith("file://"))
+                val deviceChoices = if (isDeviceFile) {
+                    offlinePlaylists.map { playlist ->
+                        UserPlaylist(
+                            playlistId = "device:${playlist.id}",
+                            title = playlist.title,
+                            subtitle = context.resources.getQuantityString(
+                                R.plurals.song_count_plural,
+                                playlist.songs.size,
+                                playlist.songs.size,
+                            ),
+                            thumbnailUrl = playlist.songs.firstNotNullOfOrNull { it.thumbnailUrl }
+                                .takeUnless { playlist.isLiked },
+                        )
+                    }
+                } else emptyList()
+                personalChoices + deviceChoices
+            }
+            PlaylistPickerSheet(
+                playlists = choices,
+                loading = false,
+                song = target,
+                personal = true,
+                onDismiss = dismiss,
+                onAdd = { picked ->
+                    target?.let { song ->
+                        val personalSelected = picked.filter { it.playlistId.startsWith("personal:") }
+                        val deviceSelected = picked.filter { it.playlistId.startsWith("device:") }
+                        val personalAdded = personalSelected.count { selected ->
+                            PersonalLibraryStore.addSongToPlaylist(
+                                selected.playlistId.removePrefix("personal:"),
+                                song,
+                            )
+                        }
+                        val deviceResult = if (deviceSelected.isNotEmpty()) {
+                            OfflinePlaylists.add(
+                                deviceSelected.map { it.playlistId.removePrefix("device:") },
+                                listOf(song),
+                            )
+                        } else null
+                        val added = personalAdded + (deviceResult?.added ?: 0)
+                        val alreadyThere = (personalSelected.size - personalAdded) +
+                            (deviceResult?.alreadyThere ?: 0)
+                        showQueueNotice(
+                            when {
+                                added > 1 -> context.resources.getQuantityString(
+                                    R.plurals.added_to_playlists_notice, added, added,
+                                )
+                                added == 1 -> context.getString(R.string.song_added_to_playlist)
+                                alreadyThere > 0 -> context.getString(R.string.song_already_in_playlist)
+                                else -> context.getString(R.string.failed)
+                            },
+                        )
+                    }
+                },
+                onCreate = { title, _ ->
+                    PersonalLibraryStore.addPlaylist(title, target)
+                    showQueueNotice(context.getString(R.string.song_added_to_playlist))
+                },
+            )
         }
 
         // ---- Add to playlist / new playlist ----
