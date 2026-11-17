@@ -20,28 +20,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 private const val TAP_SLOP_FACTOR = 2.5f
 
 /**
- * Intercept a lower-half tap before a lyric row can seek; leave real drags to
- * the list.
- *
- * Runs on [PointerEventPass.Initial], which is what makes the disambiguation
- * possible at all: this sees each event before the list does, and while the
- * finger is still inside [TAP_SLOP_FACTOR] it *consumes* the movement, so the
- * list never reaches its own slop and never takes the gesture away. Past that
- * distance the consuming stops, the deltas flow through, and what is left is an
- * ordinary scroll that began a few pixels late.
- *
- * The dead zone that costs only exists while [enabled] — that is, only while
- * the controls are away and a tap has something to do. With them on screen this
- * detector is absent entirely and the list scrolls off its own slop as usual.
- *
- * A mouse is the exception. It has no wobble to absorb and nothing to scroll by
- * dragging, and on the desktop the click on a line *is* the way to jump to it —
- * intercepted, every click in the lower half while the controls were away did
- * nothing visible, and lines only started seeking once the scrubber had been
- * used. So a mouse click goes to the line, and only a click no row claimed
- * brings the controls back.
- */
-/**
  * Reveal the player's controls from an otherwise unhandled tap in the lower
  * half of the lyrics panel.
  *

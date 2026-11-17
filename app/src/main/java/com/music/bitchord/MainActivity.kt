@@ -4524,6 +4524,8 @@ private fun BitChordApp(
                     player.song?.let { song ->
                         MiniPlayer(
                             song = song,
+                            previousSong = player.previousSong.takeIf { player.hasPrevious },
+                            nextSong = player.nextSong.takeIf { player.hasNext },
                             isPlaying = player.isPlaying,
                             isLoading = playPauseBusy,
                             hazeState = hazeState,
