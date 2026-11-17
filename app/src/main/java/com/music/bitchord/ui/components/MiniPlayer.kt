@@ -486,14 +486,15 @@ fun MiniPlayer(
                 modifier = Modifier.weight(1f).height(40.dp),
                 transitionSpec = {
                     (androidx.compose.animation.slideInHorizontally(
-                        initialOffsetX = { it / 4 },
-                        animationSpec = tween(210),
-                    ) + androidx.compose.animation.fadeIn(tween(210))) togetherWith
+                        initialOffsetX = { it / 3 },
+                        animationSpec = tween(360),
+                    ) + androidx.compose.animation.fadeIn(tween(360))) togetherWith
                         (androidx.compose.animation.slideOutHorizontally(
-                            targetOffsetX = { -it / 4 },
-                            animationSpec = tween(210),
-                        ) + androidx.compose.animation.fadeOut(tween(210)))
+                            targetOffsetX = { -it / 3 },
+                            animationSpec = tween(360),
+                        ) + androidx.compose.animation.fadeOut(tween(360)))
                 },
+                contentKey = { it.videoId },
                 label = "miniPlayerTrackChange",
             ) { displayedSong ->
                 Row(
