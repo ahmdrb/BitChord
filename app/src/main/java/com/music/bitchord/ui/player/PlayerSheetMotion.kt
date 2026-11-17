@@ -30,7 +30,7 @@ import kotlin.math.abs
  * spends most of its time settling, slower and slower, into place, which is
  * where the eye is following the artwork home.
  */
-private const val SLIDE_STIFFNESS = 195f
+private const val SLIDE_STIFFNESS = 105f
 
 /** Close enough to stop, in pixels — rather than a spring's whole long tail. */
 private const val SLIDE_SETTLED_PX = 0.5f
@@ -170,6 +170,7 @@ class PlayerSheetMotion(
 
     /** A tap on the mini player. */
     fun open() {
+        dock.setTransitioningToMini(false)
         if (shown()) {
             // Tapped while still on its way down: back up from where it is.
             if (closing && holding) {
@@ -248,6 +249,7 @@ class PlayerSheetMotion(
     /** A close caught before it finished: the player is staying up after all. */
     private fun reopening() {
         closing = false
+        dock.setTransitioningToMini(false)
         passTouchesThrough(false)
         window?.setWindowAnimations(windowAnimations)
     }
@@ -256,6 +258,7 @@ class PlayerSheetMotion(
     fun close() {
         if (!shown() || closing) return
         closing = true
+        dock.setTransitioningToMini(true)
         quietWindow()
         passTouchesThrough(true)
         settle?.cancel()
@@ -273,7 +276,7 @@ class PlayerSheetMotion(
 
     override fun drag(delta: Float) {
         if (!holding) {
-            // Only upwards starts one, and only from a closed player: a
+            // Only upwards starts one, and only from a
             // downward drag on the bar has nothing to pull.
             if (delta >= 0f || shown()) return
             settle?.cancel()
@@ -284,6 +287,8 @@ class PlayerSheetMotion(
             setShown(true)
         }
         settle?.cancel()
+        if (delta > 0f) dock.setTransitioningToMini(true)
+        else if (delta < 0f) dock.setTransitioningToMini(false)
         held = (held + delta).coerceIn(0f, travel())
     }
 
@@ -299,6 +304,7 @@ class PlayerSheetMotion(
         // A flick decides on its own, either way; otherwise it is where the
         // finger left it.
         val open = if (flick) speed < 0f else held < travel / 2f
+        dock.setTransitioningToMini(!open)
         if (!open) {
             closing = true
             quietWindow()
@@ -331,6 +337,7 @@ class PlayerSheetMotion(
     }
 
     private suspend fun slide(from: Float, to: Float, velocity: Float = 0f) {
+        dock.setTransitioningToMini(to > from)
         val travel = travel()
         animate(
             initialValue = from,

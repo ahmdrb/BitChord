@@ -32,6 +32,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import com.music.bitchord.ui.components.liquidGlass
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -177,6 +179,14 @@ import com.music.bitchord.ui.screens.DiscordDialogHost
 import com.music.bitchord.ui.screens.DiscordScreen
 import com.music.bitchord.ui.screens.EqualizerScreen
 import com.music.bitchord.ui.screens.HistoryScreen
+import com.music.bitchord.ui.screens.PersonalLibraryScreen
+import com.music.bitchord.ui.screens.PersonalAddMode
+import com.music.bitchord.ui.screens.PersonalLibraryAddDialog
+import com.music.bitchord.ui.screens.PersonalArtistDetailDialog
+import com.music.bitchord.ui.screens.PersonalPlaylistCreateDialog
+import com.music.bitchord.ui.components.YouTubeMusicImportAlert
+import com.music.bitchord.ui.screens.PersonalPlaylistDetailDialog
+import com.music.bitchord.data.PersonalLibraryStore
 import com.music.bitchord.ui.screens.LibraryReplayEntry
 import com.music.bitchord.ui.screens.libraryDeviceItems
 import com.music.bitchord.ui.screens.SPOTIFY_BROWSE_ID
@@ -315,6 +325,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.unit.Density
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
@@ -548,6 +559,12 @@ private fun BitChordApp(
     // and the page is a sibling of the bar rather than a child.
     val navBarScroll = rememberFloatingTabBarScrollConnection()
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    // Hoisted so app-level chrome can respond while a personal collection page
+    // is open inside the Library tab.
+    var selectedPersonalPlaylistId by rememberSaveable { mutableStateOf<String?>(null) }
+    var selectedPersonalArtistId by rememberSaveable { mutableStateOf<String?>(null) }
+    val personalCollectionDetailOpen =
+        selectedPersonalPlaylistId != null || selectedPersonalArtistId != null
     // Explore loads the first time it's shown, not at launch beside Home.
     LaunchedEffect(selectedTab) {
         if (selectedTab == TAB_EXPLORE) viewModel.onExploreShown()
@@ -732,18 +749,31 @@ private fun BitChordApp(
     // is still in flight — read by the long-press sheet so it can show a
     // loading row instead of the two just being absent while it waits.
     var linksLoading by remember { mutableStateOf(false) }
-    // Which track the playlist picker is adding, or null when it's closed.
-    // Separate from [songActions] so the menu can close behind it — the picker
-    // is the next step, not a second sheet stacked on the first.
-    var playlistTarget by remember { mutableStateOf<Song?>(null) }
-    // The picker opened from the Library tab, where there is no track and
-    // creating the playlist is the whole errand.
+    // Track actions use BitChord's own saved playlists, never the account picker.
+    // Separate from [songActions] so the menu can close behind the picker.
+    var personalPlaylistTarget by remember { mutableStateOf<Song?>(null) }
+    // The account playlist form is only opened from the Library's own create action.
     var creatingPlaylist by remember { mutableStateOf(false) }
     // The same two, over the device's own playlists — for a track that is a
     // file on it, and for "New playlist" on Local Music's Playlists tab.
     var offlinePlaylistTarget by remember { mutableStateOf<Song?>(null) }
     var creatingOfflinePlaylist by remember { mutableStateOf(false) }
     var showSpotifyImportDialog by remember { mutableStateOf(false) }
+    var showPersonalYtImportDialog by remember { mutableStateOf(false) }
+    val personalPlaylistImportScope = rememberCoroutineScope()
+    var personalYtImportBusy by remember { mutableStateOf(false) }
+    var personalPlaylistArtworkTarget by remember { mutableStateOf<String?>(null) }
+    val personalArtworkScope = rememberCoroutineScope()
+    val personalPlaylistArtworkPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        val playlistId = personalPlaylistArtworkTarget
+        if (uri != null && playlistId != null) {
+            personalArtworkScope.launch(Dispatchers.IO) {
+                PersonalLibraryStore.savePlaylistArtwork(context, playlistId, uri)
+            }
+        }
+        personalPlaylistArtworkTarget = null
+    }
+    var personalArtistMenuOpen by remember { mutableStateOf(false) }
     // Which album or playlist the collection menu is open on, or null when it
     // is shut. One slot for every surface that can open it — the shelves on
     // three tabs, the search rows, the artist page's carousels, the release
@@ -896,6 +926,8 @@ private fun BitChordApp(
     val exploreState by viewModel.explore.collectAsStateWithLifecycle()
     val selectedMoodGenre by viewModel.selectedMoodGenre.collectAsStateWithLifecycle()
     val moodGenreShelves by viewModel.moodGenreShelves.collectAsStateWithLifecycle()
+    LaunchedEffect(context) { PersonalLibraryStore.initialize(context) }
+    val personalLibrary by PersonalLibraryStore.state.collectAsStateWithLifecycle()
     val libraryState by viewModel.library.collectAsStateWithLifecycle()
     val filter by viewModel.filter.collectAsStateWithLifecycle()
     val searchSource by viewModel.searchSource.collectAsStateWithLifecycle()
@@ -2257,6 +2289,7 @@ private fun BitChordApp(
                 title = item.title,
                 subtitle = item.subtitle,
                 thumbnailUrl = item.thumbnailUrl,
+                type = if (personalLibrary.artists.any { artist -> artist.browseId == id }) BrowseType.ARTIST else BrowseType.OTHER,
             )
         }
     }
@@ -3479,6 +3512,9 @@ private fun BitChordApp(
                                 onRefresh = { viewModel.refresh(MainViewModel.Feed.EXPLORE) },
                                 pullState = explorePull,
                                 contentPadding = listPadding,
+                                cardSurfaceModifier = { surface ->
+                                    if (glassActive) surface.liquidGlass(shape = RoundedCornerShape(18.dp)) else surface
+                                },
                             )
                             TAB_SEARCH -> SearchScreen(
                                 query = query,
@@ -3528,8 +3564,8 @@ private fun BitChordApp(
                                         artworkUrl = song.thumbnailUrl,
                                         entityType = EntityType.TRACK,
                                     ))
-                                    viewModel.loadPlaylists()
-                                    playlistTarget = song
+                                    PersonalLibraryStore.initialize(context)
+                                    personalPlaylistTarget = song
                                 },
                                 onBrowseClick = { item ->
                                     viewModel.recordEntity(SearchHistoryEntity(
@@ -3663,40 +3699,245 @@ private fun BitChordApp(
                                     )
                                 },
                             )
-                            else -> LibraryScreen(
-                                signedIn = signedIn,
-                                state = libraryState,
-                                listState = libraryListState,
-                                onShelfItemClick = onLibraryItemClick,
-                                // Every shelf here has a menu behind it now — the account's
-                                // own playlists get rename and delete on top of what a saved
-                                // album or a Liked Music card gets. Holding an artist still
-                                // does nothing; see [onBrowseLongPress].
-                                onShelfItemLongPress = onBrowseLongPress,
-                                onNewPlaylist = { creatingPlaylist = true },
-                                onImportSpotifyPlaylist = { showSpotifyImportDialog = true },
-                                onShowAll = { shelf -> navigator.push(AppRoute.LibraryShowAll(shelf)) },
-                                replay = {
-                                    LibraryReplayEntry(
-                                        cards = replayCards,
-                                        loading = replay.loading,
-                                        holder = account?.name.orEmpty(),
-                                        memberSince = replay.memberSince,
-                                        onOpenReplay = { page ->
-                                            replayLandingPage = page
-                                            navigator.push(AppRoute.Replay)
+                            else -> {
+                                var showAddPersonalArtist by remember { mutableStateOf(false) }
+                                var showAddPersonalPlaylist by remember { mutableStateOf(false) }
+                                var addingSongToPersonalPlaylistId by remember { mutableStateOf<String?>(null) }
+                                var addingSongToPersonalArtistId by remember { mutableStateOf<String?>(null) }
+                                Box(Modifier.fillMaxSize()) {
+                                    LibraryScreen(
+                                        signedIn = signedIn,
+                                        state = libraryState,
+                                        listState = libraryListState,
+                                        onShelfItemClick = onLibraryItemClick,
+                                        onShelfItemLongPress = onBrowseLongPress,
+                                        onAddPersonalPlaylist = { showAddPersonalPlaylist = true },
+                                        onPersonalPlaylistClick = { item ->
+                                            item.browseId
+                                                ?.removePrefix("bitchord-personal-playlist:")
+                                                ?.takeIf { it != item.browseId }
+                                                ?.let { selectedPersonalPlaylistId = it }
+                                        },
+                                        onPersonalPlaylistLongPress = { item ->
+                                            item.browseId
+                                                ?.removePrefix("bitchord-personal-playlist:")
+                                                ?.takeIf { it != item.browseId }
+                                                ?.let { selectedPersonalPlaylistId = it }
+                                        },
+                                        personalPlaylists = personalLibrary.playlists.map { playlist ->
+                                            ShelfItem(
+                                                title = playlist.title,
+                                                subtitle = "",
+                                                thumbnailUrl = playlist.artworkPath ?: playlist.songs.firstOrNull()?.thumbnailUrl,
+                                                videoId = null,
+                                                browseId = "bitchord-personal-playlist:${playlist.id}",
+                                            )
+                                        },
+                                        onPersonalArtistClick = { item ->
+                                            item.browseId
+                                                ?.takeIf { id -> personalLibrary.artists.any { it.browseId == id } }
+                                                ?.let { selectedPersonalArtistId = it }
+                                        },
+                                        onShowAll = { shelf -> navigator.push(AppRoute.LibraryShowAll(shelf)) },
+                                        replay = {
+                                            LibraryReplayEntry(
+                                                cards = replayCards,
+                                                loading = replay.loading,
+                                                holder = account?.name.orEmpty(),
+                                                memberSince = replay.memberSince,
+                                                onOpenReplay = { page ->
+                                                    replayLandingPage = page
+                                                    navigator.push(AppRoute.Replay)
+                                                },
+                                            )
+                                        },
+                                        onSignIn = { webSession = WebSessionMode.SIGN_IN },
+                                        onRetry = viewModel::loadLibrary,
+                                        refreshing = MainViewModel.Feed.LIBRARY in refreshing,
+                                        onRefresh = { viewModel.refresh(MainViewModel.Feed.LIBRARY) },
+                                        pullState = libraryPull,
+                                        contentPadding = listPadding,
+                                        links = libraryLinks(),
+                                        deviceItems = libraryDeviceItems(downloadedReleases) + localPlaylistItems,
+                                        personalArtists = personalLibrary.artists.map { artist ->
+                                            ShelfItem(
+                                                title = artist.title,
+                                                subtitle = "",
+                                                thumbnailUrl = artist.thumbnailUrl,
+                                                videoId = null,
+                                                browseId = artist.browseId,
+                                            )
+                                        },
+                                        onAddPersonalArtist = { showAddPersonalArtist = true },
+                                        onImportSpotifyPlaylist = { showSpotifyImportDialog = true },
+                                        onImportYtMusicPlaylist = {
+                                            showPersonalYtImportDialog = true
+                                            viewModel.loadPlaylists()
                                         },
                                     )
-                                },
-                                onSignIn = { webSession = WebSessionMode.SIGN_IN },
-                                onRetry = viewModel::loadLibrary,
-                                refreshing = MainViewModel.Feed.LIBRARY in refreshing,
-                                onRefresh = { viewModel.refresh(MainViewModel.Feed.LIBRARY) },
-                                pullState = libraryPull,
-                                contentPadding = listPadding,
-                                links = libraryLinks(),
-                                deviceItems = libraryDeviceItems(downloadedReleases) + localPlaylistItems,
-                            )
+                                    if (showAddPersonalArtist) {
+                                        PersonalLibraryAddDialog(
+                                            mode = PersonalAddMode.ARTIST,
+                                            hazeState = hazeState,
+                                            artists = emptyList(),
+                                            initialArtistId = null,
+                                            onDismiss = { showAddPersonalArtist = false },
+                                            onArtistAdded = { artist -> PersonalLibraryStore.addArtist(artist) },
+                                            onSongAdded = { _, _ -> },
+                                        )
+                                    }
+                                    if (showAddPersonalPlaylist) {
+                                        PersonalPlaylistCreateDialog(
+                                            hazeState = hazeState,
+                                            onDismiss = { showAddPersonalPlaylist = false },
+                                            onCreate = PersonalLibraryStore::addPlaylist,
+                                        )
+                                    }
+                                    selectedPersonalArtistId?.let { artistId ->
+                                        personalLibrary.artists.firstOrNull { it.browseId == artistId }?.let { artist ->
+                                            val artistSongs = personalLibrary.songs
+                                                .filter { artistId in it.artistBrowseIds }
+                                                .map { it.song }
+                                            PersonalArtistDetailDialog(
+                                                artist = artist,
+                                                songs = artistSongs,
+                                                onDismiss = { selectedPersonalArtistId = null },
+                                                onAddSongs = { addingSongToPersonalArtistId = artistId },
+                                                onPlay = {
+                                                    if (artistSongs.isNotEmpty()) {
+                                                        playFrom(
+                                                            artistSongs,
+                                                            0,
+                                                            QueueSource(
+                                                                artist.title,
+                                                                PlaybackSourceType.BROWSE,
+                                                                "personal-artist:$artistId",
+                                                            ),
+                                                        )
+                                                    }
+                                                },
+                                                onShuffle = {
+                                                    if (artistSongs.isNotEmpty()) {
+                                                        playFrom(
+                                                            artistSongs.shuffled(),
+                                                            0,
+                                                            QueueSource(artist.title, PlaybackSourceType.BROWSE, "personal-artist:$artistId"),
+                                                        )
+                                                    }
+                                                },
+                                                onSongClick = { selectedSong ->
+                                                    val index = artistSongs.indexOfFirst { it.videoId == selectedSong.videoId }
+                                                        .coerceAtLeast(0)
+                                                    playFrom(
+                                                        artistSongs,
+                                                        index,
+                                                        QueueSource(artist.title, PlaybackSourceType.BROWSE, "personal-artist:$artistId"),
+                                                    )
+                                                },
+                                                onRemoveSong = { videoId ->
+                                                    PersonalLibraryStore.removeSongFromArtist(videoId, artistId)
+                                                },
+                                                onSongMenu = { selectedSong -> openSongMenu(selectedSong) },
+                                                onPlayNextAll = { artistSongs.asReversed().forEach { playNext(it) } },
+                                                onAddAllToQueue = { artistSongs.forEach { addToQueue(it) } },
+                                                onDownloadAll = { artistSongs.forEach { downloadSong(it) } },
+                                                playingVideoId = player.song?.videoId,
+                                                isPlaying = player.isPlaying,
+                                                onDelete = {
+                                                    PersonalLibraryStore.removeArtist(artistId)
+                                                    selectedPersonalArtistId = null
+                                                },
+                                            )
+                                        }
+                                    }
+                                    selectedPersonalPlaylistId?.let { playlistId ->
+                                        personalLibrary.playlists.firstOrNull { it.id == playlistId }?.let { playlist ->
+                                            PersonalPlaylistDetailDialog(
+                                                playlist = playlist,
+                                                onDismiss = { selectedPersonalPlaylistId = null },
+                                                onAddSongs = { addingSongToPersonalPlaylistId = playlistId },
+                                                onPlay = {
+                                                    if (playlist.songs.isNotEmpty()) {
+                                                        playFrom(
+                                                            playlist.songs,
+                                                            0,
+                                                            QueueSource(
+                                                                playlist.title,
+                                                                PlaybackSourceType.BROWSE,
+                                                                "personal-playlist:${playlist.id}",
+                                                            ),
+                                                        )
+                                                    }
+                                                },
+                                                onShuffle = {
+                                                    if (playlist.songs.isNotEmpty()) {
+                                                        playFrom(
+                                                            playlist.songs.shuffled(),
+                                                            0,
+                                                            QueueSource(playlist.title, PlaybackSourceType.BROWSE, "personal-playlist:${playlist.id}"),
+                                                        )
+                                                    }
+                                                },
+                                                onSongClick = { selectedSong ->
+                                                    val index = playlist.songs.indexOfFirst { it.videoId == selectedSong.videoId }
+                                                        .coerceAtLeast(0)
+                                                    playFrom(
+                                                        playlist.songs,
+                                                        index,
+                                                        QueueSource(playlist.title, PlaybackSourceType.BROWSE, "personal-playlist:${playlist.id}"),
+                                                    )
+                                                },
+                                                onCustomizeArtwork = {
+                                                    personalPlaylistArtworkTarget = playlist.id
+                                                    personalPlaylistArtworkPicker.launch("image/*")
+                                                },
+                                                onRemoveSong = { videoId ->
+                                                    PersonalLibraryStore.removeSongFromPlaylist(playlistId, videoId)
+                                                },
+                                                onSongMenu = { selectedSong -> openSongMenu(selectedSong) },
+                                                onPlayNextAll = { playlist.songs.asReversed().forEach { playNext(it) } },
+                                                onAddAllToQueue = { playlist.songs.forEach { addToQueue(it) } },
+                                                onDownloadAll = { playlist.songs.forEach { downloadSong(it) } },
+                                                playingVideoId = player.song?.videoId,
+                                                isPlaying = player.isPlaying,
+                                                onDelete = {
+                                                    PersonalLibraryStore.removePlaylist(playlistId)
+                                                    selectedPersonalPlaylistId = null
+                                                },
+                                            )
+                                        }
+                                    }
+                                    addingSongToPersonalPlaylistId?.let { playlistId ->
+                                        PersonalLibraryAddDialog(
+                                            mode = PersonalAddMode.SONG,
+                                            hazeState = hazeState,
+                                            artists = personalLibrary.artists,
+                                            initialArtistId = null,
+                                            artwork = personalLibrary.playlists.firstOrNull { it.id == playlistId }?.let { it.artworkPath ?: it.songs.firstOrNull()?.thumbnailUrl },
+                                            onDismiss = { addingSongToPersonalPlaylistId = null },
+                                            onArtistAdded = { },
+                                            onSongAdded = { song, artistIds ->
+                                                PersonalLibraryStore.addSong(song, artistIds)
+                                                PersonalLibraryStore.addSongToPlaylist(playlistId, song)
+                                            },
+                                        )
+                                    }
+                                    addingSongToPersonalArtistId?.let { artistId ->
+                                        PersonalLibraryAddDialog(
+                                            mode = PersonalAddMode.SONG,
+                                            hazeState = hazeState,
+                                            artists = personalLibrary.artists,
+                                            initialArtistId = artistId,
+                                            artwork = personalLibrary.artists.firstOrNull { it.browseId == artistId }?.thumbnailUrl,
+                                            onDismiss = { addingSongToPersonalArtistId = null },
+                                            onArtistAdded = { },
+                                            onSongAdded = { song, artistIds ->
+                                                PersonalLibraryStore.addSong(song, artistIds)
+                                            },
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                     // A pushed page keeps its saved state — a scroll position,
@@ -3770,6 +4011,7 @@ private fun BitChordApp(
                         pageColor = chromePageColor,
                         modifier = Modifier
                             .align(Alignment.TopCenter)
+                            .zIndex(0f)
                             .rotate(180f)
                             .graphicsLayer { alpha = topFadeAlpha },
                     )
@@ -3779,6 +4021,7 @@ private fun BitChordApp(
                         pageColor = chromePageColor,
                         modifier = Modifier
                             .align(Alignment.TopCenter)
+                            .zIndex(0f)
                             .graphicsLayer { alpha = topFadeAlpha },
                     )
                 }
@@ -3839,7 +4082,9 @@ private fun BitChordApp(
                         route != null || detail != null || selectedMoodGenre != null -> goBack
                         else -> null
                     },
-                    modifier = Modifier.align(Alignment.TopCenter),
+                    // Keep the controls above the progressive blur strip; the blur
+                    // should frost the scrolling page, never the navigation itself.
+                    modifier = Modifier.align(Alignment.TopCenter).zIndex(10f),
                     // Only on the Search tab itself, not on anything pushed over it.
                     accessory = if (
                         selectedTab == TAB_SEARCH && route == null && detail == null && selectedMoodGenre == null
@@ -3957,7 +4202,9 @@ private fun BitChordApp(
                             // Left of the account photo, and only on Library itself:
                             // a history is a record of what was played, which reads
                             // as that tab's business rather than every tab's.
-                            if (route == null && detail == null && selectedTab == TAB_LIBRARY) {
+                            if (route == null && detail == null && selectedTab == TAB_LIBRARY &&
+                                !personalCollectionDetailOpen
+                            ) {
                                 IconButton(
                                     onClick = {
                                         navigator.push(AppRoute.History)
@@ -4079,6 +4326,35 @@ private fun BitChordApp(
                                     }
                                 }
                             }
+                            // A personal artist has its own delete action. It is deliberately
+                            // scoped to the curated collection and never calls YouTube's
+                            // channel or library APIs.
+                            if (detail != null && detail.type == BrowseType.ARTIST &&
+                                personalLibrary.artists.any { it.browseId == detail.browseId }
+                            ) {
+                                Box {
+                                    IconButton(onClick = { personalArtistMenuOpen = true }) {
+                                        Icon(
+                                            Icons.Rounded.MoreHoriz,
+                                            contentDescription = stringResource(R.string.more),
+                                            tint = MaterialTheme.colorScheme.onSurface,
+                                        )
+                                    }
+                                    DropdownMenu(
+                                        expanded = personalArtistMenuOpen,
+                                        onDismissRequest = { personalArtistMenuOpen = false },
+                                    ) {
+                                        DropdownMenuItem(
+                                            text = { Text("Delete artist") },
+                                            onClick = {
+                                                personalArtistMenuOpen = false
+                                                PersonalLibraryStore.removeArtist(detail.browseId)
+                                                viewModel.closeDetail()
+                                            },
+                                        )
+                                    }
+                                }
+                            }
                             // Left of the account photo, on an artist page: iOS's
                             // share glyph, sending the artist's channel link — the
                             // one YouTube Music itself shares for an artist.
@@ -4115,7 +4391,7 @@ private fun BitChordApp(
                             // Not on a release page, whose pill already carries
                             // three of its own controls — Apple Music leaves the
                             // profile off its album pages too.
-                            if (!isReleaseDetail) TopBarAccountButton(
+                            if (!isReleaseDetail && !personalCollectionDetailOpen) TopBarAccountButton(
                                 account = account,
                                 onClick = {
                                     if (signedIn) {
@@ -4168,6 +4444,7 @@ private fun BitChordApp(
                         .align(Alignment.BottomCenter)
                         .widthIn(max = FLOATING_BAR_MAX_WIDTH)
                         .fillMaxWidth()
+                        .padding(bottom = if (personalCollectionDetailOpen) 22.dp else 0.dp)
                         .onSizeChanged { floatingBarsHeight.intValue = it.height },
                 ) {
                     QueueActionNoticeHost(queueNotice)
@@ -4183,6 +4460,20 @@ private fun BitChordApp(
                         song = player.song,
                         isPlaying = player.isPlaying,
                         isLoading = playPauseBusy,
+                        progressFraction = if (player.durationMs > 0L) {
+                            (player.position.positionMs.toFloat() / player.durationMs.toFloat()).coerceIn(0f, 1f)
+                        } else 0f,
+                        onSeekFraction = { fraction ->
+                            controller?.let { activePlayer ->
+                                val duration = activePlayer.duration
+                                if (duration > 0L) {
+                                    activePlayer.seekTo(
+                                        (fraction * duration).toLong()
+                                            .coerceIn(0L, (duration - SEEK_END_GUARD_MS).coerceAtLeast(0L)),
+                                    )
+                                }
+                            }
+                        },
                         onPlayPause = {
                             togglePlayPause()
                         },
@@ -4193,11 +4484,19 @@ private fun BitChordApp(
                         } else {
                             playerSheetMotion::open
                         },
+                        onDismiss = {
+                            controller?.let { activePlayer ->
+                                activePlayer.stop()
+                                activePlayer.clearMediaItems()
+                            }
+                            showNowPlaying = false
+                        },
                         controlsLocked = controlsLocked,
                         onBlockedControl = showHostOnlyNotice,
                         dock = activeDock,
                         pull = playerSheetMotion.takeIf { !reducePlayerMotion },
                         modifier = Modifier.fillMaxWidth(),
+                        showTabs = !personalCollectionDetailOpen,
                     )
                 } else Column(
                     modifier = Modifier
@@ -4210,6 +4509,7 @@ private fun BitChordApp(
                         // already been bounded by the time it is applied.
                         .widthIn(max = FLOATING_BAR_MAX_WIDTH)
                         .fillMaxWidth()
+                        .padding(bottom = if (personalCollectionDetailOpen) 22.dp else 0.dp)
                         .onSizeChanged { floatingBarsHeight.intValue = it.height },
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
@@ -4230,6 +4530,27 @@ private fun BitChordApp(
                             } else {
                                 playerSheetMotion::open
                             },
+                            onDismiss = {
+                                controller?.let { activePlayer ->
+                                    activePlayer.stop()
+                                    activePlayer.clearMediaItems()
+                                }
+                                showNowPlaying = false
+                            },
+                            progressFraction = if (player.durationMs > 0L) {
+                                (player.position.positionMs.toFloat() / player.durationMs.toFloat()).coerceIn(0f, 1f)
+                            } else 0f,
+                            onSeekFraction = { fraction ->
+                                controller?.let { activePlayer ->
+                                    val duration = activePlayer.duration
+                                    if (duration > 0L) {
+                                        activePlayer.seekTo(
+                                            (fraction * duration).toLong()
+                                                .coerceIn(0L, (duration - SEEK_END_GUARD_MS).coerceAtLeast(0L)),
+                                        )
+                                    }
+                                }
+                            },
                             controlsLocked = controlsLocked,
                             onBlockedControl = showHostOnlyNotice,
                             dock = activeDock,
@@ -4238,12 +4559,14 @@ private fun BitChordApp(
                         )
                         Spacer(Modifier.height(8.dp))
                     }
-                    FloatingBottomBar(
-                        tabs = tabs,
-                        selectedIndex = selectedTab,
-                        hazeState = hazeState,
-                        onTabSelected = onTabSelected,
-                    )
+                    if (!personalCollectionDetailOpen) {
+                        FloatingBottomBar(
+                            tabs = tabs,
+                            selectedIndex = selectedTab,
+                            hazeState = hazeState,
+                            onTabSelected = onTabSelected,
+                        )
+                    }
                 }
             }
 
@@ -4494,12 +4817,8 @@ private fun BitChordApp(
                 },
                 onAddToPlaylist = {
                     songActions = null
-                    if (song.localUri != null && (song.videoId.startsWith("content://") || song.videoId.startsWith("file://"))) {
-                        offlinePlaylistTarget = song
-                    } else {
-                        viewModel.loadPlaylists()
-                        playlistTarget = song
-                    }
+                    PersonalLibraryStore.initialize(context)
+                    personalPlaylistTarget = song
                 },
                 onRemoveFromPlaylist = editable?.let {
                     {
@@ -4514,6 +4833,23 @@ private fun BitChordApp(
                             OfflinePlaylists.remove(id, song)
                         }
                     },
+                onRemoveFromCollection = when {
+                    !fromPlayer && selectedPersonalPlaylistId != null -> {
+                        val playlistId = selectedPersonalPlaylistId!!
+                        {
+                            PersonalLibraryStore.removeSongFromPlaylist(playlistId, song.videoId)
+                            songActions = null
+                        }
+                    }
+                    !fromPlayer && selectedPersonalArtistId != null -> {
+                        val artistId = selectedPersonalArtistId!!
+                        {
+                            PersonalLibraryStore.removeSongFromArtist(song.videoId, artistId)
+                            songActions = null
+                        }
+                    }
+                    else -> null
+                },
                 onRemoveFromCache = if (inCache) {
                     {
                         songActions = null
@@ -4660,6 +4996,12 @@ private fun BitChordApp(
             // released low, a back press, a tap on the scrim. Refused here and
             // carried out there, on a curve slow enough to watch the artwork
             // fly home on, rather than on the sheet's own.
+            val keepPlaybackScreenOn by AppSettings.keepPlaybackScreenOn.collectAsStateWithLifecycle()
+            val playbackWindowView = LocalView.current
+            DisposableEffect(playbackWindowView, keepPlaybackScreenOn, showNowPlaying) {
+                playbackWindowView.keepScreenOn = keepPlaybackScreenOn && showNowPlaying
+                onDispose { playbackWindowView.keepScreenOn = false }
+            }
             val sheetDensity = LocalDensity.current
             val confirmSheetValue: (SheetValue) -> Boolean = { value ->
                 // Read when asked, not when the sheet was made: the setting
@@ -4697,7 +5039,13 @@ private fun BitChordApp(
                 }
             }
             ModalBottomSheet(
-                onDismissRequest = { showNowPlaying = false },
+                onDismissRequest = {
+                    // The system back gesture can dismiss the sheet without going through
+                    // PlayerSheetMotion.close(); reveal the already-mounted cover before the
+                    // sheet starts leaving composition.
+                    playerDock.setTransitioningToMini(true)
+                    showNowPlaying = false
+                },
                 sheetState = nowPlayingSheetState,
                 // None of M3's: it follows the sheet's own animation, which is
                 // no longer what moves the player. The player draws its own,
@@ -4766,7 +5114,10 @@ private fun BitChordApp(
                                 )
                             }
                         }
-                        .guardSheetFromContentTouches(nowPlayingSheetState)
+                        .guardSheetFromContentTouches(
+                            nowPlayingSheetState,
+                            enabled = !playerDock.fullScreenCanvas,
+                        )
                         // The sheet fills the window, so its height is the
                         // whole of its travel: hidden sits that far down.
                         .onSizeChanged {
@@ -4907,16 +5258,96 @@ private fun BitChordApp(
             }
         }
 
+        // ---- Add to BitChord's own playlists ----
+        // This picker is deliberately independent of YouTube Music's account
+        // playlist API. Local files can additionally be filed into device playlists.
+        if (personalPlaylistTarget != null) {
+            val target = personalPlaylistTarget
+            val dismiss = { personalPlaylistTarget = null }
+            val choices = remember(personalLibrary.playlists, offlinePlaylists, target?.videoId) {
+                val personalChoices = personalLibrary.playlists.map { playlist ->
+                    UserPlaylist(
+                        playlistId = "personal:${playlist.id}",
+                        title = playlist.title,
+                        subtitle = context.resources.getQuantityString(
+                            R.plurals.song_count_plural,
+                            playlist.songs.size,
+                            playlist.songs.size,
+                        ),
+                        thumbnailUrl = playlist.artworkPath
+                            ?: playlist.songs.firstOrNull { !it.thumbnailUrl.isNullOrBlank() }?.thumbnailUrl,
+                    )
+                }
+                val isDeviceFile = target?.localUri != null &&
+                    (target.videoId.startsWith("content://") || target.videoId.startsWith("file://"))
+                val deviceChoices = if (isDeviceFile) {
+                    offlinePlaylists.map { playlist ->
+                        UserPlaylist(
+                            playlistId = "device:${playlist.id}",
+                            title = playlist.title,
+                            subtitle = context.resources.getQuantityString(
+                                R.plurals.song_count_plural,
+                                playlist.songs.size,
+                                playlist.songs.size,
+                            ),
+                            thumbnailUrl = playlist.songs.firstNotNullOfOrNull { it.thumbnailUrl }
+                                .takeUnless { playlist.isLiked },
+                        )
+                    }
+                } else emptyList()
+                personalChoices + deviceChoices
+            }
+            PlaylistPickerSheet(
+                playlists = choices,
+                loading = false,
+                song = target,
+                personal = true,
+                onDismiss = dismiss,
+                onAdd = { picked ->
+                    target?.let { song ->
+                        val personalSelected = picked.filter { it.playlistId.startsWith("personal:") }
+                        val deviceSelected = picked.filter { it.playlistId.startsWith("device:") }
+                        val personalAdded = personalSelected.count { selected ->
+                            PersonalLibraryStore.addSongToPlaylist(
+                                selected.playlistId.removePrefix("personal:"),
+                                song,
+                            )
+                        }
+                        val deviceResult = if (deviceSelected.isNotEmpty()) {
+                            OfflinePlaylists.add(
+                                deviceSelected.map { it.playlistId.removePrefix("device:") },
+                                listOf(song),
+                            )
+                        } else null
+                        val added = personalAdded + (deviceResult?.added ?: 0)
+                        val alreadyThere = (personalSelected.size - personalAdded) +
+                            (deviceResult?.alreadyThere ?: 0)
+                        showQueueNotice(
+                            when {
+                                added > 1 -> context.resources.getQuantityString(
+                                    R.plurals.added_to_playlists_notice, added, added,
+                                )
+                                added == 1 -> context.getString(R.string.song_added_to_playlist)
+                                alreadyThere > 0 -> context.getString(R.string.song_already_in_playlist)
+                                else -> context.getString(R.string.failed)
+                            },
+                        )
+                    }
+                },
+                onCreate = { title, _ ->
+                    PersonalLibraryStore.addPlaylist(title, target)
+                    showQueueNotice(context.getString(R.string.song_added_to_playlist))
+                },
+            )
+        }
+
         // ---- Add to playlist / new playlist ----
         // One sheet for both, because they are one decision: the list of
         // playlists with a way to make another. `creatingPlaylist` opens it
         // straight onto the form, which is what the Library tile means.
-        if (playlistTarget != null || creatingPlaylist) {
-            val target = playlistTarget
-            val dismiss = {
-                playlistTarget = null
-                creatingPlaylist = false
-            }
+        if (creatingPlaylist) {
+            val target: Song? = null
+            val dismiss = { creatingPlaylist = false }
             PlaylistPickerSheet(
                 playlists = playlists,
                 loading = playlistsLoading,
@@ -5007,27 +5438,58 @@ private fun BitChordApp(
             BackHandler { showSpotifyImportDialog = false }
             SpotifyImportAlert(
                 hazeState = hazeState,
-                signedIn = signedIn,
-                onImported = { title, privacy, songs ->
-                    viewModel.createPlaylistWithVideoIds(
-                        title,
-                        privacy,
-                        songs.map { it.videoId },
-                        songs,
-                    ) { browseId, pTitle, savedLocally ->
-                        showQueueNotice(
-                            context.getString(
-                                if (savedLocally && signedIn) R.string.spotify_import_local_fallback
-                                else R.string.spotify_import_done,
-                                pTitle,
-                            ),
-                        )
-                        browseId?.let { id ->
-                            viewModel.openDetail(id, pTitle, "${songs.size} songs", songs.firstOrNull()?.thumbnailUrl)
+                onImported = { title, songs, artworkUrl ->
+                    PersonalLibraryStore.addPlaylistWithSongs(title, songs, artworkUrl)
+                    showQueueNotice("Imported ${songs.size} songs into BitChord Personal Playlists")
+                },
+                onDismiss = { showSpotifyImportDialog = false },
+            )
+        }
+        if (showPersonalYtImportDialog) {
+            BackHandler { showPersonalYtImportDialog = false }
+            YouTubeMusicImportAlert(
+                hazeState = hazeState,
+                loading = personalYtImportBusy,
+                onImport = { link ->
+                    val listId = Regex("(?:[?&]list=)([A-Za-z0-9_-]+)")
+                        .find(link)?.groupValues?.get(1)
+                        ?: link.trim().removePrefix("VL").takeIf { it.matches(Regex("[A-Za-z0-9_-]{8,}")) }
+                    if (listId == null) {
+                        showQueueNotice("Paste a valid YouTube Music playlist link.")
+                    } else {
+                        val normalizedListId = listId.removePrefix("VL")
+                        val browseId = if (listId.startsWith("VL")) listId else "VL$listId"
+                        val source = playlists.firstOrNull {
+                            it.playlistId == normalizedListId || it.browseId == browseId
+                        }
+                        personalYtImportBusy = true
+                        personalPlaylistImportScope.launch {
+                            val importBrowseId = source?.browseId ?: browseId
+                            val sourceMetadata = YtMusicRepository.browseSongs(importBrowseId)
+                                .getOrNull()?.header
+                            YtMusicRepository.playlistEntries(importBrowseId).onSuccess { songs ->
+                                val importedTitle = sourceMetadata?.title
+                                    ?.takeIf { it.isNotBlank() }
+                                    ?: source?.title?.takeIf { it.isNotBlank() }
+                                    ?: "YouTube Music Import"
+                                val importedArtwork = sourceMetadata?.thumbnailUrl
+                                    ?: source?.thumbnailUrl
+                                    ?: songs.firstOrNull()?.thumbnailUrl
+                                PersonalLibraryStore.addPlaylistWithSongs(
+                                    importedTitle,
+                                    songs,
+                                    importedArtwork,
+                                )
+                                showQueueNotice("Imported ${songs.size} songs into BitChord Personal Playlists")
+                                showPersonalYtImportDialog = false
+                            }.onFailure { error ->
+                                showQueueNotice("Couldn't import playlist: ${error.message ?: "Please try again."}")
+                            }
+                            personalYtImportBusy = false
                         }
                     }
                 },
-                onDismiss = { showSpotifyImportDialog = false },
+                onDismiss = { showPersonalYtImportDialog = false },
             )
         }
 

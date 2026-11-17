@@ -3,6 +3,7 @@ package com.music.bitchord.ui.screens
 import com.music.bitchord.sharedui.resources.*
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -42,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.music.bitchord.data.model.HomeShelf
 import com.music.bitchord.data.model.MoodGenre
@@ -68,6 +70,8 @@ fun ExploreScreen(
     modifier: Modifier = Modifier,
     /** The big "Explore" heading; the desktop's pages carry none. */
     showTitle: Boolean = true,
+    /** App-provided glass surface; Liquid Glass owns its reduced-blur fallback. */
+    cardSurfaceModifier: @Composable (Modifier) -> Modifier = { it },
 ) {
     PullToRefresh(
         refreshing = refreshing,
@@ -111,7 +115,7 @@ fun ExploreScreen(
                             .distinctBy { it.browseId to it.params }
                             .chunked(columns)
                         items(rows, key = { row -> row.first().let { "${it.browseId}|${it.params}" } }) { row ->
-                            MoodGenreRow(row = row, columns = columns, onCategoryClick = onCategoryClick)
+                            MoodGenreRow(row = row, columns = columns, onCategoryClick = onCategoryClick, cardSurfaceModifier = cardSurfaceModifier)
                         }
                     }
                 }
@@ -125,6 +129,7 @@ private fun MoodGenreRow(
     row: List<MoodGenre>,
     columns: Int,
     onCategoryClick: (MoodGenre) -> Unit,
+    cardSurfaceModifier: @Composable (Modifier) -> Modifier,
 ) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(MOOD_SPACING),
@@ -137,6 +142,7 @@ private fun MoodGenreRow(
                 item = item,
                 onClick = { onCategoryClick(item) },
                 modifier = Modifier.weight(1f),
+                cardSurfaceModifier = cardSurfaceModifier,
             )
         }
         // Short rows keep their cards the size of a full row's.
@@ -149,6 +155,7 @@ private fun MoodGenreCard(
     item: MoodGenre,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    cardSurfaceModifier: @Composable (Modifier) -> Modifier,
 ) {
     MoodGenreSleeve(
         item = item,
@@ -156,61 +163,50 @@ private fun MoodGenreCard(
             .aspectRatio(MOOD_CARD_ASPECT)
             .clip(MOOD_CARD_SHAPE)
             .clickable(onClick = onClick),
+        cardSurfaceModifier = cardSurfaceModifier,
     )
 }
 
 /**
- * A solid stripe down the left and the category's cover filling the rest,
- * redrawn as a duotone of the stripe's colour so every card reads as one
- * tinted sleeve rather than a photo pasted onto a swatch.
+ * Image-free editorial category card: one solid category colour, softened by
+ * a quiet gradient, with the category name as the only typography.
  *
- * Only the artwork: the caller sizes, clips and makes it clickable, which is
- * how the TV app wraps the same sleeve in its own focus treatment.
+ * The card remains the same size and keeps the existing click target; only its
+ * visual treatment changes, so the Explore layout and navigation are intact.
  */
 @Composable
 fun MoodGenreSleeve(
     item: MoodGenre,
     modifier: Modifier = Modifier,
-    titleStyle: TextStyle = MaterialTheme.typography.titleMedium,
+    titleStyle: TextStyle = MaterialTheme.typography.headlineSmall,
+    cardSurfaceModifier: @Composable (Modifier) -> Modifier = { it },
 ) {
-    val tone = remember(item.stripeColor, item.title) { moodTone(item) }
-    Box(modifier = modifier.background(tone.stripe)) {
+    val surface = Modifier
+        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.78f), MOOD_CARD_SHAPE)
+        .then(cardSurfaceModifier(Modifier))
+        .border(1.dp, Color.White.copy(alpha = 0.14f), MOOD_CARD_SHAPE)
+    Box(
+        modifier = modifier.then(surface),
+    ) {
         Box(
-            Modifier
-                .align(Alignment.CenterEnd)
-                .fillMaxHeight()
-                .fillMaxWidth(1f - MOOD_STRIPE_FRACTION)
-                .background(tone.placeholder),
-        ) {
-            item.thumbnailUrl?.let { artwork ->
-                AsyncImage(
-                    model = artwork,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    colorFilter = tone.duotone,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
-        }
-        // Pale stripes (Energize's cream, Feel good's mint) would swallow
-        // white type; a soft shade under the title keeps it legible.
-        Box(
-            Modifier
-                .matchParentSize()
-                .background(Brush.verticalGradient(0f to Color.Black.copy(alpha = .24f), .62f to Color.Transparent)),
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.055f), Color.Transparent, Color.Black.copy(alpha = 0.08f))),
+            ),
         )
         Text(
             text = item.title,
             style = titleStyle.copy(
-                shadow = Shadow(Color.Black.copy(alpha = .35f), offset = Offset(0f, 1f), blurRadius = 6f),
+                fontSize = 23.sp,
+                lineHeight = 27.sp,
+                fontWeight = FontWeight.ExtraBold,
+                shadow = Shadow(Color.Black.copy(alpha = .16f), offset = Offset(0f, 1f), blurRadius = 4f),
             ),
-            fontWeight = FontWeight.Bold,
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onSurface,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+                .align(Alignment.BottomStart)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
         )
     }
 }

@@ -2,11 +2,16 @@ package com.music.bitchord.ui.components
 
 import com.music.bitchord.R
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -16,6 +21,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -31,6 +38,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -40,6 +48,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
@@ -47,6 +57,7 @@ import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.input.pointer.util.addPointerInputChange
 import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -64,6 +75,7 @@ import com.music.bitchord.ui.haptics.rememberHaptics
 import com.music.bitchord.playback.MusicOnlyPlayback
 import com.music.bitchord.ui.player.PlayerDock
 import com.music.bitchord.ui.player.AndroidMusicVideo
+import com.music.bitchord.ui.theme.rememberArtworkPalette
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.animation.core.animateDpAsState
@@ -115,6 +127,37 @@ private val TRANSPORT_GAP = 8.dp
  * and so its pill radius at 28.
  */
 private val ROW_PADDING_VERTICAL = 8.dp
+
+/**
+ * A non-interactive progress fill for the mini-player capsule.
+ *
+ * The artwork palette supplies a track-specific tint; the fill itself never
+ * participates in hit testing, leaving the whole capsule available for open
+ * and pull gestures.
+ */
+@Composable
+internal fun MiniPlayerProgressFill(
+    song: Song,
+    progressFraction: Float,
+    modifier: Modifier = Modifier,
+) {
+    val palette = rememberArtworkPalette(rememberRemoteArtworkUrl(song), artPx = ROW_ART_PX)
+    key(song.videoId) {
+        val fillFraction by animateFloatAsState(
+            targetValue = progressFraction.coerceIn(0f, 1f),
+            animationSpec = tween(durationMillis = 320),
+            label = "miniPlayerProgressFill",
+        )
+        Box(modifier = modifier.clip(RoundedCornerShape(percent = 50))) {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(fillFraction)
+                    .background(palette.elevated),
+            )
+        }
+    }
+}
 
 /**
  * Horizontal padding, deliberately larger than the vertical.
@@ -213,6 +256,7 @@ internal fun Modifier.miniPlayerGestures(
     pull: MiniPlayerPull?,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
+    onDismiss: () -> Unit,
     /** Listening in a party whose host holds the controls. Swipes say so instead of skipping. */
     locked: Boolean = false,
     onBlocked: () -> Unit = {},
@@ -223,6 +267,7 @@ internal fun Modifier.miniPlayerGestures(
     val currentPull by rememberUpdatedState(pull)
     val currentOnNext by rememberUpdatedState(onNext)
     val currentOnPrevious by rememberUpdatedState(onPrevious)
+    val currentOnDismiss by rememberUpdatedState(onDismiss)
     val currentLocked by rememberUpdatedState(locked)
     val currentOnBlocked by rememberUpdatedState(onBlocked)
     val scope = rememberCoroutineScope()
@@ -232,6 +277,7 @@ internal fun Modifier.miniPlayerGestures(
     val settle = remember { arrayOfNulls<Job>(1) }
     return pointerInput(Unit) {
         val trackThreshold = TRACK_SWIPE_THRESHOLD.toPx()
+        val dismissThreshold = 48.dp.toPx()
         val liftEase = PULL_LIFT_EASE.toPx()
         val maxVelocity = viewConfiguration.maximumFlingVelocity
         awaitEachGesture {
@@ -240,6 +286,7 @@ internal fun Modifier.miniPlayerGestures(
             // Up to the slop: which way this is heading, or nothing at all.
             var start: PointerInputChange? = null
             var vertical = false
+            var dismiss = false
             while (start == null) {
                 val change = awaitPointerEvent().changes.firstOrNull { it.id == pointer }
                     ?: return@awaitEachGesture
@@ -248,15 +295,26 @@ internal fun Modifier.miniPlayerGestures(
                 val moved = change.position - down.position
                 if (moved.getDistance() < viewConfiguration.touchSlop) continue
                 vertical = moved.y < 0f && abs(moved.x) < -moved.y * PULL_BIAS
+                dismiss = moved.y > 0f && abs(moved.x) < moved.y * PULL_BIAS
                 // Downwards has nothing to do on the bar, and nor has a pull
                 // with no player to pull: left as they always were, a drag that
                 // ends inside the bar still counts as its tap.
-                if (!vertical && abs(moved.x) < abs(moved.y)) return@awaitEachGesture
+                if (!vertical && !dismiss && abs(moved.x) < abs(moved.y)) return@awaitEachGesture
                 if (vertical && currentPull == null) return@awaitEachGesture
                 change.consume()
                 start = change
             }
             val slopped = start ?: return@awaitEachGesture
+
+            if (dismiss) {
+                var pulledDown = slopped.position.y - down.position.y
+                val finished = drag(pointer) { change ->
+                    pulledDown += change.positionChange().y
+                    change.consume()
+                }
+                if (finished && pulledDown >= dismissThreshold) currentOnDismiss()
+                return@awaitEachGesture
+            }
 
             if (!vertical) {
                 var dragged = slopped.position.x - down.position.x
@@ -357,6 +415,11 @@ fun MiniPlayer(
     onNext: () -> Unit,
     onPrevious: () -> Unit,
     onExpand: () -> Unit,
+    /** Dismisses the bar and stops the current playback session. */
+    onDismiss: () -> Unit = {},
+    /** Fraction of the current track already played, from 0 to 1. */
+    progressFraction: Float = 0f,
+    onSeekFraction: (Float) -> Unit = {},
     /** @see com.music.bitchord.data.listentogether.ListenTogether.State.controlsLocked */
     controlsLocked: Boolean = false,
     onBlockedControl: () -> Unit = {},
@@ -387,6 +450,7 @@ fun MiniPlayer(
                     haptics.play(Haptic.SkipPrevious)
                     onPrevious()
                 },
+                onDismiss = onDismiss,
                 locked = controlsLocked,
                 onBlocked = onBlockedControl,
             )
@@ -402,6 +466,7 @@ fun MiniPlayer(
                 },
             )
             .border(0.5.dp, Color.White.copy(alpha = 0.10f), shape)
+            .onGloballyPositioned { dock?.reportMiniPlayerBounds(it) }
             // Deliberately silent: the whole bar is the target, so it catches
             // stray taps meant for the page behind it, and the sheet rising is
             // its own confirmation. The glyphs on it still buzz.
@@ -416,56 +481,74 @@ fun MiniPlayer(
                 ),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // A music video plays here at its own 16:9, as the web player's
-            // mini player does, rather than cropped into the square cover.
-            val showsPicture = song.isVideo && MusicOnlyPlayback.showsPicture(song.videoId)
-            val artWidth by animateDpAsState(
-                targetValue = if (showsPicture && !VideoThumbnails.square) VIDEO_ART_WIDTH else 40.dp,
-                label = "miniArtWidth",
-            )
-            Box(
-                modifier = Modifier
-                    .size(width = artWidth, height = 40.dp)
-                    .playerDockArt(dock, ART_CORNER)
-                    .clip(RoundedCornerShape(ART_CORNER))
-                    .thumbnailBorder(RoundedCornerShape(ART_CORNER))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-            ) {
-                AsyncImage(
-                    model = rememberRemoteArtworkUrl(song)?.artworkAt(ROW_ART_PX),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
+            AnimatedContent(
+                targetState = song,
+                modifier = Modifier.weight(1f).height(40.dp),
+                transitionSpec = {
+                    (androidx.compose.animation.slideInHorizontally(
+                        initialOffsetX = { it / 3 },
+                        animationSpec = tween(360),
+                    ) + androidx.compose.animation.fadeIn(tween(360))) togetherWith
+                        (androidx.compose.animation.slideOutHorizontally(
+                            targetOffsetX = { -it / 3 },
+                            animationSpec = tween(360),
+                        ) + androidx.compose.animation.fadeOut(tween(360)))
+                },
+                contentKey = { it.videoId },
+                label = "miniPlayerTrackChange",
+            ) { displayedSong ->
+                Row(
                     modifier = Modifier.fillMaxSize(),
-                )
-                // A music video keeps playing in the cover's place, cropped to
-                // it, as the web player's mini player does — the full player,
-                // when it is up, takes the picture over.
-                if (showsPicture) {
-                    AndroidMusicVideo(
-                        videoId = song.videoId,
-                        fit = false,
-                        onRenderedChanged = {},
-                        modifier = Modifier.fillMaxSize(),
-                        priority = 0,
-                    )
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    // Artwork and metadata move together; the transport stays outside this transition.
+                    val showsPicture = displayedSong.isVideo &&
+                        MusicOnlyPlayback.showsPicture(displayedSong.videoId)
+                    val artWidth = if (showsPicture && !VideoThumbnails.square) VIDEO_ART_WIDTH else 40.dp
+                    Box(
+                        modifier = Modifier
+                            .size(width = artWidth, height = 40.dp)
+                            .then(
+                                if (displayedSong.videoId == song.videoId) {
+                                    Modifier.playerDockArt(dock, ART_CORNER)
+                                } else Modifier
+                            )
+                            .clip(RoundedCornerShape(ART_CORNER))
+                            .thumbnailBorder(RoundedCornerShape(ART_CORNER))
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                    ) {
+                        AsyncImage(
+                            model = rememberRemoteArtworkUrl(displayedSong)?.artworkAt(ROW_ART_PX),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                        if (showsPicture) {
+                            AndroidMusicVideo(
+                                videoId = displayedSong.videoId,
+                                fit = false,
+                                onRenderedChanged = {},
+                                modifier = Modifier.fillMaxSize(),
+                                priority = 0,
+                            )
+                        }
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        ExplicitSongTitle(
+                            song = displayedSong,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onBackground,
+                            badgeColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fadeOverflow = true,
+                        )
+                        FadingLine(
+                            text = displayedSong.artist,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
-            }
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                // The badge in the artist line's colour and a long line faded
-                // out at its end, as on the glass bar's mini player.
-                ExplicitSongTitle(
-                    song = song,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    badgeColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fadeOverflow = true,
-                )
-                FadingLine(
-                    text = song.artist,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
             // Keep the transport glyph in place while a track is buffering.
             // Replacing it with a full-size spinner made the mini-player appear
@@ -481,20 +564,36 @@ fun MiniPlayer(
                     enabled = !isLoading,
                     modifier = Modifier.size(GLYPH_SLOT),
                 ) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        contentDescription = stringResource(if (isPlaying) R.string.pause else R.string.play),
-                        tint = MaterialTheme.colorScheme.onBackground,
-                        modifier = Modifier.size(GLYPH_SIZE),
-                    )
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            color = MaterialTheme.colorScheme.onBackground,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(GLYPH_SIZE * 0.72f),
+                        )
+                    } else {
+                        Icon(
+                            imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                            contentDescription = stringResource(if (isPlaying) R.string.pause else R.string.play),
+                            tint = MaterialTheme.colorScheme.onBackground,
+                            modifier = Modifier.size(GLYPH_SIZE),
+                        )
+                    }
                 }
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f),
-                        strokeWidth = 1.5.dp,
-                        modifier = Modifier
-                            .size(12.dp)
-                            .align(Alignment.BottomEnd),
+                Canvas(Modifier.size(38.dp)) {
+                    val stroke = Stroke(width = 1.5.dp.toPx(), cap = StrokeCap.Round)
+                    drawArc(
+                        color = Color.White.copy(alpha = 0.20f),
+                        startAngle = -90f,
+                        sweepAngle = 360f,
+                        useCenter = false,
+                        style = stroke,
+                    )
+                    drawArc(
+                        color = Color.White,
+                        startAngle = -90f,
+                        sweepAngle = 360f * progressFraction.coerceIn(0f, 1f),
+                        useCenter = false,
+                        style = stroke,
                     )
                 }
             }

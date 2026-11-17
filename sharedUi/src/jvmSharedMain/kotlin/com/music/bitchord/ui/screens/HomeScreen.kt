@@ -848,6 +848,9 @@ internal fun NewShelfCard(
     modifier: Modifier = Modifier.width(SHELF_CARD_WIDTH),
     /** A full-colour mark drawn in place of [icon], for a card that stands for a brand. */
     logo: DrawableResource? = null,
+    /** Optional tint for monochrome marks; null keeps the standard accent tint. */
+    iconTint: Color? = null,
+    iconSize: Dp = 34.dp,
 ) {
     Column(
         modifier = modifier.clickable(onClick = onClick),
@@ -873,8 +876,8 @@ internal fun NewShelfCard(
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(34.dp),
+                    tint = iconTint ?: MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(iconSize),
                 )
             }
         }

@@ -2,9 +2,6 @@ package com.music.bitchord.ui.screens
 
 import com.music.bitchord.ui.components.trackArtSize
 import android.os.Build
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import com.music.bitchord.R
 
 import androidx.compose.animation.AnimatedContent
@@ -59,7 +56,6 @@ import androidx.compose.material.icons.rounded.Check
 import com.music.bitchord.data.model.LibraryState
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Person
@@ -70,10 +66,11 @@ import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -106,7 +103,6 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -146,12 +142,14 @@ import com.music.bitchord.data.canvas.ArtistSignature
 import com.music.bitchord.data.canvas.ArtistSignatureRepository
 import com.music.bitchord.data.canvas.SignatureInkTransformation
 import com.music.bitchord.data.canvas.keyColors
+import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.canvas.CanvasRepository
 import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.DetailPage
+import com.music.bitchord.data.PersonalLibraryStore
 import com.music.bitchord.data.model.CARD_ART_PX
 import com.music.bitchord.data.model.HEADER_ART_PX
 import com.music.bitchord.data.model.ROW_ART_PX
@@ -192,10 +190,6 @@ import com.music.bitchord.ui.theme.ArtworkPalette
 import com.music.bitchord.ui.theme.rememberArtworkPalette
 import kotlin.math.roundToInt
 import java.util.Locale
-import java.io.File
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 private const val MAX_ARTIST_SONGS = 20
 private const val SONGS_PER_COLUMN = 4
@@ -378,42 +372,15 @@ fun DetailScreen(
      */
     reorder: (@Composable (ArtworkPalette) -> Unit)? = null,
  ) {
-    val context = LocalContext.current
-    val artworkScope = rememberCoroutineScope()
-    val localMusicArtwork by AppSettings.localMusicFolderArtwork.collectAsStateWithLifecycle()
-    val downloadsArtwork by AppSettings.downloadsFolderArtwork.collectAsStateWithLifecycle()
-    val folderArtworkKey = if (folder != null) when (page.browseId) {
-        "local:all" -> "local_music"
-        "local:downloads" -> "downloads"
-        else -> null
-    } else null
-    val selectedFolderArtwork = when (folderArtworkKey) {
-        "local_music" -> localMusicArtwork
-        "downloads" -> downloadsArtwork
-        else -> ""
-    }.takeIf { it.isNotBlank() }
-    val folderArtworkPicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument(),
-    ) { uri: Uri? ->
-        val key = folderArtworkKey
-        if (uri != null && key != null) artworkScope.launch {
-            val savedPath = withContext(Dispatchers.IO) {
-                runCatching {
-                    val directory = File(context.filesDir, "folder-artwork").apply { mkdirs() }
-                    val destination = File(directory, "$key-${System.currentTimeMillis()}.img")
-                    context.contentResolver.openInputStream(uri)?.use { input ->
-                        destination.outputStream().use { output -> input.copyTo(output) }
-                    } ?: error("Unable to open the selected image")
-                    destination.absolutePath
-                }.getOrNull()
-            }
-            if (savedPath != null) when (key) {
-                "local_music" -> AppSettings.setLocalMusicFolderArtwork(savedPath)
-                "downloads" -> AppSettings.setDownloadsFolderArtwork(savedPath)
-            }
-        }
+    val personalLibrary by PersonalLibraryStore.state.collectAsStateWithLifecycle()
+    val isPersonalArtist = page.type == BrowseType.ARTIST &&
+        personalLibrary.artists.any { it.browseId == page.browseId }
+    var showPersonalSongPicker by remember(page.browseId) { mutableStateOf(false) }
+    val rawSongs = if (isPersonalArtist) {
+        personalLibrary.songs.filter { page.browseId in it.artistBrowseIds }.map { it.song }
+    } else {
+        (page.songs as? UiState.Success)?.data.orEmpty()
     }
-    val rawSongs = (page.songs as? UiState.Success)?.data.orEmpty()
     // A folder keeps its own sort — the one its top bar menu sets — rather
     // than the per-page one a release takes.
     val folderSort = folder?.sort
@@ -441,7 +408,7 @@ fun DetailScreen(
     var appleArt by remember(page.browseId) {
         mutableStateOf(if (isArtist) AppleArtistArtRepository.cached(page.browseId) else null)
     }
-    val songsLoading = page.songs is UiState.Loading
+    val songsLoading = !isPersonalArtist && page.songs is UiState.Loading
     LaunchedEffect(page.browseId, page.title, songsLoading) {
         if (isArtist && !songsLoading) {
             appleArt = AppleArtistArtRepository.artFor(page.browseId, page.title) { page.appleCatalogue() } ?: appleArt
@@ -645,8 +612,7 @@ fun DetailScreen(
                         onArtistClick = onArtistClick.takeIf { folder == null },
                         onToggleLibrary = onToggleLibrary,
                         onDownloadAll = folder?.onDownload?.let { download -> { download(songs) } },
-                        folderArtworkPath = selectedFolderArtwork,
-                        onEditFolderArtwork = folderArtworkKey?.let { { folderArtworkPicker.launch(arrayOf("image/*")) } },
+                        // Device folders retain their original built-in artwork; custom editing is not offered.
                     )
                 }
             }
@@ -667,13 +633,14 @@ fun DetailScreen(
 
             val description = page.description
 
-            if (songs.isNotEmpty() && isArtist) {
+            if ((songs.isNotEmpty() || isPersonalArtist) && isArtist) {
                 item(key = "actions") {
                     ActionRow(
-                        onPlay = { onSongClick(songs, 0) },
-                        onShuffle = { onShuffle(songs) },
+                        onPlay = { if (songs.isNotEmpty()) onSongClick(songs, 0) },
+                        onShuffle = { if (songs.isNotEmpty()) onShuffle(songs) },
                         subscription = page.subscription?.takeIf { onToggleSubscription != null },
                         onToggleSubscription = onToggleSubscription,
+                        onAddSong = { showPersonalSongPicker = true }.takeIf { isPersonalArtist },
                         bottomSpace = 22.dp,
                         playColor = appleArt?.keyColor?.let { Color(it) },
                     )
@@ -750,7 +717,7 @@ fun DetailScreen(
             }
             if (!isArtist) aboutItem()
 
-            when (val state = page.songs) {
+            when (val state = if (isPersonalArtist) UiState.Success(rawSongs) else page.songs) {
                 is UiState.Loading -> detailSkeleton(isArtist)
                 is UiState.Error -> item { MessageState(state.message) }
                 is UiState.Success -> if (folder != null && folderState != null) {
@@ -796,6 +763,9 @@ fun DetailScreen(
                                                 palette = palette,
                                                 onClick = { onSongClick(top, top.indexOf(song)) },
                                                 onLongPress = { onSongLongPress(song) },
+                                                onRemoveFromArtist = if (isPersonalArtist) {
+                                                    { PersonalLibraryStore.removeSongFromArtist(song.videoId, page.browseId) }
+                                                } else null,
                                                 downloadedTint = downloadedTint,
                                                 isCurrent = isCurrentRow(song),
                                                 isPlaying = isCurrentRow(song) && isPlaying,
@@ -946,6 +916,20 @@ fun DetailScreen(
     )
 }
 }
+    if (showPersonalSongPicker && isPersonalArtist) {
+        PersonalLibraryAddDialog(
+            mode = PersonalAddMode.SONG,
+            hazeState = remember { HazeState() },
+            artists = personalLibrary.artists,
+            initialArtistId = page.browseId,
+            artwork = page.thumbnailUrl,
+            onDismiss = { showPersonalSongPicker = false },
+            onArtistAdded = {},
+            onSongAdded = { song, artistIds -> PersonalLibraryStore.addSong(song, artistIds) },
+        )
+    }
+
+
 }
 
 /**
@@ -977,15 +961,13 @@ private fun ReleaseHeader(
     onToggleLibrary: (() -> Unit)?,
     /** The Cached songs folder's: saves every track on it to Downloads. Null hides it. */
     onDownloadAll: (() -> Unit)? = null,
-    folderArtworkPath: String? = null,
-    onEditFolderArtwork: (() -> Unit)? = null,
 ) {
     val (credit, meta) = page.headerLines(songs.size, songs.playtime())
     // Every row on a release carries the same credit — see [pageCredit] — so
     // the first one speaks for the whole page, the same source the rows'
     // own long-press "Open artist" already reads from.
     val artist = songs.firstOrNull()
-    val sleeveArtwork: Any? = folderArtworkPath?.let(::File) ?: page.thumbnailUrl?.artworkAt(HEADER_ART_PX)
+    val sleeveArtwork: Any? = page.thumbnailUrl?.artworkAt(HEADER_ART_PX)
     var artFailed by remember(sleeveArtwork) { mutableStateOf(false) }
     // A placeholder is a sleeve or it is nothing, as on the player: blown out
     // to the page's width it would only tint the top of the screen.
@@ -1087,21 +1069,6 @@ private fun ReleaseHeader(
                     isPlaying = true,
                     modifier = Modifier.matchParentSize(),
                 )
-            }
-            onEditFolderArtwork?.let { edit ->
-                IconButton(
-                    onClick = edit,
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(10.dp)
-                        .background(Color.Black.copy(alpha = 0.58f), CircleShape),
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Edit,
-                        contentDescription = "Change folder artwork",
-                        tint = Color.White,
-                    )
-                }
             }
         }
 
@@ -1658,6 +1625,7 @@ private fun ActionRow(
     /** The artist header's subscribe state, or null where it isn't offered. */
     subscription: SubscriptionState? = null,
     onToggleSubscription: (() -> Unit)? = null,
+    onAddSong: (() -> Unit)? = null,
     /** Apple's fill for the Play circle; null leaves it white. */
     playColor: Color? = null,
 ) {
@@ -1683,7 +1651,15 @@ private fun ActionRow(
             containerColor = playColor ?: Color.White,
         )
 
-        if (subscription != null) {
+        if (onAddSong != null) {
+            CircleIconButton(
+                icon = BitChordIcons.Plus,
+                contentDescription = "Add song to this artist",
+                onClick = onAddSong,
+                haptic = Haptic.Select,
+                size = ARTIST_SIDE_BUTTON,
+            )
+        } else if (subscription != null) {
             CircleIconButton(
                 icon = if (subscription.subscribed) Icons.Rounded.Star else Icons.Rounded.StarBorder,
                 contentDescription = stringResource(
@@ -2108,10 +2084,12 @@ private fun CompactSongRow(
     palette: ArtworkPalette,
     onClick: () -> Unit,
     onLongPress: () -> Unit,
+    onRemoveFromArtist: (() -> Unit)? = null,
     downloadedTint: Color? = null,
     isCurrent: Boolean = false,
     isPlaying: Boolean = false,
 ) {
+    var songMenuExpanded by remember(song.videoId) { mutableStateOf(false) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -2150,7 +2128,29 @@ private fun CompactSongRow(
         if (downloadedTint != null) {
             DownloadedBadge(song.videoId, downloadedTint)
         }
-        RowMoreButton(onClick = onLongPress, tint = palette.onBackgroundVariant)
+        if (onRemoveFromArtist != null) {
+            Box {
+                RowMoreButton(onClick = { songMenuExpanded = true }, tint = palette.onBackgroundVariant)
+                DropdownMenu(expanded = songMenuExpanded, onDismissRequest = { songMenuExpanded = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Delete song from this artist") },
+                        onClick = {
+                            songMenuExpanded = false
+                            onRemoveFromArtist()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("More actions") },
+                        onClick = {
+                            songMenuExpanded = false
+                            onLongPress()
+                        },
+                    )
+                }
+            }
+        } else {
+            RowMoreButton(onClick = onLongPress, tint = palette.onBackgroundVariant)
+        }
     }
 }
 

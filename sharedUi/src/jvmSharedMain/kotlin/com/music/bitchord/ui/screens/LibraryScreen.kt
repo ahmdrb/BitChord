@@ -50,10 +50,10 @@ import com.music.bitchord.data.model.LibraryPage
 import com.music.bitchord.data.model.ShelfItem
 import com.music.bitchord.data.model.UiState
 import com.music.bitchord.data.settings.LibrarySort
-import com.music.bitchord.ui.AppUi
 import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.components.LIBRARY_GRID_SPACING
 import com.music.bitchord.ui.components.MessageState
+import com.music.bitchord.ui.AppUi
 import com.music.bitchord.ui.components.PAGE_GUTTER
 import com.music.bitchord.ui.components.PullToRefresh
 import com.music.bitchord.ui.components.SHELF_CARD_WIDTH
@@ -83,18 +83,14 @@ fun LibraryScreen(
     listState: LazyListState,
     onShelfItemClick: (ShelfItem) -> Unit,
     onShelfItemLongPress: (ShelfItem) -> Unit,
-    onNewPlaylist: () -> Unit,
+    onAddPersonalPlaylist: () -> Unit = {},
     onImportSpotifyPlaylist: (() -> Unit)? = null,
-    /**
-     * A shelf's "Show all" — every shelf's row here stops at five cards (see
-     * [LibraryGridShelf]), so this is the only way to reach whatever didn't
-     * fit.
-     */
+    onImportYtMusicPlaylist: (() -> Unit)? = null,
+    onPersonalPlaylistClick: (ShelfItem) -> Unit = onShelfItemClick,
+    onPersonalPlaylistLongPress: (ShelfItem) -> Unit = onShelfItemLongPress,
+    personalPlaylists: List<ShelfItem> = emptyList(),
+    onPersonalArtistClick: (ShelfItem) -> Unit = onShelfItemClick,
     onShowAll: (HomeShelf) -> Unit,
-    /**
-     * The way in to Replay at the head of the page — the row of Replay cards,
-     * their placeholders while the history is read, or nothing at all.
-     */
     replay: @Composable () -> Unit,
     onSignIn: () -> Unit,
     onRetry: () -> Unit,
@@ -103,21 +99,12 @@ fun LibraryScreen(
     pullState: PullToRefreshState,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues,
-    /**
-     * The device's folders — downloads, local files, the remote libraries this
-     * build supports — drawn as a list under the Replay cards. Built by the
-     * app, since which of those exist is the platform's business.
-     */
     links: List<LibraryLink>,
-    /**
-     * The "On device" shelf under that list: the releases kept on this device
-     * whole. Left off the page entirely while there are none.
-     */
     deviceItems: List<ShelfItem>,
-    /** The big "Library" heading; the desktop's pages carry none. */
     showTitle: Boolean = true,
+    personalArtists: List<ShelfItem> = emptyList(),
+    onAddPersonalArtist: () -> Unit = {},
 ) {
-    val pinnedPlaylists by AppUi.host.pinnedPlaylists.collectAsStateWithLifecycle()
     val onDevice = stringResource(Res.string.on_device)
     PullToRefresh(
         refreshing = refreshing,
@@ -141,30 +128,30 @@ fun LibraryScreen(
                 }
             }
             item(key = "replay") { replay() }
+
+            // Keep Downloads and Local Music directly beneath Replay, before personal collections.
             if (links.isNotEmpty()) {
-                item(key = "links") { LibraryLinkList(links = links, onClick = onShelfItemClick) }
-            }
-            if (deviceItems.isNotEmpty()) {
-                item(key = "shelf:$onDevice") {
-                    val onDeviceShelf = HomeShelf(title = onDevice, items = deviceItems)
-                    LibraryGridShelf(
-                        shelf = onDeviceShelf,
-                        onItemClick = onShelfItemClick,
-                        onItemLongPress = onShelfItemLongPress,
-                        onShowAll = { onShowAll(onDeviceShelf) },
-                    )
+                item(key = "links") {
+                    LibraryLinkList(links = links, onClick = onShelfItemClick)
                 }
             }
+
             if (!signedIn) {
-                item(key = "shelf:$PLAYLISTS") {
-                    val emptyPlaylists = HomeShelf(PLAYLISTS, emptyList())
-                    PlaylistShelf(
-                        shelf = emptyPlaylists,
-                        onItemClick = onShelfItemClick,
-                        onItemLongPress = onShelfItemLongPress,
-                        onNewPlaylist = onNewPlaylist,
-                        onImportSpotifyPlaylist = onImportSpotifyPlaylist,
-                        onShowAll = { onShowAll(emptyPlaylists) },
+                item(key = "personal-playlists") {
+                    PersonalPlaylistShelf(
+                        playlists = personalPlaylists,
+                        onItemClick = onPersonalPlaylistClick,
+                        onItemLongPress = onPersonalPlaylistLongPress,
+                        onAdd = onAddPersonalPlaylist,
+                                onImportSpotifyPlaylist = onImportSpotifyPlaylist,
+                                onImportYtMusicPlaylist = onImportYtMusicPlaylist,
+                    )
+                }
+                item(key = "personal-artists") {
+                    PersonalArtistShelf(
+                        artists = personalArtists,
+                        onItemClick = onPersonalArtistClick,
+                        onAdd = onAddPersonalArtist,
                     )
                 }
                 item {
@@ -174,46 +161,80 @@ fun LibraryScreen(
                         onAction = onSignIn,
                     )
                 }
-                return@LazyColumn
-            }
-            when (state) {
-                is UiState.Loading -> librarySkeleton()
-                is UiState.Error -> item {
-                    MessageState(state.message, actionLabel = stringResource(Res.string.retry), onAction = onRetry)
-                }
-                is UiState.Success -> {
-                    // A fresh account has no Playlists shelf at all, and that
-                    // is exactly the account most in need of the button that
-                    // makes one — so the row is drawn either way, empty but
-                    // for the tile that creates the first playlist.
-                    val shelves = state.data.shelves
-                    if (shelves.none { it.title == PLAYLISTS }) {
-                        item(key = "shelf:$PLAYLISTS") {
-                            val emptyPlaylists = HomeShelf(PLAYLISTS, emptyList())
-                            PlaylistShelf(
-                                shelf = emptyPlaylists,
-                                onItemClick = onShelfItemClick,
-                                onItemLongPress = onShelfItemLongPress,
-                                onNewPlaylist = onNewPlaylist,
+            } else {
+                when (state) {
+                    is UiState.Loading -> {
+                        item(key = "personal-playlists") {
+                            PersonalPlaylistShelf(
+                                playlists = personalPlaylists,
+                                onItemClick = onPersonalPlaylistClick,
+                                onItemLongPress = onPersonalPlaylistLongPress,
+                                onAdd = onAddPersonalPlaylist,
                                 onImportSpotifyPlaylist = onImportSpotifyPlaylist,
-                                onShowAll = { onShowAll(emptyPlaylists) },
+                                onImportYtMusicPlaylist = onImportYtMusicPlaylist,
+                            )
+                        }
+                        item(key = "personal-artists") {
+                            PersonalArtistShelf(
+                                artists = personalArtists,
+                                onItemClick = onPersonalArtistClick,
+                                onAdd = onAddPersonalArtist,
+                            )
+                        }
+                        librarySkeleton()
+                    }
+                    is UiState.Error -> {
+                        item(key = "personal-playlists") {
+                            PersonalPlaylistShelf(
+                                playlists = personalPlaylists,
+                                onItemClick = onPersonalPlaylistClick,
+                                onItemLongPress = onPersonalPlaylistLongPress,
+                                onAdd = onAddPersonalPlaylist,
+                                onImportSpotifyPlaylist = onImportSpotifyPlaylist,
+                                onImportYtMusicPlaylist = onImportYtMusicPlaylist,
+                            )
+                        }
+                        item(key = "personal-artists") {
+                            PersonalArtistShelf(
+                                artists = personalArtists,
+                                onItemClick = onPersonalArtistClick,
+                                onAdd = onAddPersonalArtist,
+                            )
+                        }
+                        item {
+                            MessageState(
+                                state.message,
+                                actionLabel = stringResource(Res.string.retry),
+                                onAction = onRetry,
                             )
                         }
                     }
-                    shelves.forEach { shelf ->
-                        item(key = "shelf:${shelf.title}") {
-                            if (shelf.title == PLAYLISTS) {
-                                val pinnedFirst = shelf.pinnedFirst(pinnedPlaylists)
-                                PlaylistShelf(
-                                    shelf = pinnedFirst,
-                                    onItemClick = onShelfItemClick,
-                                    onItemLongPress = onShelfItemLongPress,
-                                    onNewPlaylist = onNewPlaylist,
-                                    onImportSpotifyPlaylist = onImportSpotifyPlaylist,
-                                    onShowAll = { onShowAll(pinnedFirst) },
-                                    pinnedPlaylists = pinnedPlaylists,
-                                )
-                            } else {
+                    is UiState.Success -> {
+                        val shelves = state.data.shelves
+                        item(key = "personal-playlists") {
+                            PersonalPlaylistShelf(
+                                playlists = personalPlaylists,
+                                onItemClick = onPersonalPlaylistClick,
+                                onItemLongPress = onPersonalPlaylistLongPress,
+                                onAdd = onAddPersonalPlaylist,
+                                onImportSpotifyPlaylist = onImportSpotifyPlaylist,
+                                onImportYtMusicPlaylist = onImportYtMusicPlaylist,
+                            )
+                        }
+                        item(key = "personal-artists") {
+                            PersonalArtistShelf(
+                                artists = personalArtists,
+                                onItemClick = onPersonalArtistClick,
+                                onAdd = onAddPersonalArtist,
+                            )
+                        }
+                        // Never show the YouTube Music account's Artists or Playlists shelves.
+                        shelves.filterNot {
+                            it.title.equals("Artists", ignoreCase = true) ||
+                                it.title.equals(PLAYLISTS, ignoreCase = true) ||
+                                it.title.equals("Podcasts", ignoreCase = true)
+                        }.forEach { shelf ->
+                            item(key = "shelf:${shelf.title}") {
                                 LibraryGridShelf(
                                     shelf = shelf,
                                     onItemClick = onShelfItemClick,
@@ -223,6 +244,18 @@ fun LibraryScreen(
                             }
                         }
                     }
+                }
+            }
+
+            if (deviceItems.isNotEmpty()) {
+                item(key = "shelf:$onDevice") {
+                    val onDeviceShelf = HomeShelf(title = onDevice, items = deviceItems)
+                    LibraryGridShelf(
+                        shelf = onDeviceShelf,
+                        onItemClick = onShelfItemClick,
+                        onItemLongPress = onShelfItemLongPress,
+                        onShowAll = { onShowAll(onDeviceShelf) },
+                    )
                 }
             }
         }
@@ -298,6 +331,118 @@ private val LINK_ICON_SIZE = 24.dp
 private val LINK_ICON_GAP = 16.dp
 
 /**
+ * BitChord's own playlists, not the YouTube Music account's playlist shelf.
+ * Tapping the section heading opens the create-playlist action.
+ */
+@Composable
+private fun PersonalPlaylistShelf(
+    playlists: List<ShelfItem>,
+    onItemClick: (ShelfItem) -> Unit,
+    onItemLongPress: (ShelfItem) -> Unit,
+    onAdd: () -> Unit,
+    onImportSpotifyPlaylist: (() -> Unit)? = null,
+    onImportYtMusicPlaylist: (() -> Unit)? = null,
+) {
+    Column(Modifier.padding(bottom = 26.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = PAGE_GUTTER)
+                .padding(bottom = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Start,
+        ) {
+            Text(
+                "Playlists",
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.clickable(onClick = onAdd),
+            )
+        }
+        if (playlists.isNotEmpty() || onImportSpotifyPlaylist != null || onImportYtMusicPlaylist != null) {
+            ShelfRow(
+                contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
+                horizontalArrangement = Arrangement.spacedBy(LIBRARY_GRID_SPACING),
+            ) {
+                if (onImportSpotifyPlaylist != null) {
+                    item(key = "personal-import-spotify") {
+                        NewShelfCard(
+                            icon = BitChordIcons.Download,
+                            label = stringResource(Res.string.import_spotify),
+                            subtitle = stringResource(Res.string.import_spotify_subtitle),
+                            onClick = onImportSpotifyPlaylist,
+                            logo = Res.drawable.spotify_logo,
+                        )
+                    }
+                }
+                if (onImportYtMusicPlaylist != null) {
+                    item(key = "personal-import-youtube-music") {
+                        NewShelfCard(
+                            icon = BitChordIcons.YouTubeMusic,
+                            label = "Import YouTube Music",
+                            subtitle = "Paste a playlist link to copy it",
+                            onClick = onImportYtMusicPlaylist,
+                            iconTint = MaterialTheme.colorScheme.onBackground,
+                            iconSize = 44.dp,
+                        )
+                    }
+                }
+                items(playlists, key = { it.browseId ?: it.title }) { playlist ->
+                    ShelfCard(
+                        item = playlist,
+                        onClick = { onItemClick(playlist) },
+                        onLongPress = { onItemLongPress(playlist) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The original Library shelf treatment, with only its artist contents made
+ * personal. Tapping the section heading opens the add-artist action.
+ */
+@Composable
+private fun PersonalArtistShelf(
+    artists: List<ShelfItem>,
+    onItemClick: (ShelfItem) -> Unit,
+    onAdd: () -> Unit,
+) {
+    Column(Modifier.padding(bottom = 26.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = PAGE_GUTTER)
+                .padding(bottom = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Start,
+        ) {
+            Text(
+                "Artists",
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.clickable(onClick = onAdd),
+            )
+        }
+        if (artists.isNotEmpty()) {
+            ShelfRow(
+                contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
+                horizontalArrangement = Arrangement.spacedBy(LIBRARY_GRID_SPACING),
+            ) {
+                items(artists, key = { it.browseId ?: it.title }) { artist ->
+                    ShelfCard(
+                        item = artist,
+                        onClick = { onItemClick(artist) },
+                        onLongPress = {},
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
  * The one shelf on this page that can be written to: it leads with the tile
  * that creates a playlist, and holding a card gets rename and delete on top of
  * the queue actions every other shelf's menu offers.
@@ -312,21 +457,34 @@ private fun PlaylistShelf(
     onShowAll: () -> Unit,
     pinnedPlaylists: List<String> = emptyList(),
 ) {
-    LibraryGridShelf(
-        shelf = shelf,
-        onItemClick = onItemClick,
-        onItemLongPress = onItemLongPress,
-        onShowAll = onShowAll,
-        pinnedPlaylists = pinnedPlaylists,
-        leadingCard = {
-            Row(horizontalArrangement = Arrangement.spacedBy(LIBRARY_GRID_SPACING)) {
-                NewShelfCard(
-                    icon = BitChordIcons.Plus,
-                    label = stringResource(Res.string.new_playlist),
-                    subtitle = stringResource(Res.string.saved_to_youtube_music),
-                    onClick = onNewPlaylist,
-                )
-                if (onImportSpotifyPlaylist != null) {
+    val importCount = if (onImportSpotifyPlaylist != null) 1 else 0
+    val visibleItems = shelf.items.take((LIBRARY_ROW_MAX_ITEMS - importCount).coerceAtLeast(0))
+    Column(Modifier.padding(bottom = 26.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = PAGE_GUTTER),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(shelf.title, style = MaterialTheme.typography.titleLarge)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (shelf.items.size + importCount > LIBRARY_ROW_MAX_ITEMS) {
+                    androidx.compose.material3.TextButton(onClick = onShowAll) {
+                        Text(stringResource(Res.string.show_all))
+                    }
+                }
+                androidx.compose.material3.IconButton(onClick = onNewPlaylist) {
+                    Icon(BitChordIcons.Plus, contentDescription = "Create playlist")
+                }
+            }
+        }
+        ShelfRow(
+            contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
+            horizontalArrangement = Arrangement.spacedBy(LIBRARY_GRID_SPACING),
+        ) {
+            if (onImportSpotifyPlaylist != null) {
+                item(key = "import-spotify") {
                     NewShelfCard(
                         icon = BitChordIcons.Download,
                         label = stringResource(Res.string.import_spotify),
@@ -336,8 +494,16 @@ private fun PlaylistShelf(
                     )
                 }
             }
-        },
-    )
+            items(visibleItems, key = { it.browseId ?: it.title }) { item ->
+                ShelfCard(
+                    item = item,
+                    onClick = { onItemClick(item) },
+                    onLongPress = { onItemLongPress(item) },
+                    isPinned = item.browseId != null && item.browseId in pinnedPlaylists,
+                )
+            }
+        }
+    }
 }
 
 /** A Library shelf's preview row never swipes past this many cards. */

@@ -10,12 +10,18 @@
 package com.music.bitchord.ui.components
 
 import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -25,6 +31,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -39,14 +46,18 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -68,6 +79,41 @@ import com.music.bitchord.ui.player.AndroidMusicVideo
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.layout.fillMaxSize
+
+
+private class MiniPlayerTrackTransition {
+    val currentSong = mutableStateOf<Song?>(null)
+    val outgoingSong = mutableStateOf<Song?>(null)
+    val progress = Animatable(1f)
+
+    suspend fun update(song: Song?) {
+        if (song == null) {
+            currentSong.value = null
+            outgoingSong.value = null
+            progress.snapTo(1f)
+            return
+        }
+        val previous = currentSong.value
+        if (previous == null) {
+            currentSong.value = song
+            outgoingSong.value = null
+            progress.snapTo(1f)
+            return
+        }
+        if (previous.videoId == song.videoId) {
+            currentSong.value = song
+            return
+        }
+        outgoingSong.value = previous
+        currentSong.value = song
+        progress.snapTo(0f)
+        progress.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(durationMillis = 440, easing = FastOutSlowInEasing),
+        )
+        outgoingSong.value = null
+    }
+}
 
 /**
  * The liquid glass navigation bar: the iOS 26 shape where the now playing
@@ -97,10 +143,14 @@ fun GlassNavBar(
     song: Song?,
     isPlaying: Boolean,
     isLoading: Boolean,
+    progressFraction: Float = 0f,
+    onSeekFraction: (Float) -> Unit = {},
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
     onExpand: () -> Unit,
+    /** Dismisses the mini-player and stops the active playback session. */
+    onDismiss: () -> Unit = {},
     /** @see com.music.bitchord.data.listentogether.ListenTogether.State.controlsLocked */
     controlsLocked: Boolean = false,
     onBlockedControl: () -> Unit = {},
@@ -109,6 +159,8 @@ fun GlassNavBar(
     /** Dragging the bar's player up into the full player. */
     pull: MiniPlayerPull? = null,
     modifier: Modifier = Modifier,
+    /** Keep the mini-player while hiding app navigation on collection detail pages. */
+    showTabs: Boolean = true,
 ) {
     // Held for the same reason [tabs] is. The glass factory below closes over
     // this shape, and a fresh RoundedCornerShape each pass means a fresh factory
@@ -125,6 +177,21 @@ fun GlassNavBar(
     // Held through a state that is always current instead, which also keeps the
     // handler out of the key.
     val currentOnTabSelected by rememberUpdatedState(onTabSelected)
+    // FloatingTabBar retains its accessory factories while the tab layout is
+    // stable. Keep the playback values live inside those retained factories.
+    val latestSong = rememberUpdatedState(song)
+    val latestIsPlaying = rememberUpdatedState(isPlaying)
+    val latestIsLoading = rememberUpdatedState(isLoading)
+    val latestProgress = rememberUpdatedState(progressFraction)
+    val latestPlayPause = rememberUpdatedState(onPlayPause)
+    val latestNext = rememberUpdatedState(onNext)
+    val latestPrevious = rememberUpdatedState(onPrevious)
+    val latestExpand = rememberUpdatedState(onExpand)
+    val latestDismiss = rememberUpdatedState(onDismiss)
+    val latestControlsLocked = rememberUpdatedState(controlsLocked)
+    val latestBlockedControl = rememberUpdatedState(onBlockedControl)
+    val miniTrackTransition = remember { MiniPlayerTrackTransition() }
+    LaunchedEffect(song?.videoId) { miniTrackTransition.update(song) }
 
     // Search is the odd one out in the iOS 26 layout: a circle of its own beside
     // the pill rather than a quarter of it. It is the last tab in BitChord's
@@ -136,7 +203,8 @@ fun GlassNavBar(
     // The theme's own glass tint, as the liquid top bar has it — no white wash.
     val glassSurface: @Composable () -> Modifier = { Modifier.liquidGlass(shape = pillShape) }
 
-    FloatingTabBar(
+    if (showTabs) {
+        FloatingTabBar(
         selectedTabKey = selectedIndex,
         scrollConnection = scrollConnection,
         modifier = modifier
@@ -145,44 +213,52 @@ fun GlassNavBar(
             .padding(bottom = NAV_BAR_LIFT)
             .fillMaxWidth(),
         tabBarContentModifier = glassSurface,
-        inlineAccessory = song?.let { current ->
+        inlineAccessory = song?.let {
             { accessoryModifier, _ ->
-                GlassNowPlaying(
-                    song = current,
-                    isInline = true,
-                    isPlaying = isPlaying,
-                    isLoading = isLoading,
-                    contentColor = contentColor,
-                    onPlayPause = onPlayPause,
-                    onNext = onNext,
-                    onPrevious = onPrevious,
-                    onExpand = onExpand,
-                    controlsLocked = controlsLocked,
-                    onBlockedControl = onBlockedControl,
-                    dock = dock,
-                    pull = pull,
-                    modifier = accessoryModifier.then(glassSurface()),
-                )
+                latestSong.value?.let { activeSong ->
+                    GlassNowPlaying(
+                        song = activeSong,
+                        trackTransition = miniTrackTransition,
+                        isInline = true,
+                        isPlaying = latestIsPlaying.value,
+                        isLoading = latestIsLoading.value,
+                        progressFraction = latestProgress.value,
+                        onPlayPause = { latestPlayPause.value() },
+                        onNext = { latestNext.value() },
+                        onPrevious = { latestPrevious.value() },
+                        onExpand = { latestExpand.value() },
+                        onDismiss = { latestDismiss.value() },
+                        controlsLocked = latestControlsLocked.value,
+                        onBlockedControl = { latestBlockedControl.value() },
+                        dock = dock,
+                        pull = pull,
+                        modifier = accessoryModifier.then(glassSurface()),
+                    )
+                }
             }
         },
-        expandedAccessory = song?.let { current ->
+        expandedAccessory = song?.let {
             { accessoryModifier, _ ->
-                GlassNowPlaying(
-                    song = current,
-                    isInline = false,
-                    isPlaying = isPlaying,
-                    isLoading = isLoading,
-                    contentColor = contentColor,
-                    onPlayPause = onPlayPause,
-                    onNext = onNext,
-                    onPrevious = onPrevious,
-                    onExpand = onExpand,
-                    controlsLocked = controlsLocked,
-                    onBlockedControl = onBlockedControl,
-                    dock = dock,
-                    pull = pull,
-                    modifier = accessoryModifier.fillMaxWidth().then(glassSurface()),
-                )
+                latestSong.value?.let { activeSong ->
+                    GlassNowPlaying(
+                        song = activeSong,
+                        trackTransition = miniTrackTransition,
+                        isInline = false,
+                        isPlaying = latestIsPlaying.value,
+                        isLoading = latestIsLoading.value,
+                        progressFraction = latestProgress.value,
+                        onPlayPause = { latestPlayPause.value() },
+                        onNext = { latestNext.value() },
+                        onPrevious = { latestPrevious.value() },
+                        onExpand = { latestExpand.value() },
+                        onDismiss = { latestDismiss.value() },
+                        controlsLocked = latestControlsLocked.value,
+                        onBlockedControl = { latestBlockedControl.value() },
+                        dock = dock,
+                        pull = pull,
+                        modifier = accessoryModifier.fillMaxWidth().then(glassSurface()),
+                    )
+                }
             }
         },
         // Transparent: the glass surface underneath is the background, and a
@@ -275,6 +351,31 @@ fun GlassNavBar(
                 )
             }
         }
+        }
+    } else if (song != null) {
+        GlassNowPlaying(
+            song = song,
+            trackTransition = miniTrackTransition,
+            isInline = false,
+            isPlaying = isPlaying,
+            isLoading = isLoading,
+            progressFraction = progressFraction,
+            onPlayPause = onPlayPause,
+            onNext = onNext,
+            onPrevious = onPrevious,
+            onExpand = onExpand,
+            onDismiss = onDismiss,
+            controlsLocked = controlsLocked,
+            onBlockedControl = onBlockedControl,
+            dock = dock,
+            pull = pull,
+            modifier = modifier
+                .windowInsetsPadding(floatingBarInsets)
+                .padding(horizontal = NAV_BAR_GUTTER)
+                .padding(bottom = NAV_BAR_LIFT)
+                .fillMaxWidth()
+                .then(glassSurface()),
+        )
     }
 }
 
@@ -295,14 +396,16 @@ fun GlassNavBar(
 @Composable
 private fun GlassNowPlaying(
     song: Song,
+    trackTransition: MiniPlayerTrackTransition,
     isInline: Boolean,
     isPlaying: Boolean,
     isLoading: Boolean,
-    contentColor: Color,
+    progressFraction: Float,
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
     onExpand: () -> Unit,
+    onDismiss: () -> Unit,
     controlsLocked: Boolean,
     onBlockedControl: () -> Unit,
     dock: PlayerDock?,
@@ -327,6 +430,9 @@ private fun GlassNowPlaying(
         fontSize = ACCESSORY_ARTIST_SIZE,
         letterSpacing = ACCESSORY_ARTIST_TRACKING,
     )
+    // Liquid Glass stays neutral and theme-aware; artwork colours belong to the full player.
+    val foreground = MaterialTheme.colorScheme.onSurface
+    val secondaryForeground = MaterialTheme.colorScheme.onSurfaceVariant
     val glyphSlot = if (isInline) 32.dp else 40.dp
     val glyphSize = if (isInline) 24.dp else EXPANDED_GLYPH_SIZE
 
@@ -355,6 +461,7 @@ private fun GlassNowPlaying(
                     haptics.play(Haptic.SkipPrevious)
                     onPrevious()
                 },
+                onDismiss = onDismiss,
                 locked = controlsLocked,
                 onBlocked = onBlockedControl,
             )
@@ -363,6 +470,8 @@ private fun GlassNowPlaying(
                 scaleY = pressScale
             }
             .then(modifier)
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.48f), RoundedCornerShape(percent = 50))
+            .onGloballyPositioned { dock?.reportMiniPlayerBounds(it) }
             .clickable(
                 interactionSource = pressSource,
                 indication = null,
@@ -384,79 +493,88 @@ private fun GlassNowPlaying(
                     bottom = 4.dp,
                 ),
         ) {
-            // A music video plays in the cover's place at its own 16:9, as in
-            // the floating mini player; the full player takes it over when up.
-            val showsPicture = song.isVideo && MusicOnlyPlayback.showsPicture(song.videoId)
-            val artWidth by animateDpAsState(
-                targetValue = if (showsPicture && !VideoThumbnails.square) ACCESSORY_ART_SIZE * (16f / 9f) else ACCESSORY_ART_SIZE,
-                label = "glassMiniArtWidth",
-            )
-            Box(
-                modifier = Modifier
-                    .size(width = artWidth, height = ACCESSORY_ART_SIZE)
-                    // Whichever of the two densities is on screen is the one
-                    // the player flies to: only one is composed at rest.
-                    .playerDockArt(dock, ACCESSORY_ART_CORNER)
-                    .clip(RoundedCornerShape(ACCESSORY_ART_CORNER))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-            ) {
-                AsyncImage(
-                    model = rememberRemoteArtworkUrl(song)?.artworkAt(ROW_ART_PX),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
-                if (showsPicture) {
-                    AndroidMusicVideo(
-                        videoId = song.videoId,
-                        fit = false,
-                        onRenderedChanged = {},
-                        modifier = Modifier.fillMaxSize(),
-                        priority = 0,
-                    )
-                }
-            }
-            Spacer(Modifier.width(if (isInline) 8.dp else 9.dp))
-            // Title and artist at both densities, as Apple Music has them, in its
-            // small, openly spaced type (see [ACCESSORY_TITLE_SIZE]). The inline
-            // row shares its width with the tab pill and the Search circle, so
-            // a long line fades out at its end, as Apple's does.
-            Column(Modifier.weight(1f)) {
-                val secondary = contentColor.copy(alpha = 0.7f)
-                ExplicitSongTitle(
-                    song = song,
-                    style = titleStyle,
-                    color = contentColor,
-                    badgeColor = secondary,
-                    fadeOverflow = true,
-                )
-                FadingLine(
-                    text = song.artist,
-                    style = artistStyle,
-                    color = secondary,
-                )
-            }
-            if (isLoading) {
-                Box(Modifier.size(glyphSlot), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(
-                        color = contentColor,
-                        strokeWidth = 2.dp,
-                        modifier = Modifier.size(if (isInline) 18.dp else 20.dp),
-                    )
-                }
+            val currentTransitionSong = trackTransition.currentSong.value
+            val displayedSong = if (currentTransitionSong == null || currentTransitionSong.videoId == song.videoId) {
+                song
             } else {
+                currentTransitionSong
+            }
+            val outgoingSong = trackTransition.outgoingSong.value
+            val transitionProgress = trackTransition.progress
+            Box(
+                modifier = Modifier.weight(1f).height(ACCESSORY_ART_SIZE).clipToBounds(),
+            ) {
+                outgoingSong?.let { previousSong ->
+                    GlassTrackContent(
+                        displayedSong = previousSong,
+                        isInline = isInline,
+                        isCurrent = false,
+                        dock = dock,
+                        foreground = foreground,
+                        secondaryForeground = secondaryForeground,
+                        modifier = Modifier.fillMaxSize().graphicsLayer {
+                            val progress = transitionProgress.value
+                            alpha = 1f - progress
+                            translationX = -size.width * 0.28f * progress
+                        },
+                    )
+                }
+                GlassTrackContent(
+                    displayedSong = displayedSong,
+                    isInline = isInline,
+                    isCurrent = displayedSong.videoId == song.videoId,
+                    dock = dock,
+                    foreground = foreground,
+                    secondaryForeground = secondaryForeground,
+                    modifier = Modifier.fillMaxSize().graphicsLayer {
+                        val progress = transitionProgress.value
+                        alpha = progress
+                        translationX = size.width * 0.28f * (1f - progress)
+                    },
+                )
+            }
+            Box(Modifier.size(glyphSlot), contentAlignment = Alignment.Center) {
                 IconButton(
                     onClick = {
                         haptics.play(if (isPlaying) Haptic.Pause else Haptic.Resume)
                         onPlayPause()
                     },
+                    enabled = !isLoading,
                     modifier = Modifier.size(glyphSlot),
                 ) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        contentDescription = stringResource(if (isPlaying) R.string.pause else R.string.play),
-                        tint = contentColor,
-                        modifier = Modifier.size(glyphSize),
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            color = foreground,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(if (isInline) 18.dp else 20.dp),
+                        )
+                    } else {
+                        Icon(
+                            imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                            contentDescription = stringResource(if (isPlaying) R.string.pause else R.string.play),
+                            tint = foreground,
+                            modifier = Modifier.size(glyphSize),
+                        )
+                    }
+                }
+                Canvas(Modifier.size(if (isInline) 32.dp else 38.dp)) {
+                    val stroke = androidx.compose.ui.graphics.drawscope.Stroke(
+                        width = 1.5.dp.toPx(),
+                        cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                    )
+                    drawArc(
+                        color = foreground.copy(alpha = 0.20f),
+                        startAngle = -90f,
+                        sweepAngle = 360f,
+                        useCenter = false,
+                        style = stroke,
+                    )
+                    drawArc(
+                        color = foreground,
+                        startAngle = -90f,
+                        sweepAngle = 360f * progressFraction.coerceIn(0f, 1f),
+                        useCenter = false,
+                        style = stroke,
                     )
                 }
             }
@@ -475,11 +593,12 @@ private fun GlassNowPlaying(
                     modifier = Modifier.size(glyphSlot),
                 ) {
                     MiniPlayerNextGlyph(
-                        tint = contentColor.copy(alpha = if (controlsLocked) 0.3f else 1f),
+                        tint = foreground.copy(alpha = if (controlsLocked) 0.3f else 1f),
                     )
                 }
             }
         }
+
     }
 }
 
@@ -518,3 +637,70 @@ private val ACCESSORY_ART_CORNER = 5.7.dp
 
 /** The expanded play glyph: its triangle about Apple's 15pt tall. */
 private val EXPANDED_GLYPH_SIZE = 29.dp
+
+
+/**
+ * Artwork and metadata move as one unit, like Mochy's mini-player carousel.
+ * Transport controls remain outside this row, so they never shift on a track change.
+ */
+@Composable
+private fun GlassTrackContent(
+    displayedSong: Song,
+    isInline: Boolean,
+    isCurrent: Boolean,
+    dock: PlayerDock?,
+    foreground: Color,
+    secondaryForeground: Color,
+    modifier: Modifier = Modifier,
+) {
+    val titleStyle = MaterialTheme.typography.titleMedium.copy(
+        fontSize = ACCESSORY_TITLE_SIZE,
+        fontWeight = ACCESSORY_TITLE_WEIGHT,
+        letterSpacing = ACCESSORY_TITLE_TRACKING,
+    )
+    val artistStyle = MaterialTheme.typography.bodyMedium.copy(
+        fontSize = ACCESSORY_ARTIST_SIZE,
+        letterSpacing = ACCESSORY_ARTIST_TRACKING,
+    )
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+        val showsPicture = isCurrent && displayedSong.isVideo &&
+            MusicOnlyPlayback.showsPicture(displayedSong.videoId)
+        val artWidth = if (showsPicture && !VideoThumbnails.square) {
+            ACCESSORY_ART_SIZE * (16f / 9f)
+        } else ACCESSORY_ART_SIZE
+        Box(
+            modifier = Modifier
+                .size(width = artWidth, height = ACCESSORY_ART_SIZE)
+                .then(if (isCurrent) Modifier.playerDockArt(dock, ACCESSORY_ART_CORNER) else Modifier)
+                .clip(RoundedCornerShape(ACCESSORY_ART_CORNER))
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+        ) {
+            AsyncImage(
+                model = rememberRemoteArtworkUrl(displayedSong)?.artworkAt(ROW_ART_PX),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+            if (showsPicture) {
+                AndroidMusicVideo(
+                    videoId = displayedSong.videoId,
+                    fit = false,
+                    onRenderedChanged = {},
+                    modifier = Modifier.fillMaxSize(),
+                    priority = 0,
+                )
+            }
+        }
+        Spacer(Modifier.width(if (isInline) 8.dp else 9.dp))
+        Column(Modifier.weight(1f)) {
+            ExplicitSongTitle(
+                song = displayedSong,
+                style = titleStyle,
+                color = foreground,
+                badgeColor = secondaryForeground,
+                fadeOverflow = true,
+            )
+            FadingLine(text = displayedSong.artist, style = artistStyle, color = secondaryForeground)
+        }
+    }
+}

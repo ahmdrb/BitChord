@@ -122,6 +122,8 @@ fun SongActionsMenu(
     onOpenArtist: (String) -> Unit,
     modifier: Modifier = Modifier,
     onRemoveFromPlaylist: (() -> Unit)? = null,
+    /** Removes a track from the open BitChord personal collection only. */
+    onRemoveFromCollection: (() -> Unit)? = null,
     /**
      * Takes this track out of the song cache. Null hides the row — the caller
      * passes one only while the cache actually holds some of it.
@@ -300,6 +302,14 @@ fun SongActionsMenu(
                 ActionRow(
                     icon = SfIcons.RemoveFromPlaylist,
                     label = stringResource(R.string.remove_from_playlist),
+                    accent = palette.accent,
+                    onClick = it,
+                )
+            }
+            onRemoveFromCollection?.let {
+                ActionRow(
+                    icon = SfIcons.RemoveFromPlaylist,
+                    label = "Remove from collection",
                     accent = palette.accent,
                     onClick = it,
                 )

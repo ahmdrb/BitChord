@@ -171,7 +171,7 @@ internal fun LandscapePlayerLayout(
                     .fillMaxSize()
                     .padding(
                         top = LANDSCAPE_HANDLE_STRIP,
-                        bottom = if (compact) 8.dp else 20.dp,
+                        bottom = if (compact) 16.dp else 24.dp,
                     ),
             ) {
                 Column(
@@ -194,7 +194,15 @@ internal fun LandscapePlayerLayout(
                     ) {
                         artwork(Modifier.size(minOf(maxWidth, maxHeight)))
                     }
-                    Spacer(Modifier.height(if (compact) 12.dp else 24.dp))
+                    Spacer(
+                        Modifier.height(
+                            if (pane == PlayerPane.Lyrics) {
+                                if (compact) 12.dp else 16.dp
+                            } else {
+                                if (compact) 12.dp else 24.dp
+                            },
+                        ),
+                    )
                     actions()
                 }
 
@@ -505,6 +513,9 @@ internal fun LandscapeLyricsPane(
     placeholder: String,
     status: String,
     onStatusClick: () -> Unit,
+    showStatus: Boolean = true,
+    showRomanizationToggle: Boolean = true,
+    showTranslationToggle: Boolean = true,
     /** Whether lines are being picked, which is what the bar stands in for. */
     picking: Boolean = false,
     /** The pick bar itself, drawn in place of the row below. */
@@ -551,19 +562,25 @@ internal fun LandscapeLyricsPane(
         ) {
             // Fixed slots either side whether or not the toggles are drawn, so
             // the status line stays centred as lyrics arrive.
-            Box(Modifier.size(34.dp)) { if (hasLyrics) romanizationToggle() }
+            Box(Modifier.size(34.dp)) {
+                if (hasLyrics && showRomanizationToggle) romanizationToggle()
+            }
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .padding(horizontal = 12.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                LyricsStatusWithChange(
-                    status = status,
-                    onStatusClick = onStatusClick,
-                )
+                if (showStatus) {
+                    LyricsStatusWithChange(
+                        status = status,
+                        onStatusClick = onStatusClick,
+                    )
+                }
             }
-            Box(Modifier.size(34.dp)) { if (hasLyrics) translationToggle() }
+            Box(Modifier.size(34.dp)) {
+                if (hasLyrics && showTranslationToggle) translationToggle()
+            }
         }
         }
     }

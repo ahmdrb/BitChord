@@ -38,6 +38,8 @@ class PlayerDock {
      */
     private var miniArt: LayoutCoordinates? = null
     private var miniArtCorner: Dp = 8.dp
+    /** The complete mini-player pill, used as the destination for the sheet itself. */
+    private var miniPlayer: LayoutCoordinates? = null
 
     /**
      * How far the player sheet sits below fully open, in pixels. Set by the
@@ -55,6 +57,10 @@ class PlayerDock {
      * the plain slide.
      */
     var attached by mutableStateOf(false)
+        internal set
+
+    /** The full-screen Canvas has no scrollable content to claim a downward sheet drag. */
+    var fullScreenCanvas by mutableStateOf(false)
         internal set
 
     /** Reported by the mini player's cover whenever it is placed. */
@@ -86,6 +92,21 @@ class PlayerDock {
 
     internal fun miniArtCorner(): Dp = miniArtCorner
 
+    /** Report the full mini-player surface, not just its cover. */
+    fun reportMiniPlayerBounds(coordinates: LayoutCoordinates) {
+        miniPlayer = coordinates
+    }
+
+    /** Full mini-player destination in screen coordinates. */
+    internal fun miniPlayerBoundsOnScreen(): Rect? {
+        val coordinates = miniPlayer?.takeIf { it.isAttached } ?: return null
+        val size = coordinates.size.toSize()
+        return Rect(
+            coordinates.localToScreen(Offset.Zero),
+            coordinates.localToScreen(Offset(size.width, size.height)),
+        )
+    }
+
     /** The sheet's offset this frame, or null with no sheet laid out. */
     internal fun offset(): Float? = sheetOffset?.invoke()?.takeUnless { it.isNaN() }
 
@@ -101,11 +122,30 @@ class PlayerDock {
     }
 
     /**
-     * Whether the mini player's own cover should stand aside, because the
-     * player's is on its way to or from it. Not before the sheet has moved at
-     * all: the sheet's window can land a frame after the page's, and a cover
-     * hidden in that frame is a hole in the bar.
+     * Whether the mini player's own cover should stand aside for the player's
+     * moving sleeve. It stays hidden while that sleeve is travelling, then is
+     * revealed as the sleeve fades over the final 15% of the trip — before the
+     * sheet lands, so the cover is already in place when the bar is fully shown.
      */
+    /** True as soon as the sheet starts travelling down to the mini player. */
+    private var transitioningToMiniState by mutableStateOf(false)
+
+    val transitioningToMini: Boolean
+        get() = transitioningToMiniState
+
+    fun setTransitioningToMini(value: Boolean) {
+        // Full-screen Spotify Canvas has no travelling sleeve to cover the
+        // mini-player artwork. Reveal that already-mounted cover synchronously
+        // with the close request, rather than waiting for a later composition
+        // SideEffect; this keeps the very first dismissal frame continuous.
+        transitioningToMiniState = value
+        revealMiniArtEarly = value && fullScreenCanvas
+    }
+
+    /** Reveal the already-mounted mini cover while full-screen Canvas has no moving sleeve. */
+    var revealMiniArtEarly by mutableStateOf(false)
+        internal set
+
     val coversMiniArt: Boolean
         get() = coversMiniArtState.value
 
@@ -115,7 +155,11 @@ class PlayerDock {
     // and every one of those invalidated the page's whole window behind the
     // player: a full redraw, liquid glass and all, for a cover that hadn't
     // changed.
-    private val coversMiniArtState = derivedStateOf { attached && openFraction() > 0f }
+    // The full player's sleeve is already fading away over this final 15% of
+    // the trip (DOCK_FADE_LEAD in NowPlayingScreen). Reveal the mini player's
+    // already-mounted artwork at the same point, so it is in place underneath
+    // the last frames of the hand-off rather than appearing after the sheet lands.
+    private val coversMiniArtState = derivedStateOf { attached && openFraction() > 0.15f && !revealMiniArtEarly }
 }
 
 /** The [PlayerDock] around the player, if its host has a mini player to dock into. */

@@ -1,5 +1,10 @@
 <resources>
     <string name="app_name">BitChord</string>
+    <string name="keep_playback_screen_on">재생 화면 켜짐 유지</string>
+    <string name="keep_playback_screen_on_subtitle">전체 플레이어가 열려 있는 동안 화면이 꺼지지 않도록 합니다.</string>
+    <string name="hide_lyrics_romanization_button">가사 로마자 표기 버튼 숨기기</string>
+    <string name="hide_lyrics_translation_button">가사 번역 버튼 숨기기</string>
+    <string name="hide_lyrics_source_credit">가사 제공자 선택기 숨기기</string>
     <string name="playback_channel_name">지금 재생 중</string>
     <string name="download_channel_name">다운로드</string>
     <string name="download_channel_description">음악 폴더에 저장하는 중인 곡</string>
