@@ -279,7 +279,7 @@ private fun PersonalCollectionDetailDialog(
 
     val artworkUrl = artwork?.toString()
     val palette = rememberArtworkPalette(artworkUrl)
-    val visibleSongs = remember(songs, searchQuery, sortMode) {
+    val visibleSongs = remember(songs, searchQuery, sortMode, dateAddedDescending) {
         val filtered = songs.filter {
             searchQuery.isBlank() ||
                 it.title.contains(searchQuery, ignoreCase = true) ||
