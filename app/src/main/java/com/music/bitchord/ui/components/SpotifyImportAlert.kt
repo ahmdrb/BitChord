@@ -70,7 +70,7 @@ private val IMPORT_LANGUAGES = listOf(
 fun SpotifyImportAlert(
     hazeState: HazeState,
     /** Called once the songs are matched for a new BitChord Personal Playlist. */
-    onImported: (title: String, songs: List<Song>) -> Unit,
+    onImported: (title: String, songs: List<Song>, artworkUrl: String?) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -100,12 +100,12 @@ fun SpotifyImportAlert(
         status = context.getString(R.string.spotify_import_fetching)
         scope.launch {
             try {
-                val (name, tracks) = SpotifyImporter.fetchPlaylistTracks(id)
+                val (name, artworkUrl, tracks) = SpotifyImporter.fetchPlaylistTracks(id)
                 val (songs, missed) = SpotifyImporter.resolveToSongs(tracks, effectiveLanguage) { done, total ->
                     status = context.getString(R.string.spotify_import_matching, done, total)
                 }
                 if (songs.isEmpty()) error(context.getString(R.string.spotify_import_none))
-                onImported(name, songs)
+                onImported(name, songs, artworkUrl)
                 if (missed.isEmpty()) onDismiss() else unmatched = missed
             } catch (e: CancellationException) {
                 throw e
