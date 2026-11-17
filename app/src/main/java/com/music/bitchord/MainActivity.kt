@@ -5389,7 +5389,6 @@ private fun BitChordApp(
                                     ?: source?.title?.takeIf { it.isNotBlank() }
                                     ?: "YouTube Music Import"
                                 val importedArtwork = sourceMetadata?.thumbnailUrl
-                                    ?: source?.thumbnailUrl
                                     ?: songs.firstOrNull()?.thumbnailUrl
                                 PersonalLibraryStore.addPlaylistWithSongs(
                                     importedTitle,
