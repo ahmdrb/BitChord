@@ -537,7 +537,7 @@ private fun artworkPageSurface(
         .then(surface)
         // lightweightLiquidGlass already supplies the brighter navigation rim.
         .then(
-            if (lightweightGlass) Modifier
+            if (lightweightGlass && useLiquidGlass) Modifier
             else Modifier.border(GLASS_EDGE_WIDTH, GLASS_EDGE_COLOR, shape),
         )
 }
