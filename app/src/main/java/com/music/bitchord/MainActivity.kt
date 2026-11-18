@@ -1000,6 +1000,9 @@ private fun BitChordApp(
     // overflow controls. Device folders keep their dedicated sort/view menu.
     val isArtistDetail = detail != null && !isLocalDetail && detail.type == BrowseType.ARTIST
     val isReleaseDetail = detail != null && !isLocalDetail && detail.type != BrowseType.ARTIST
+    // Any artwork-led detail page uses the shared top-bar controls over moving
+    // artwork. Include the app's own personal collection detail surfaces too.
+    val protectNavigationChrome = isReleaseDetail || isArtistDetail || personalCollectionDetailOpen
     // Not keyed on the browse id and not remembered here: each page's choice
     // lives in AppSettings keyed by that page — Spotify-style, one playlist's
     // order never imposes itself on another, and every page keeps its own
@@ -4025,8 +4028,7 @@ private fun BitChordApp(
                     hazeState = hazeState,
                     pageColor = chromePageColor,
                     useBlur = !reduceDynamicBlur && glassActive && progressiveBlur,
-                    protectNavigationChrome = detail?.type == BrowseType.PLAYLIST ||
-                        detail?.type == BrowseType.ARTIST,
+                    protectNavigationChrome = protectNavigationChrome,
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .zIndex(0f)
@@ -4067,15 +4069,12 @@ private fun BitChordApp(
                     artworkPageChrome = true,
                     // Keep the same app-level controls as Local Music, but do
                     // not sample or refract the artwork behind Playlist/Artist.
-                    lightweightArtworkChrome = detail?.type == BrowseType.PLAYLIST ||
-                        detail?.type == BrowseType.ARTIST,
+                    lightweightArtworkChrome = protectNavigationChrome,
                     // Keep the shared Playlist/Artist navigation surfaces
                     // independent of the scrolling page's Haze sample. They are
                     // the same app-level controls used by Local Music, not page
                     // content to be washed by the progressive blur.
-                    backButtonHazeState = if (
-                        detail?.type == BrowseType.PLAYLIST || detail?.type == BrowseType.ARTIST
-                    ) null else hazeState,
+                    backButtonHazeState = if (protectNavigationChrome) null else hazeState,
                     trailingTitle = if (detail != null && detailActiveShelf != null) detail.title else null,
                     // Search has no large in-list header to hand the title back to —
                     // the field takes that space — so its bar title is always up.
