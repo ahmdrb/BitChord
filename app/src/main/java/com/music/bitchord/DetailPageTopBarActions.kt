@@ -3,6 +3,7 @@ package com.music.bitchord
 import android.content.Intent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Sort
 import androidx.compose.material3.DropdownMenu
@@ -12,9 +13,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.ui.components.menuAnchor
 import com.music.bitchord.ui.icons.BitChordIcons
 
 /**
@@ -69,7 +72,10 @@ internal fun DetailPageTopBarActions(
     }
 
     if (isReleaseDetail && songs.isNotEmpty()) {
-        IconButton(onClick = onMoreClick) {
+        IconButton(
+            modifier = Modifier.menuAnchor(),
+            onClick = onMoreClick,
+        ) {
             Icon(
                 Icons.Rounded.MoreHoriz,
                 contentDescription = stringResource(R.string.more),
