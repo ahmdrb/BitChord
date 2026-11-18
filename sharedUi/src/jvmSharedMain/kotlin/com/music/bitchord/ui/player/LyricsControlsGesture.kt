@@ -104,14 +104,12 @@ internal fun Modifier.seekLyricsWhenSheetConsumesTap(
             // LazyListItemInfo offsets are in the LazyColumn's local viewport
             // coordinates, the same space as this pointer's position.
             val item = listState.layoutInfo.visibleItemsInfo.firstOrNull {
-                down.position.y >= it.offset && down.position.y < it.offset + it.size
+                down.position.y >= it.offset.toFloat() &&
+                    down.position.y < (it.offset + it.size).toFloat()
             } ?: return@awaitEachGesture
             val index = item.index
             val line = lines.getOrNull(index) ?: return@awaitEachGesture
-            if (line.isGap && (picking || lines.none { it.timeMs > 0L })) {
-                return@awaitEachGesture
-            }
-            if (lines.none { it.timeMs > 0L }) return@awaitEachGesture
+            if (line.isGap && picking) return@awaitEachGesture
 
             val heldFor = (up.uptimeMillis - down.uptimeMillis).coerceAtLeast(0L)
             if (canPick && heldFor >= longPressTimeout) {
