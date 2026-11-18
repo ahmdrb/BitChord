@@ -2,11 +2,13 @@ package com.music.bitchord.ui.player
 
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import com.music.bitchord.data.lyrics.LyricLine
 
 /**
  * How far a finger may wander inside a lower-half tap and still be a tap, as a
@@ -45,6 +47,79 @@ internal fun Modifier.holdLyricsAutoFollowWhileTouched(
                 } while (true)
             } finally {
                 currentOnTouchChanged.value(false)
+            }
+        }
+    }
+}
+
+/**
+ * A fully expanded ModalBottomSheet can consume the Initial down for its
+ * short post-fling settle. In that one case a child clickable never receives
+ * an eligible down, even though the listener tapped a lyric row. Observe that
+ * consumed gesture at the list root and relay only a stationary tap to the
+ * same row action; ordinary unconsumed taps stay owned by the row's clickable.
+ */
+@Composable
+internal fun Modifier.seekLyricsWhenSheetConsumesTap(
+    listState: LazyListState,
+    lines: List<LyricLine>,
+    enabled: Boolean,
+    canPick: Boolean,
+    picking: Boolean,
+    onSeek: (Long) -> Unit,
+    onPick: (Int) -> Unit,
+    onTogglePick: (Int) -> Unit,
+): Modifier {
+    val currentSeek = rememberUpdatedState(onSeek)
+    val currentPick = rememberUpdatedState(onPick)
+    val currentTogglePick = rememberUpdatedState(onTogglePick)
+    return pointerInput(listState, lines, enabled, canPick, picking) {
+        if (!enabled) return@pointerInput
+        val tapSlop = viewConfiguration.touchSlop
+        val longPressTimeout = viewConfiguration.longPressTimeoutMillis
+        awaitEachGesture {
+            val down = awaitFirstDown(
+                requireUnconsumed = false,
+                pass = PointerEventPass.Initial,
+            )
+            // Normal taps remain entirely with Modifier.clickable / combinedClickable.
+            if (!down.isConsumed) return@awaitEachGesture
+
+            var moved = false
+            var released: androidx.compose.ui.input.pointer.PointerInputChange? = null
+            do {
+                val event = awaitPointerEvent(PointerEventPass.Final)
+                if (event.changes.size > 1) moved = true
+                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                if ((change.position - down.position).getDistance() > tapSlop) moved = true
+                if (!change.pressed) {
+                    released = change
+                    break
+                }
+            } while (true)
+
+            val up = released ?: return@awaitEachGesture
+            if (moved) return@awaitEachGesture
+
+            // LazyListItemInfo offsets are in the LazyColumn's local viewport
+            // coordinates, the same space as this pointer's position.
+            val item = listState.layoutInfo.visibleItemsInfo.firstOrNull {
+                down.position.y >= it.offset && down.position.y < it.offset + it.size
+            } ?: return@awaitEachGesture
+            val index = item.index
+            val line = lines.getOrNull(index) ?: return@awaitEachGesture
+            if (line.isGap && (picking || lines.none { it.timeMs > 0L })) {
+                return@awaitEachGesture
+            }
+            if (lines.none { it.timeMs > 0L }) return@awaitEachGesture
+
+            val heldFor = (up.uptimeMillis - down.uptimeMillis).coerceAtLeast(0L)
+            if (canPick && heldFor >= longPressTimeout) {
+                currentPick.value(index)
+            } else if (picking) {
+                currentTogglePick.value(index)
+            } else {
+                currentSeek.value(line.timeMs)
             }
         }
     }
