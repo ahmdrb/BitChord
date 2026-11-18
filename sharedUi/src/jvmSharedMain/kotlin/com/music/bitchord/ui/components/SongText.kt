@@ -143,14 +143,8 @@ val LINE_FADE = 36.dp
 private val FullFade = { 1f }
 
 /**
- * The explicit mark, as Apple Music draws it: a filled tile with the E cut
- * out of it, so whatever sits behind — a list row, the player's artwork —
- * shows through the letter. Used everywhere a track is marked explicit.
- *
- * A square tile with the capital centred in it, as Apple's is. The cut-out is
- * a real hole rather than the letter painted in a background colour, which is
- * why it draws into its own offscreen layer: DstOut can then only erase the
- * tile, never what's under it.
+ * The explicit mark: a small filled tile with a contrasting capital E,
+ * positioned consistently before the title on every row.
  */
 @Composable
 fun ExplicitBadge(color: Color, modifier: Modifier = Modifier) {
