@@ -1490,7 +1490,6 @@ private fun BitChordApp(
                 isExplicit = song.isExplicit,
                 queueTier = song.queueTier,
                 queueEntryId = song.queueEntryId,
-                queueEntryId = song.queueEntryId,
                 radioName = song.radioName,
                 playbackSource = song.playbackSource,
                 playbackSourceType = song.playbackSourceType,
