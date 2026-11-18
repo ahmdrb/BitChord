@@ -1485,7 +1485,11 @@ private fun BitChordApp(
             TrackLog.d("Player", "audio switch applying '${audio.title}' (${audio.videoId})", song.videoId)
             val target = audio.copy(
                 isVideoOrigin = true,
+                // The alternate catalogue rendition is the same track, so it
+                // must retain the explicit-content badge from the source row.
+                isExplicit = song.isExplicit,
                 queueTier = song.queueTier,
+                queueEntryId = song.queueEntryId,
                 queueEntryId = song.queueEntryId,
                 radioName = song.radioName,
                 playbackSource = song.playbackSource,
@@ -1555,6 +1559,9 @@ private fun BitChordApp(
             convertedVideoId = video.videoId
             TrackLog.d("Player", "video switch applying '${video.title}' (${video.videoId})", song.videoId)
             val target = video.copy(
+                // Keep the source row's explicit status through the inverse
+                // version switch as well.
+                isExplicit = song.isExplicit,
                 queueTier = song.queueTier,
                 queueEntryId = song.queueEntryId,
                 radioName = song.radioName,
