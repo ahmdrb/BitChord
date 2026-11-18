@@ -289,7 +289,15 @@ object InnertubeParser {
             parseTwoRowItem(item.o("musicTwoRowItemRenderer"))
                 ?: parseResponsiveListItem(item.o("musicResponsiveListItemRenderer"))
                     ?.let { song ->
-                        ShelfItem(song.title, song.artist, song.thumbnailUrl, song.videoId, null, isVideo = song.isVideo)
+                        ShelfItem(
+                            song.title,
+                            song.artist,
+                            song.thumbnailUrl,
+                            song.videoId,
+                            null,
+                            isVideo = song.isVideo,
+                            isExplicit = song.isExplicit,
+                        )
                     }
                 // A chart row with nothing to play — "Top artists" lists the
                 // artist alone, no track — falls through parseResponsiveListItem
@@ -310,7 +318,17 @@ object InnertubeParser {
         val title = shelf.o("title").runs()
         val items = shelf.a("contents").orEmpty().mapNotNull {
             parseResponsiveListItem(it.o("musicResponsiveListItemRenderer"))
-        }.map { ShelfItem(it.title, it.artist, it.thumbnailUrl, it.videoId, null, isVideo = it.isVideo) }
+        }.map {
+            ShelfItem(
+                it.title,
+                it.artist,
+                it.thumbnailUrl,
+                it.videoId,
+                null,
+                isVideo = it.isVideo,
+                isExplicit = it.isExplicit,
+            )
+        }
         if (items.isEmpty()) return null
         val shelfTitle = title.ifBlank { "For you" }
         return HomeShelf(shelfTitle, items, layout = shelfLayoutFor(shelfTitle, items, fromList = true))
