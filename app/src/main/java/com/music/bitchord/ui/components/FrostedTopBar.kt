@@ -537,8 +537,13 @@ private fun artworkPageSurface(
         .then(surface)
         // lightweightLiquidGlass already supplies the brighter navigation rim.
         .then(
-            if (lightweightGlass && useLiquidGlass) Modifier
-            else Modifier.border(GLASS_EDGE_WIDTH, GLASS_EDGE_COLOR, shape),
+            when {
+                // The thin Haze navigation surface uses the same quiet white
+                // hairline as the mini-player. Leave the Liquid Glass rim alone.
+                !useLiquidGlass -> Modifier.border(0.5.dp, Color.White.copy(alpha = 0.10f), shape)
+                lightweightGlass -> Modifier
+                else -> Modifier.border(GLASS_EDGE_WIDTH, GLASS_EDGE_COLOR, shape)
+            },
         )
 }
 
