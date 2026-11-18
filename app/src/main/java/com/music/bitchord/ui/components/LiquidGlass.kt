@@ -100,13 +100,17 @@ private const val FROST_RESOLUTION_SCALE = 0.25f
 internal val GLASS_EDGE_WIDTH = 0.5.dp
 internal val GLASS_EDGE_COLOR = Color.White.copy(alpha = 0.10f)
 
-/** A cleaner tint reserved for navigation surfaces; player glass stays unchanged. */
+/**
+ * Navigation chrome uses the same neutral, theme-aware glass fill as the
+ * mini-player and other player surfaces. A separate white navigation wash
+ * made the top controls and tab bar look much brighter than the player.
+ */
 @Composable
 internal fun navigationGlassSurfaceTint(): Color =
     if (MaterialTheme.colorScheme.surface.luminance() > 0.5f) {
-        Color(0xFFFAFAFA).copy(alpha = 0.34f)
+        Color(0xFFFAFAFA).copy(alpha = SURFACE_OPACITY)
     } else {
-        Color.White.copy(alpha = 0.16f)
+        Color(0xFF121212).copy(alpha = SURFACE_OPACITY)
     }
 
 internal val NAVIGATION_GLASS_EDGE_WIDTH = 0.75.dp
