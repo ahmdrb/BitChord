@@ -166,6 +166,11 @@ fun FrostedTopBar(
     transparentBackdrop: Boolean = false,
     /** Circular back surface and no collapsing title, for artwork-led pages. */
     artworkPageChrome: Boolean = false,
+    /**
+     * Artwork detail pages keep the same floating controls but avoid sampling
+     * the hero image through those controls. The glass tint and rim remain.
+     */
+    lightweightArtworkChrome: Boolean = false,
     /** Source sampled by floating top-bar surfaces when liquid glass is off. */
     backButtonHazeState: HazeState? = null,
     trailingTitle: String? = null,
@@ -294,6 +299,7 @@ fun FrostedTopBar(
                     ArtworkPageBackButton(
                         onClick = onBack,
                         hazeState = backButtonHazeState,
+                        lightweightGlass = lightweightArtworkChrome,
                         // The surface edge aligns with the floating navbar. The
                         // padding belongs outside the circle; its icon remains
                         // centred in the same 44dp control in every material.
@@ -336,7 +342,11 @@ fun FrostedTopBar(
                     Spacer(Modifier.width(ACCESSORY_GAP))
                 }
                 if (useFloatingChrome) {
-                    ArtworkPageActions(hazeState = backButtonHazeState, content = actions)
+                    ArtworkPageActions(
+                        hazeState = backButtonHazeState,
+                        lightweightGlass = lightweightArtworkChrome,
+                        content = actions,
+                    )
                 } else {
                     actions()
                 }
@@ -353,6 +363,7 @@ fun FrostedTopBar(
 private fun ArtworkPageBackButton(
     onClick: () -> Unit,
     hazeState: HazeState?,
+    lightweightGlass: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val shape = CircleShape
@@ -368,7 +379,7 @@ private fun ArtworkPageBackButton(
         onClick = onClick,
         modifier = modifier
             .size(TOP_CONTROL_SIZE)
-            .then(artworkPageSurface(shape = shape, hazeState = hazeState)),
+            .then(artworkPageSurface(shape = shape, hazeState = hazeState, lightweightGlass = lightweightGlass)),
     ) {
         Icon(
             SfIcons.ArrowBack,
@@ -382,12 +393,17 @@ private fun ArtworkPageBackButton(
 @Composable
 private fun ArtworkPageActions(
     hazeState: HazeState?,
+    lightweightGlass: Boolean,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
     ActionsRow(
         modifier = modifier
-            .then(artworkPageSurface(shape = CircleShape, hazeState = hazeState))
+            .then(artworkPageSurface(
+                shape = CircleShape,
+                hazeState = hazeState,
+                lightweightGlass = lightweightGlass,
+            ))
             // Keep the right edge fixed while a new action opens room to its
             // left. The surface itself therefore grows instead of jumping to
             // its new width in a single frame.
@@ -491,6 +507,7 @@ private fun Modifier.artworkActionEdgePadding(): Modifier = layout { measurable,
 private fun artworkPageSurface(
     shape: CornerBasedShape,
     hazeState: HazeState?,
+    lightweightGlass: Boolean,
 ): Modifier {
     val container = MaterialTheme.colorScheme.surface
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
@@ -500,6 +517,14 @@ private fun artworkPageSurface(
         .clip(shape)
         .then(
             when {
+                // Full liquidGlass samples and blurs the artwork beneath the
+                // hero-page navigation. These controls should stay legible over
+                // a moving cover/photo: keep the same glass tint and rim but no
+                // backdrop capture, blur or refraction.
+                lightweightGlass -> Modifier.lightweightLiquidGlass(
+                    shape = shape,
+                    fallbackColor = container,
+                )
                 useLiquidGlass -> Modifier.liquidGlass(shape)
                 reduceDynamicBlur || hazeState == null -> Modifier.background(container)
                 else -> Modifier.optimizedHazeEffect(
