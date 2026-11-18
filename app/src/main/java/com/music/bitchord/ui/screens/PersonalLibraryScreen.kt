@@ -98,6 +98,7 @@ import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.ui.theme.rememberArtworkPalette
+import com.music.bitchord.ui.components.ExplicitSongTitle
 import com.music.bitchord.ui.components.PAGE_GUTTER
 import com.music.bitchord.ui.components.IosMenuShape
 import com.music.bitchord.ui.components.iosMenuPanel
@@ -589,12 +590,12 @@ private fun PersonalCollectionDetailDialog(
                                     }
                                 }
                                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                                    Text(
-                                        song.title,
+                                    ExplicitSongTitle(
+                                        song = song,
                                         style = MaterialTheme.typography.titleMedium,
                                         color = palette.onBackground,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
+                                        badgeColor = palette.onBackgroundVariant,
+                                        modifier = Modifier.fillMaxWidth(),
                                     )
                                     Text(
                                         song.artist,
@@ -872,7 +873,13 @@ fun PersonalLibraryScreen(
                         modifier = Modifier.weight(1f).clickable { onPlaySong(songsForQueue, index) }
                             .padding(horizontal = 12.dp, vertical = 8.dp),
                     ) {
-                        Text(entry.song.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        ExplicitSongTitle(
+                            song = entry.song,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            badgeColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
                         Text(entry.song.artist, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     IconButton(onClick = {
@@ -1081,7 +1088,13 @@ internal fun PersonalLibraryAddDialog(
                                 ) {
                                     AsyncImage(song.thumbnailUrl, null, Modifier.size(52.dp).clip(RoundedCornerShape(12.dp)), contentScale = ContentScale.Crop)
                                     Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
-                                        Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        ExplicitSongTitle(
+                                            song = song,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            badgeColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.fillMaxWidth(),
+                                        )
                                         Text(song.artist, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                     Icon(Icons.Rounded.Add, contentDescription = "Add song")
