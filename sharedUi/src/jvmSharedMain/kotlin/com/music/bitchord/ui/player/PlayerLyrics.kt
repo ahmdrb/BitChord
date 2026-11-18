@@ -1834,6 +1834,8 @@ internal fun LyricsPanel(
     }
     val keepScroll = remember(listState) { keepScrollInList(listState) }
     var browsingByDrag by remember { mutableStateOf(false) }
+    // Distinguish a user's fling from the player's own line-follow animation.
+    val manualBrowseInProgress = rememberUpdatedState(browsingByDrag)
     // A finger may land while automatic line-follow is in flight. Hold that
     // movement until the touch ends so the row stays under the finger long
     // enough for its click handler to seek on the first tap.
@@ -2071,16 +2073,17 @@ internal fun LyricsPanel(
             .bleedHorizontally(PLAYER_GUTTER)
             .nestedScroll(controlsOnScroll)
             .nestedScroll(keepScroll)
-            // A fling is still a scroll gesture even after the finger has left
-            // the screen. Stop that motion on a fresh down so a tap on a distant
-            // visible line is not swallowed as the list finishes its fling.
+            // A user's fling can keep moving a distant row under the
+            // finger. Stop only that gesture's motion; stopping every active
+            // scroll here also interrupted the player's own lyric-follow
+            // animation and raced the line's click handler.
             .pointerInput(listState) {
                 awaitEachGesture {
                     awaitFirstDown(
                         requireUnconsumed = false,
                         pass = PointerEventPass.Initial,
                     )
-                    if (listState.isScrollInProgress) {
+                    if (manualBrowseInProgress.value && listState.isScrollInProgress) {
                         scrollStopScope.launch { listState.stopScroll() }
                     }
                 }
