@@ -154,6 +154,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 
 /** Returns true if any character in [text] belongs to a BMP RTL script. */
@@ -1834,22 +1835,38 @@ internal fun LyricsPanel(
     // movement until the touch ends so the row stays under the finger long
     // enough for its click handler to seek on the first tap.
     var touchInProgress by remember { mutableStateOf(false) }
-    // A line seek reaches the playhead asynchronously. Keep the old focus from
-    // pulling the list away during that hand-off after the finger has lifted.
-    var tapSeekLine by remember { mutableIntStateOf(-1) }
-    LaunchedEffect(tapSeekLine) {
-        if (tapSeekLine >= 0) {
-            delay(1_500)
-            tapSeekLine = -1
+    // Keep the manually chosen row in place until the playhead has actually
+    // reached it. A fixed delay was too short for a far seek and let auto-follow
+    // pull the reader back to the previous verse before the seek had settled.
+    var tapSeekTargetMs by remember { mutableLongStateOf(-1L) }
+    var tapSeekRequest by remember { mutableIntStateOf(0) }
+    var tapSeekBaseline by remember { mutableStateOf<Pair<Long, Long>?>(null) }
+    LaunchedEffect(tapSeekRequest) {
+        val targetMs = tapSeekTargetMs.takeIf { it >= 0L } ?: return@LaunchedEffect
+        val request = tapSeekRequest
+        val (startingDiscontinuity, startingPosition) =
+            tapSeekBaseline ?: (playhead.discontinuity to clock.longValue)
+        withTimeoutOrNull(5_000L) {
+            snapshotFlow { playhead.discontinuity to clock.longValue }.first { (discontinuity, positionMs) ->
+                abs(positionMs - targetMs) <= 1_800L &&
+                    (discontinuity != startingDiscontinuity ||
+                        abs(startingPosition - targetMs) <= 1_800L)
+            }
+        }
+        if (tapSeekRequest == request) {
+            tapSeekTargetMs = -1L
+            tapSeekBaseline = null
         }
     }
-    val seekFromLineTap: (Int, Long) -> Unit = { index, timeMs ->
-        tapSeekLine = index
+    val seekFromLineTap: (Long) -> Unit = { timeMs ->
+        tapSeekBaseline = playhead.discontinuity to clock.longValue
+        tapSeekTargetMs = timeMs
+        tapSeekRequest++
         onSeekToLine(timeMs)
     }
     // While picking lines, the panel must not auto-scroll — the reader needs
     // the list to stay put so they can tap the lines they want.
-    val browsing = browsingByDrag || picking || tapSeekLine >= 0
+    val browsing = browsingByDrag || picking || tapSeekTargetMs >= 0L
     val onBottomHalfTap: () -> Unit = {
         // A pick has the whole panel to itself: the controls that a tap down
         // there would pull back in are the player's transport, and it must not
@@ -2065,7 +2082,10 @@ internal fun LyricsPanel(
             }
             // Pause auto-follow without consuming the touch, then leave the
             // actual tap to the lyric row so it seeks on the first attempt.
-            .holdLyricsAutoFollowWhileTouched { touchInProgress = it }
+            .holdLyricsAutoFollowWhileTouched(
+                onTouchChanged = { touchInProgress = it },
+                onTouchStarted = { listState.stopScroll() },
+            )
             .fadingEdges(),
         // Each row carries GLOW_ROOM of its own inset for the halo, so the
         // list hands that much back — otherwise the lines would sit a glow's
@@ -2197,7 +2217,7 @@ internal fun LyricsPanel(
                         // A gap is nothing to pick, so it only ever seeks — and
                         // not even that while a pick is open, where a stray tap
                         // in the silence would jump the song.
-                        .clickable(enabled = isSynced && !picking) { seekFromLineTap(index, line.timeMs) }
+                        .clickable(enabled = isSynced && !picking) { seekFromLineTap(line.timeMs) }
                         // Matches the inset every sung line carries, so the
                         // rhythm of the list doesn't break at a break.
                         .padding(GLOW_ROOM)
@@ -2343,7 +2363,7 @@ internal fun LyricsPanel(
                                     if (picking) {
                                         onTogglePick(index)
                                     } else {
-                                        seekFromLineTap(index, line.timeMs)
+                                        seekFromLineTap(line.timeMs)
                                     }
                                 },
                             )
@@ -2356,7 +2376,7 @@ internal fun LyricsPanel(
                                 enabled = isSynced,
                                 interactionSource = interaction,
                                 indication = LocalIndication.current,
-                            ) { seekFromLineTap(index, line.timeMs) }
+                            ) { seekFromLineTap(line.timeMs) }
                         },
                     )
                 // Lead and answering vocal are one row: they are one line of
