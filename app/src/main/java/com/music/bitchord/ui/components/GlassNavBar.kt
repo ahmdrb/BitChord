@@ -561,17 +561,13 @@ private fun GlassNowPlaying(
                             translationX = dragOffset * size.width
                         },
                     )
-                    val adjacentStart = if (trackTransition.direction.intValue > 0) {
-                        size.width
-                    } else {
-                        -size.width
-                    }
+                    val adjacentDirection = if (trackTransition.direction.intValue > 0) 1f else -1f
                     GlassTrackArtwork(
                         artSong = adjacentSong,
                         playingSong = song,
                         dock = dock,
                         modifier = Modifier.fillMaxSize().graphicsLayer {
-                            translationX = adjacentStart + dragOffset * size.width
+                            translationX = adjacentDirection * size.width + dragOffset * size.width
                         },
                     )
                 }
