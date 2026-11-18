@@ -1739,14 +1739,24 @@ object InnertubeParser {
 
     /** YouTube nests this badge differently across search, album and queue renderers. */
     private fun JsonElement?.hasExplicitBadge(): Boolean? =
-        true.takeIf {
-            when (this) {
-                is JsonPrimitive -> contentOrNull == "MUSIC_EXPLICIT_BADGE"
-                is JsonArray -> any { it.hasExplicitBadge() == true }
-                is JsonObject -> values.any { it.hasExplicitBadge() == true }
-                null -> false
-            }
+        true.takeIf { containsExplicitBadge(this) }
+
+    private fun containsExplicitBadge(element: JsonElement?): Boolean = when (element) {
+        is JsonPrimitive -> element.contentOrNull == "MUSIC_EXPLICIT_BADGE"
+        is JsonArray -> element.any(::containsExplicitBadge)
+        is JsonObject -> {
+            val inlineBadge = element["musicInlineBadgeRenderer"]
+            val iconType = inlineBadge.o("icon").s("iconType")
+            val accessibility = inlineBadge.o("accessibilityData")
+            val label = inlineBadge.s("label")
+                ?: accessibility.s("label")
+                ?: accessibility.o("accessibilityData").s("label")
+            iconType == "MUSIC_EXPLICIT_BADGE" ||
+                label.equals("Explicit", ignoreCase = true) ||
+                element.values.any(::containsExplicitBadge)
         }
+        null -> false
+    }
 
     private val DURATION = Regex("""\d+:\d{2}""")
     /** One unit of an episode's runtime — "2 hr", "43 min", "10 sec". */
