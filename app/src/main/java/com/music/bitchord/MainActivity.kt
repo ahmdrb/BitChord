@@ -2561,8 +2561,20 @@ private fun BitChordApp(
             ?.data
             ?.firstOrNull { it.videoId == current.videoId }
             ?.isExplicit == true
+        // A rendition switch may give the player a different media id from
+        // the catalogue row that supplied the explicit flag. Check both known
+        // cuts as well as the current id before rebuilding the visible Song.
+        val renditionIds = listOfNotNull(
+            current.videoId,
+            convertedAudioId,
+            convertedVideoId,
+            keepVideoId,
+            YtMusicRepository.cachedAudioVersion(current.videoId)?.videoId,
+            YtMusicRepository.cachedVideoVersion(current.videoId)?.videoId,
+        )
+        val explicitOnRendition = renditionIds.any { explicitTrackIds[it] == true }
         val isExplicit = current.isExplicit == true ||
-            explicitTrackIds[current.videoId] == true ||
+            explicitOnRendition ||
             explicitOnVisibleDetail
         if (extra == null && isExplicit == (current.isExplicit == true)) {
             current
@@ -2601,7 +2613,11 @@ private fun BitChordApp(
             // A quality/version swap may not carry catalogue badges in its
             // replacement metadata. Keep the source track's positive explicit
             // flag so the player title does not lose its badge mid-session.
-            if (song.isExplicit == true && versionSong.isExplicit != true) {
+            if ((song.isExplicit == true ||
+                    explicitTrackIds[song.videoId] == true ||
+                    explicitTrackIds[versionSong.videoId] == true) &&
+                versionSong.isExplicit != true
+            ) {
                 versionSong.copy(isExplicit = true)
             } else {
                 versionSong
