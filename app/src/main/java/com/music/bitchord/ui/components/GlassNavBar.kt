@@ -209,6 +209,8 @@ fun GlassNavBar(
     // FloatingTabBar retains its accessory factories while the tab layout is
     // stable. Keep the playback values live inside those retained factories.
     val latestSong = rememberUpdatedState(song)
+    val latestPreviousSong = rememberUpdatedState(previousSong)
+    val latestNextSong = rememberUpdatedState(nextSong)
     val latestIsPlaying = rememberUpdatedState(isPlaying)
     val latestIsLoading = rememberUpdatedState(isLoading)
     val latestProgress = rememberUpdatedState(progressFraction)
@@ -248,8 +250,8 @@ fun GlassNavBar(
                     GlassNowPlaying(
                         song = activeSong,
                         trackTransition = miniTrackTransition,
-                        previousSong = previousSong,
-                        nextSong = nextSong,
+                        previousSong = latestPreviousSong.value,
+                        nextSong = latestNextSong.value,
                         isInline = true,
                         isPlaying = latestIsPlaying.value,
                         isLoading = latestIsLoading.value,
@@ -274,8 +276,8 @@ fun GlassNavBar(
                     GlassNowPlaying(
                         song = activeSong,
                         trackTransition = miniTrackTransition,
-                        previousSong = previousSong,
-                        nextSong = nextSong,
+                        previousSong = latestPreviousSong.value,
+                        nextSong = latestNextSong.value,
                         isInline = false,
                         isPlaying = latestIsPlaying.value,
                         isLoading = latestIsLoading.value,
