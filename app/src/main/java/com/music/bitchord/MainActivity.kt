@@ -4302,113 +4302,46 @@ private fun BitChordApp(
                             // like a different toolbar.
                             if ((isReleaseDetail || isLocalDetail || isArtistDetail) && detail != null) {
                                 val detailSongs = (detail.songs as? UiState.Success)?.data.orEmpty()
-                                if (detailSongs.isNotEmpty()) {
-                                    IconButton(onClick = { detailSearching = !detailSearching }) {
-                                        Icon(
-                                            if (detailSearching) Icons.Rounded.Close else BitChordIcons.Search,
-                                            contentDescription = stringResource(
-                                                if (detailSearching) R.string.close_search else R.string.search_this_list,
-                                            ),
-                                            tint = MaterialTheme.colorScheme.onSurface,
-                                        )
-                                    }
-                                }
-                                // The menu itself is [FrostedSortMenu], composed
-                                // with the app's other frosted overlays further
-                                // down — in the main hierarchy, where the haze
-                                // can see the content it blurs.
-                                IconButton(
-                                    onClick = { if (isLocalDetail) folderMenuOpen = true else songSortMenuOpen = true },
-                                ) {
-                                    Icon(
-                                        Icons.Rounded.Sort,
-                                        contentDescription = stringResource(
-                                            if (isLocalDetail) R.string.sort_music else R.string.sort_songs,
-                                        ),
-                                        tint = MaterialTheme.colorScheme.onSurface,
-                                    )
-                                }
-                                if (isReleaseDetail && detailSongs.isNotEmpty()) {
-                                    // The release's More action remains in the same
-                                    // shared pill and opens its existing collection menu.
-                                    IconButton(
-                                        modifier = Modifier.menuAnchor(),
-                                        onClick = {
-                                            openBrowseMenu(BrowseTarget(
-                                                browseId = detail.browseId,
-                                                title = detail.title,
-                                                subtitle = detail.subtitle,
-                                                thumbnailUrl = detail.thumbnailUrl,
-                                                type = detail.type,
-                                                songs = detailSongs.sortedForDetail(songSort).map { song ->
-                                                    if (detail.type == BrowseType.ALBUM) {
-                                                        song.copy(albumName = song.albumName ?: detail.title)
-                                                    } else {
-                                                        song
-                                                    }
-                                                },
-                                                fromCard = false,
-                                                downloadId = downloadIdFor(detail.browseId),
-                                            ))
-                                        },
-                                    ) {
-                                        Icon(
-                                            Icons.Rounded.MoreHoriz,
-                                            contentDescription = stringResource(R.string.more),
-                                            tint = MaterialTheme.colorScheme.onSurface,
-                                        )
-                                    }
-                                }
-                                if (isArtistDetail) {
-                                    val isPersonalArtist = personalLibrary.artists.any {
+                                DetailPageTopBarActions(
+                                    isReleaseDetail = isReleaseDetail,
+                                    isLocalDetail = isLocalDetail,
+                                    isArtistDetail = isArtistDetail,
+                                    browseId = detail.browseId,
+                                    title = detail.title,
+                                    songs = detailSongs,
+                                    isPersonalArtist = personalLibrary.artists.any {
                                         it.browseId == detail.browseId
-                                    }
-                                    val canShareArtist = detail.browseId.startsWith("UC")
-                                    if (isPersonalArtist || canShareArtist) {
-                                        Box {
-                                            IconButton(onClick = { artistMoreMenuOpen = true }) {
-                                                Icon(
-                                                    Icons.Rounded.MoreHoriz,
-                                                    contentDescription = stringResource(R.string.more),
-                                                    tint = MaterialTheme.colorScheme.onSurface,
-                                                )
-                                            }
-                                            DropdownMenu(
-                                                expanded = artistMoreMenuOpen,
-                                                onDismissRequest = { artistMoreMenuOpen = false },
-                                            ) {
-                                                if (canShareArtist) {
-                                                    DropdownMenuItem(
-                                                        text = { Text(stringResource(R.string.share)) },
-                                                        onClick = {
-                                                            artistMoreMenuOpen = false
-                                                            val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                                                                type = "text/plain"
-                                                                putExtra(
-                                                                    Intent.EXTRA_TEXT,
-                                                                    "https://music.youtube.com/channel/${detail.browseId}",
-                                                                )
-                                                            }
-                                                            context.startActivity(
-                                                                Intent.createChooser(sendIntent, detail.title),
-                                                            )
-                                                        },
-                                                    )
+                                    },
+                                    detailSearching = detailSearching,
+                                    onDetailSearchToggle = { detailSearching = !detailSearching },
+                                    onSortClick = {
+                                        if (isLocalDetail) folderMenuOpen = true else songSortMenuOpen = true
+                                    },
+                                    onMoreClick = {
+                                        openBrowseMenu(BrowseTarget(
+                                            browseId = detail.browseId,
+                                            title = detail.title,
+                                            subtitle = detail.subtitle,
+                                            thumbnailUrl = detail.thumbnailUrl,
+                                            type = detail.type,
+                                            songs = detailSongs.sortedForDetail(songSort).map { song ->
+                                                if (detail.type == BrowseType.ALBUM) {
+                                                    song.copy(albumName = song.albumName ?: detail.title)
+                                                } else {
+                                                    song
                                                 }
-                                                if (isPersonalArtist) {
-                                                    DropdownMenuItem(
-                                                        text = { Text("Delete artist") },
-                                                        onClick = {
-                                                            artistMoreMenuOpen = false
-                                                            PersonalLibraryStore.removeArtist(detail.browseId)
-                                                            viewModel.closeDetail()
-                                                        },
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
+                                            },
+                                            fromCard = false,
+                                            downloadId = downloadIdFor(detail.browseId),
+                                        ))
+                                    },
+                                    artistMoreMenuOpen = artistMoreMenuOpen,
+                                    onArtistMoreMenuOpenChange = { artistMoreMenuOpen = it },
+                                    onDeleteArtist = {
+                                        PersonalLibraryStore.removeArtist(detail.browseId)
+                                        viewModel.closeDetail()
+                                    },
+                                )
                             }
                             // Personal BitChord collections use these same shared
                             // FrostedTopBar controls. Their page content owns only
