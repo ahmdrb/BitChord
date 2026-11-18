@@ -84,4 +84,46 @@ class ExplicitBadgeTest {
         assertEquals(true, songs[2].isExplicit)
         assertNull(songs[3].isExplicit)
     }
+
+    @Test
+    fun searchRowsCarryExplicitFlagThroughTheSearchParser() {
+        val search = Json.parseToJsonElement(
+            """
+            {
+              "contents": {
+                "musicShelfRenderer": {
+                  "contents": [
+                    {
+                      "musicResponsiveListItemRenderer": {
+                        "overlay": {
+                          "musicItemThumbnailOverlayRenderer": {
+                            "content": {
+                              "musicPlayButtonRenderer": {
+                                "playNavigationEndpoint": {
+                                  "watchEndpoint": { "videoId": "search-explicit-track" }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "flexColumns": [
+                          { "musicResponsiveListItemFlexColumnRenderer": { "text": { "runs": [ { "text": "Explicit search track" } ] } } },
+                          { "musicResponsiveListItemFlexColumnRenderer": { "text": { "runs": [ { "text": "Artist" } ] } } }
+                        ],
+                        "badges": [
+                          { "musicInlineBadgeRenderer": { "icon": { "iconType": "MUSIC_EXPLICIT_BADGE" } } }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+            """,
+        ).jsonObject
+
+        val song = InnertubeParser.parseSearchSongs(search).single()
+        assertEquals("search-explicit-track", song.videoId)
+        assertEquals(true, song.isExplicit)
+    }
 }
