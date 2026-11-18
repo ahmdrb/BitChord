@@ -905,7 +905,9 @@ object InnertubeParser {
             albumId = credits.albumId,
             albumName = credits.albumName,
             isVideo = rowType == "video" || thumbnails.isNotSquare(),
-            isExplicit = renderer["subtitleBadges"].hasExplicitBadge(),
+            // The promoted card can put its explicit marker outside subtitleBadges.
+            // Search the complete card, as the ordinary track-row parser does.
+            isExplicit = renderer.hasExplicitBadge(),
         )
     }
 
