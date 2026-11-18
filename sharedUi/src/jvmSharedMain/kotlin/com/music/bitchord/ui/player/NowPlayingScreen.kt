@@ -1676,13 +1676,23 @@ fun NowPlayingScreen(
                 modifier = Modifier.fillMaxWidth().widthIn(max = PLAYER_MAX_WIDTH),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(
-                    text = song.title,
-                    style = MaterialTheme.typography.titleLarge,
-                    color = Color.White,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    if (song.isExplicit == true) {
+                        ExplicitBadge(color = Color.White.copy(alpha = 0.78f))
+                        Spacer(Modifier.width(6.dp))
+                    }
+                    Text(
+                        text = song.title,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
                 Text(
                     text = song.artist,
                     style = MaterialTheme.typography.bodyLarge,
