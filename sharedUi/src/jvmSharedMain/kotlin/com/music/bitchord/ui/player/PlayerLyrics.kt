@@ -26,9 +26,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.scrollBy
-import androidx.compose.foundation.gestures.stopScroll
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -104,8 +101,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -1822,8 +1817,6 @@ internal fun LyricsPanel(
     // the blur and the movement are one gesture.
     val focusLine = if (leadLine >= 0) leadLine else scrollLine
     val listState = rememberLazyListState()
-    // Stop an in-flight fling from the pointer handler's unrestricted scope.
-    val scrollStopScope = rememberCoroutineScope()
     LaunchedEffect(listState) {
         snapshotFlow { listState.isScrollInProgress }.collect(onScrollingChange)
     }
@@ -1834,8 +1827,6 @@ internal fun LyricsPanel(
     }
     val keepScroll = remember(listState) { keepScrollInList(listState) }
     var browsingByDrag by remember { mutableStateOf(false) }
-    // Distinguish a user's fling from the player's own line-follow animation.
-    val manualBrowseInProgress = rememberUpdatedState(browsingByDrag)
     // A finger may land while automatic line-follow is in flight. Hold that
     // movement until the touch ends so the row stays under the finger long
     // enough for its click handler to seek on the first tap.
@@ -2073,21 +2064,6 @@ internal fun LyricsPanel(
             .bleedHorizontally(PLAYER_GUTTER)
             .nestedScroll(controlsOnScroll)
             .nestedScroll(keepScroll)
-            // A user's fling can keep moving a distant row under the
-            // finger. Stop only that gesture's motion; stopping every active
-            // scroll here also interrupted the player's own lyric-follow
-            // animation and raced the line's click handler.
-            .pointerInput(listState) {
-                awaitEachGesture {
-                    awaitFirstDown(
-                        requireUnconsumed = false,
-                        pass = PointerEventPass.Initial,
-                    )
-                    if (manualBrowseInProgress.value && listState.isScrollInProgress) {
-                        scrollStopScope.launch { listState.stopScroll() }
-                    }
-                }
-            }
             // Pause auto-follow without consuming the touch, then leave the
             // actual tap to the lyric row so it seeks on the first attempt.
             .holdLyricsAutoFollowWhileTouched { touchInProgress = it }
