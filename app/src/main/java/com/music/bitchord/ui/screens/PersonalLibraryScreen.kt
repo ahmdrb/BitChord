@@ -124,6 +124,12 @@ internal fun PersonalArtistDetailDialog(
     onDownloadAll: () -> Unit,
     playingVideoId: String?,
     isPlaying: Boolean,
+    /** Search and menu triggers are owned by the app-wide FrostedTopBar. */
+    searchOpen: Boolean,
+    sortMenuOpen: Boolean,
+    onSortMenuOpenChange: (Boolean) -> Unit,
+    menuOpen: Boolean,
+    onMenuOpenChange: (Boolean) -> Unit,
 ) {
     PersonalCollectionDetailDialog(
         title = artist.title,
@@ -143,6 +149,11 @@ internal fun PersonalArtistDetailDialog(
         onDownloadAll = onDownloadAll,
         playingVideoId = playingVideoId,
         isPlaying = isPlaying,
+        searchOpen = searchOpen,
+        sortMenuOpen = sortMenuOpen,
+        onSortMenuOpenChange = onSortMenuOpenChange,
+        menuOpen = menuOpen,
+        onMenuOpenChange = onMenuOpenChange,
     )
 }
 
@@ -215,6 +226,12 @@ internal fun PersonalPlaylistDetailDialog(
     onDownloadAll: () -> Unit,
     playingVideoId: String?,
     isPlaying: Boolean,
+    /** Search and menu triggers are owned by the app-wide FrostedTopBar. */
+    searchOpen: Boolean,
+    sortMenuOpen: Boolean,
+    onSortMenuOpenChange: (Boolean) -> Unit,
+    menuOpen: Boolean,
+    onMenuOpenChange: (Boolean) -> Unit,
 ) {
     PersonalCollectionDetailDialog(
         title = playlist.title,
@@ -235,6 +252,11 @@ internal fun PersonalPlaylistDetailDialog(
         onDownloadAll = onDownloadAll,
         playingVideoId = playingVideoId,
         isPlaying = isPlaying,
+        searchOpen = searchOpen,
+        sortMenuOpen = sortMenuOpen,
+        onSortMenuOpenChange = onSortMenuOpenChange,
+        menuOpen = menuOpen,
+        onMenuOpenChange = onMenuOpenChange,
     )
 }
 
@@ -258,11 +280,14 @@ private fun PersonalCollectionDetailDialog(
     onDownloadAll: () -> Unit,
     playingVideoId: String?,
     isPlaying: Boolean,
+    /** Search and menu triggers are owned by the app-wide FrostedTopBar. */
+    searchOpen: Boolean,
+    sortMenuOpen: Boolean,
+    onSortMenuOpenChange: (Boolean) -> Unit,
+    menuOpen: Boolean,
+    onMenuOpenChange: (Boolean) -> Unit,
 ) {
-    var menuOpen by remember { mutableStateOf(false) }
-    var sortMenuOpen by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
-    var searchOpen by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     var sortMode by remember { mutableStateOf("Default order") }
     var dateAddedDescending by remember { mutableStateOf(true) }
@@ -274,6 +299,7 @@ private fun PersonalCollectionDetailDialog(
             keyboard?.show()
         } else {
             keyboard?.hide()
+            searchQuery = ""
         }
     }
 
@@ -310,143 +336,109 @@ private fun PersonalCollectionDetailDialog(
                 )
             }
             Box(Modifier.fillMaxSize()) {
-                Column(
-                    Modifier.fillMaxWidth().align(Alignment.TopCenter).statusBarsPadding().zIndex(1f),
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                // The actual controls live in MainActivity's shared FrostedTopBar.
+                // These invisible anchors keep the existing popups attached to that
+                // same top-right control area without drawing another toolbar here.
+                Box(
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .statusBarsPadding()
+                        .padding(top = 24.dp, end = 20.dp)
+                        .size(1.dp),
                 ) {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.size(52.dp).background(palette.elevated, RoundedCornerShape(50))
-                            .border(1.dp, palette.divider, RoundedCornerShape(50)),
+                    DropdownMenu(
+                        expanded = sortMenuOpen,
+                        onDismissRequest = { onSortMenuOpenChange(false) },
+                        shape = RoundedCornerShape(18.dp),
+                        containerColor = palette.elevated,
+                        tonalElevation = 0.dp,
+                        shadowElevation = 16.dp,
+                        border = BorderStroke(1.dp, palette.divider),
                     ) {
-                        Icon(Icons.Rounded.ArrowBack, contentDescription = "Back", tint = palette.accent)
-                    }
-                    Spacer(Modifier.weight(1f))
-                    Row(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(palette.elevated)
-                            .border(1.dp, palette.divider, RoundedCornerShape(50)),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        IconButton(
-                            onClick = {
-                                searchOpen = !searchOpen
-                                if (!searchOpen) searchQuery = ""
-                            },
-                            modifier = Modifier.size(48.dp),
-                        ) {
-                            Icon(
-                                if (searchOpen) Icons.Rounded.Close else Icons.Rounded.Search,
-                                contentDescription = if (searchOpen) "Close search" else "Search this list",
-                                tint = palette.accent,
+                        listOf(
+                            "Date added",
+                            "Default order",
+                            "Alphabetical (A to Z)",
+                            "Alphabetical (Z to A)",
+                        ).forEach { option ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        option,
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = palette.onBackground,
+                                    )
+                                },
+                                trailingIcon = {
+                                    if (option == "Date added" && sortMode == option) {
+                                        Text(
+                                            if (dateAddedDescending) "↓" else "↑",
+                                            color = palette.accent,
+                                            style = MaterialTheme.typography.titleLarge,
+                                        )
+                                    } else if (sortMode == option) {
+                                        Icon(
+                                            Icons.Rounded.Check,
+                                            contentDescription = "Selected",
+                                            tint = palette.accent,
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    if (option == "Date added" && sortMode == "Date added") {
+                                        dateAddedDescending = !dateAddedDescending
+                                    } else {
+                                        sortMode = option
+                                    }
+                                    onSortMenuOpenChange(false)
+                                },
                             )
                         }
-                        Box {
-                            IconButton(
-                                onClick = { sortMenuOpen = true },
-                                modifier = Modifier.size(48.dp),
-                            ) {
-                                Icon(Icons.Rounded.FilterList, contentDescription = "Sort songs", tint = palette.accent)
-                            }
-                            DropdownMenu(
-                                expanded = sortMenuOpen,
-                                onDismissRequest = { sortMenuOpen = false },
-                                shape = RoundedCornerShape(18.dp),
-                                containerColor = palette.elevated,
-                                tonalElevation = 0.dp,
-                                shadowElevation = 16.dp,
-                                border = BorderStroke(1.dp, palette.divider),
-                            ) {
-                                listOf(
-                                    "Date added",
-                                    "Default order",
-                                    "Alphabetical (A to Z)",
-                                    "Alphabetical (Z to A)",
-                                ).forEach { option ->
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(
-                                                option,
-                                                style = MaterialTheme.typography.labelLarge,
-                                                color = palette.onBackground,
-                                            )
-                                        },
-                                        trailingIcon = {
-                                            if (option == "Date added" && sortMode == option) {
-                                                Text(if (dateAddedDescending) "↓" else "↑", color = palette.accent, style = MaterialTheme.typography.titleLarge)
-                                            } else if (sortMode == option) {
-                                                Icon(Icons.Rounded.Check, contentDescription = "Selected", tint = palette.accent)
-                                            }
-                                        },
-                                        onClick = {
-                                            if (option == "Date added" && sortMode == "Date added") dateAddedDescending = !dateAddedDescending
-                                            else sortMode = option
-                                            sortMenuOpen = false
-                                        },
-                                    )
-                                }
-                            }
-                        }
-                        Box {
-                            IconButton(
-                                onClick = { menuOpen = true },
-                                modifier = Modifier.size(48.dp),
-                            ) {
-                                Icon(Icons.Rounded.MoreHoriz, contentDescription = "More options", tint = palette.accent)
-                            }
-                            DropdownMenu(
-                                expanded = menuOpen,
-                                onDismissRequest = { menuOpen = false },
-                                shape = RoundedCornerShape(18.dp),
-                                containerColor = palette.elevated,
-                                tonalElevation = 0.dp,
-                                shadowElevation = 16.dp,
-                                border = BorderStroke(1.dp, palette.divider),
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("Play next", color = palette.onBackground) },
-                                    onClick = { menuOpen = false; onPlayNextAll() },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Add to queue", color = palette.onBackground) },
-                                    onClick = { menuOpen = false; onAddAllToQueue() },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Download all", color = palette.onBackground) },
-                                    onClick = { menuOpen = false; onDownloadAll() },
-                                )
-                                if (onCustomizeArtwork != null) {
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(
-                                                "Customize artwork",
-                                                style = MaterialTheme.typography.labelLarge,
-                                                color = palette.onBackground,
-                                            )
-                                        },
-                                        onClick = { menuOpen = false; onCustomizeArtwork() },
-                                    )
-                                }
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            if (collectionKind == "playlist") "Delete playlist" else "Remove from collection",
-                                            style = MaterialTheme.typography.labelLarge,
-                                            color = MaterialTheme.colorScheme.error,
-                                        )
-                                    },
-                                    onClick = { menuOpen = false; confirmDelete = true },
-                                )
-                            }
-                        }
                     }
-                }
-
+                    DropdownMenu(
+                        expanded = menuOpen,
+                        onDismissRequest = { onMenuOpenChange(false) },
+                        shape = RoundedCornerShape(18.dp),
+                        containerColor = palette.elevated,
+                        tonalElevation = 0.dp,
+                        shadowElevation = 16.dp,
+                        border = BorderStroke(1.dp, palette.divider),
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Play next", color = palette.onBackground) },
+                            onClick = { onMenuOpenChange(false); onPlayNextAll() },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Add to queue", color = palette.onBackground) },
+                            onClick = { onMenuOpenChange(false); onAddAllToQueue() },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Download all", color = palette.onBackground) },
+                            onClick = { onMenuOpenChange(false); onDownloadAll() },
+                        )
+                        if (onCustomizeArtwork != null) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        "Customize artwork",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = palette.onBackground,
+                                    )
+                                },
+                                onClick = { onMenuOpenChange(false); onCustomizeArtwork() },
+                            )
+                        }
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    if (collectionKind == "playlist") "Delete playlist" else "Remove from collection",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            },
+                            onClick = { onMenuOpenChange(false); confirmDelete = true },
+                        )
+                    }
                 }
 
                 LazyColumn(
