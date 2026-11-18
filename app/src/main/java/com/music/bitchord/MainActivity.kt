@@ -4064,7 +4064,13 @@ private fun BitChordApp(
                     // circles over the shared gradient — no full-width pane.
                     transparentBackdrop = true,
                     artworkPageChrome = true,
-                    backButtonHazeState = hazeState,
+                    // Keep the shared Playlist/Artist navigation surfaces
+                    // independent of the scrolling page's Haze sample. They are
+                    // the same app-level controls used by Local Music, not page
+                    // content to be washed by the progressive blur.
+                    backButtonHazeState = if (
+                        detail?.type == BrowseType.PLAYLIST || detail?.type == BrowseType.ARTIST
+                    ) null else hazeState,
                     trailingTitle = if (detail != null && detailActiveShelf != null) detail.title else null,
                     // Search has no large in-list header to hand the title back to —
                     // the field takes that space — so its bar title is always up.
