@@ -13,7 +13,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.ui.components.LocalLiquidGlassEnabled
+import com.music.bitchord.ui.components.isGlassSupported
+import com.music.bitchord.ui.components.glassContentColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.music.bitchord.data.model.Song
@@ -45,6 +51,9 @@ internal fun DetailPageTopBarActions(
     onDeleteArtist: () -> Unit,
 ) {
     val context = LocalContext.current
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val glassControls = LocalLiquidGlassEnabled.current && isGlassSupported() && !reduceDynamicBlur
+    val controlTint = if (glassControls) glassContentColor() else MaterialTheme.colorScheme.onSurface
     val canShareArtist = browseId.startsWith("UC")
 
     if (songs.isNotEmpty()) {
@@ -54,7 +63,7 @@ internal fun DetailPageTopBarActions(
                 contentDescription = stringResource(
                     if (detailSearching) R.string.close_search else R.string.search_this_list,
                 ),
-                tint = MaterialTheme.colorScheme.onSurface,
+                tint = controlTint,
             )
         }
     }
@@ -67,7 +76,7 @@ internal fun DetailPageTopBarActions(
             contentDescription = stringResource(
                 if (isLocalDetail) R.string.sort_music else R.string.sort_songs,
             ),
-            tint = MaterialTheme.colorScheme.onSurface,
+            tint = controlTint,
         )
     }
 
@@ -79,7 +88,7 @@ internal fun DetailPageTopBarActions(
             Icon(
                 Icons.Rounded.MoreHoriz,
                 contentDescription = stringResource(R.string.more),
-                tint = MaterialTheme.colorScheme.onSurface,
+                tint = controlTint,
             )
         }
     }
@@ -90,7 +99,7 @@ internal fun DetailPageTopBarActions(
                 Icon(
                     Icons.Rounded.MoreHoriz,
                     contentDescription = stringResource(R.string.more),
-                    tint = MaterialTheme.colorScheme.onSurface,
+                    tint = controlTint,
                 )
             }
             DropdownMenu(

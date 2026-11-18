@@ -1826,10 +1826,6 @@ internal fun LyricsPanel(
     }
     val keepScroll = remember(listState) { keepScrollInList(listState) }
     var browsingByDrag by remember { mutableStateOf(false) }
-    // A finger may land while automatic line-follow is in flight. Hold that
-    // movement until the touch ends so the row stays under the finger long
-    // enough for its ordinary clickable to complete on the first tap.
-    var touchInProgress by remember { mutableStateOf(false) }
     // While picking lines, the panel must not auto-scroll — the reader needs
     // the list to stay put so they can tap the lines they want.
     val browsing = browsingByDrag || picking
@@ -1947,8 +1943,8 @@ internal fun LyricsPanel(
     // browse on their own terms.
     // A newer line replaces an unfinished automatic scroll. Only a user's
     // browsing gesture should suspend following, not our own animation.
-    LaunchedEffect(focusLine, browsing, controlsOpen, active, touchInProgress) {
-        if (active && !touchInProgress && isSynced && !browsing &&
+    LaunchedEffect(focusLine, browsing, controlsOpen, active) {
+        if (active && isSynced && !browsing &&
             focusLine >= 0 && focusLine in lines.indices
         ) {
             // Centred, the top padding is half the viewport, and it only exists
@@ -2034,10 +2030,8 @@ internal fun LyricsPanel(
             .bleedHorizontally(PLAYER_GUTTER)
             .nestedScroll(controlsOnScroll)
             .nestedScroll(keepScroll)
-            // Pause auto-follow without consuming the touch, then leave the
-            // actual tap to the lyric row so it seeks on the first attempt.
-            .holdLyricsAutoFollowWhileTouched { touchInProgress = it }
-            .revealLyricsControlsOnTap(!controlsOpen && !picking, onBottomHalfTap)
+            // Populated lyric rows own their taps directly: no parent gesture
+            // observer runs alongside their click/long-click handlers.
             .fadingEdges(),
         // Each row carries GLOW_ROOM of its own inset for the halo, so the
         // list hands that much back — otherwise the lines would sit a glow's

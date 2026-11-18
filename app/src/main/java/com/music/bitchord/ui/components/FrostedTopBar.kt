@@ -375,17 +375,19 @@ private fun ArtworkPageBackButton(
         MaterialTheme.colorScheme.onSurface
     }
 
-    IconButton(
-        onClick = onClick,
-        modifier = modifier
-            .size(TOP_CONTROL_SIZE)
-            .then(artworkPageSurface(shape = shape, hazeState = hazeState, lightweightGlass = lightweightGlass)),
-    ) {
-        Icon(
-            SfIcons.ArrowBack,
-            contentDescription = stringResource(R.string.back),
-            tint = contentColor,
-        )
+    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides TOP_CONTROL_SIZE) {
+        IconButton(
+            onClick = onClick,
+            modifier = modifier
+                .size(TOP_CONTROL_SIZE)
+                .then(artworkPageSurface(shape = shape, hazeState = hazeState, lightweightGlass = lightweightGlass)),
+        ) {
+            Icon(
+                SfIcons.ArrowBack,
+                contentDescription = stringResource(R.string.back),
+                tint = contentColor,
+            )
+        }
     }
 }
 
@@ -513,30 +515,31 @@ private fun artworkPageSurface(
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val useLiquidGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
 
-    return Modifier
-        .clip(shape)
-        .then(
-            when {
-                // Full liquidGlass samples and blurs the artwork beneath the
-                // hero-page navigation. These controls should stay legible over
-                // a moving cover/photo: keep the same glass tint and rim but no
-                // backdrop capture, blur or refraction.
-                lightweightGlass -> Modifier.lightweightLiquidGlass(
-                    shape = shape,
-                    fallbackColor = container,
-                )
-                useLiquidGlass -> Modifier.liquidGlass(shape)
-                reduceDynamicBlur || hazeState == null -> Modifier.background(container)
-                else -> Modifier.optimizedHazeEffect(
-                    state = hazeState,
-                    style = HazeMaterials.regular(container),
-                )
-            },
+    val surface = when {
+        // Playlist and Artist chrome stays bright and steady over artwork:
+        // a translucent neutral fill and a stronger white rim, without sampling
+        // or refracting the scrolling cover beneath it.
+        lightweightGlass -> Modifier.lightweightLiquidGlass(
+            shape = shape,
+            fallbackColor = container,
+            surfaceTint = navigationGlassSurfaceTint(),
+            edgeColor = NAVIGATION_GLASS_EDGE_COLOR,
         )
-        // Keep the same explicit hairline as FloatingBottomBar. Liquid glass
-        // also has its refractive highlight, but the navbar retains this edge
-        // so these surfaces do as well.
-        .border(GLASS_EDGE_WIDTH, GLASS_EDGE_COLOR, shape)
+        useLiquidGlass -> Modifier.liquidGlass(shape)
+        reduceDynamicBlur || hazeState == null -> Modifier.background(container)
+        else -> Modifier.optimizedHazeEffect(
+            state = hazeState,
+            style = HazeMaterials.regular(container),
+        )
+    }
+
+    return Modifier.clip(shape)
+        .then(surface)
+        // lightweightLiquidGlass already supplies the brighter navigation rim.
+        .then(
+            if (lightweightGlass) Modifier
+            else Modifier.border(GLASS_EDGE_WIDTH, GLASS_EDGE_COLOR, shape),
+        )
 }
 
 /**

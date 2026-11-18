@@ -100,6 +100,18 @@ private const val FROST_RESOLUTION_SCALE = 0.25f
 internal val GLASS_EDGE_WIDTH = 0.5.dp
 internal val GLASS_EDGE_COLOR = Color.White.copy(alpha = 0.10f)
 
+/** A cleaner tint reserved for navigation surfaces; player glass stays unchanged. */
+@Composable
+internal fun navigationGlassSurfaceTint(): Color =
+    if (MaterialTheme.colorScheme.surface.luminance() > 0.5f) {
+        Color(0xFFFAFAFA).copy(alpha = 0.34f)
+    } else {
+        Color.White.copy(alpha = 0.16f)
+    }
+
+internal val NAVIGATION_GLASS_EDGE_WIDTH = 0.75.dp
+internal val NAVIGATION_GLASS_EDGE_COLOR = Color.White.copy(alpha = 0.28f)
+
 /**
  * Icon and label colour for content sitting on a glass surface.
  *
@@ -143,6 +155,10 @@ private const val DARK_INDICATOR_OPACITY = 0.14f
 fun Modifier.lightweightLiquidGlass(
     shape: CornerBasedShape,
     fallbackColor: Color,
+    /** Optional fill for a specific lightweight glass surface. */
+    surfaceTint: Color? = null,
+    /** Optional rim for surfaces that need a more visible edge. */
+    edgeColor: Color = GLASS_EDGE_COLOR,
 ): Modifier {
     val useGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
     val glassTint = if (MaterialTheme.colorScheme.surface.luminance() > 0.5f) {
@@ -151,10 +167,11 @@ fun Modifier.lightweightLiquidGlass(
         Color(0xFF121212)
     }
     val shapeProvider = ShapeProvider { shape }
+    val tint = surfaceTint ?: glassTint.copy(alpha = SURFACE_OPACITY)
 
     return clip(shape)
         .background(
-            color = if (useGlass) glassTint.copy(alpha = SURFACE_OPACITY) else fallbackColor,
+            color = if (useGlass) tint else fallbackColor,
             shape = shape,
         )
         .then(
@@ -167,7 +184,7 @@ fun Modifier.lightweightLiquidGlass(
                 Modifier
             },
         )
-        .border(GLASS_EDGE_WIDTH, GLASS_EDGE_COLOR, shape)
+        .border(GLASS_EDGE_WIDTH, if (useGlass) edgeColor else GLASS_EDGE_COLOR, shape)
 }
 
 /**

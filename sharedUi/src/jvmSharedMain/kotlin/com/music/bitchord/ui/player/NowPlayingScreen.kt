@@ -1683,7 +1683,7 @@ fun NowPlayingScreen(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     if (song.isExplicit == true) {
-                        ExplicitBadge(color = Color.White.copy(alpha = 0.78f))
+                        ExplicitBadge(color = Color.White, modifier = Modifier.size(15.dp))
                         Spacer(Modifier.width(6.dp))
                     }
                     Text(

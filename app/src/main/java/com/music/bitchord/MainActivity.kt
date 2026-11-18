@@ -1582,6 +1582,11 @@ private fun BitChordApp(
         }
     }
 
+    // Media3 metadata can be rebuilt by several playback paths. Remember positive
+    // explicit flags for tracks the listener starts so the landscape title does
+    // not depend on an optional media-session extra surviving.
+    val explicitTrackIds = remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }
+
     fun playFrom(
         allSongs: List<Song>,
         allIndex: Int,
@@ -1589,6 +1594,7 @@ private fun BitChordApp(
         boundedContext: Boolean = false,
         continuationToken: String? = null,
     ) {
+        allSongs.filter { it.isExplicit == true }.forEach { explicitTrackIds[it.videoId] = true }
         // A Spotify page lists songs it has not found on YouTube Music yet (or
         // never will); those can't be queued, so play the rest in their order.
         if (allSongs.getOrNull(allIndex)?.isUnresolvedSpotify == true) return
@@ -1686,6 +1692,7 @@ private fun BitChordApp(
      * where the surrounding list *is* the thing the user asked for.
      */
     val playRadio: (Song, QueueSource) -> Unit = { song, source ->
+        if (song.isExplicit == true) explicitTrackIds[song.videoId] = true
         playRequestGeneration++
         activeRadioSeed = null
         scope.launch {
@@ -1714,6 +1721,7 @@ private fun BitChordApp(
      * replaced in one Media3 operation.
      */
     val startRadio: (Song) -> Unit = { song ->
+        if (song.isExplicit == true) explicitTrackIds[song.videoId] = true
         val originalController = controller
         if (originalController != null && !refusedByHost()) {
             val request = ++playRequestGeneration
@@ -2548,12 +2556,24 @@ private fun BitChordApp(
         linksLoading = false
     }
     val playerSong = player.song?.let { current ->
-        val extra = links?.takeIf { it.videoId == current.videoId } ?: return@let current
-        current.copy(
-            artistId = current.artistId ?: extra.artistId,
-            albumId = current.albumId ?: extra.albumId,
-            albumName = current.albumName ?: extra.albumName,
-        )
+        val extra = links?.takeIf { it.videoId == current.videoId }
+        val explicitOnVisibleDetail = (detail?.songs as? UiState.Success)
+            ?.data
+            ?.firstOrNull { it.videoId == current.videoId }
+            ?.isExplicit == true
+        val isExplicit = current.isExplicit == true ||
+            explicitTrackIds[current.videoId] == true ||
+            explicitOnVisibleDetail
+        if (extra == null && isExplicit == (current.isExplicit == true)) {
+            current
+        } else {
+            current.copy(
+                artistId = current.artistId ?: extra?.artistId,
+                albumId = current.albumId ?: extra?.albumId,
+                albumName = current.albumName ?: extra?.albumName,
+                isExplicit = if (isExplicit) true else current.isExplicit,
+            )
+        }
     }
     // The three-dot menu snapshots the track into songActions when it's opened,
     // so a menu opened before the lookup above resolves would otherwise be
@@ -4012,7 +4032,9 @@ private fun BitChordApp(
                             detail.type == BrowseType.PLAYLIST ||
                             detail.type == BrowseType.ARTIST) &&
                         !isLocalDetail
-                    val chromePageColor = if (isDetailVisible) {
+                    // Artwork stays in the page itself; shared navigation chrome
+                    // rests on the theme surface rather than a cover-derived dark wash.
+                    val chromePageColor = if (isDetailVisible && !protectNavigationChrome) {
                         detailPalette.background
                     } else {
                         MaterialTheme.colorScheme.background

@@ -20,6 +20,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -233,6 +234,13 @@ fun GlassNavBar(
     // the three surfaces gets its own glass modifier and so its own shape cache.
     // The theme's own glass tint, as the liquid top bar has it — no white wash.
     val glassSurface: @Composable () -> Modifier = { Modifier.liquidGlass(shape = pillShape) }
+    // The tab container gets a brighter navigation tint; the mini-player
+    // accessory deliberately keeps the original glass material.
+    val tabBarGlassSurface: @Composable () -> Modifier = {
+        Modifier
+            .liquidGlass(shape = pillShape, surfaceTint = navigationGlassSurfaceTint())
+            .border(NAVIGATION_GLASS_EDGE_WIDTH, NAVIGATION_GLASS_EDGE_COLOR, pillShape)
+    }
 
     if (showTabs) {
         FloatingTabBar(
@@ -243,7 +251,7 @@ fun GlassNavBar(
             .padding(horizontal = NAV_BAR_GUTTER)
             .padding(bottom = NAV_BAR_LIFT)
             .fillMaxWidth(),
-        tabBarContentModifier = glassSurface,
+        tabBarContentModifier = tabBarGlassSurface,
         inlineAccessory = song?.let {
             { accessoryModifier, _ ->
                 latestSong.value?.let { activeSong ->
