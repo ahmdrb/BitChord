@@ -2064,6 +2064,16 @@ internal fun LyricsPanel(
             .bleedHorizontally(PLAYER_GUTTER)
             .nestedScroll(controlsOnScroll)
             .nestedScroll(keepScroll)
+            .seekLyricsWhenSheetConsumesTap(
+                listState = listState,
+                lines = lines,
+                enabled = isSynced,
+                canPick = canPick,
+                picking = picking,
+                onSeek = seekFromLineTap,
+                onPick = onPickLine,
+                onTogglePick = onTogglePick,
+            )
             // Pause auto-follow without consuming the touch, then leave the
             // actual tap to the lyric row so it seeks on the first attempt.
             .holdLyricsAutoFollowWhileTouched { touchInProgress = it }
