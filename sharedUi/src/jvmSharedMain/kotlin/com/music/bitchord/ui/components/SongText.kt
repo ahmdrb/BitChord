@@ -21,9 +21,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
@@ -169,21 +168,17 @@ fun ExplicitBadge(color: Color, modifier: Modifier = Modifier) {
     val capPx = with(density) { style.fontSize.toPx() } * CAP_HEIGHT
     // Square, as Apple's is, sized off the capital so it scales with the text.
     val side = with(density) { (capPx / BADGE_CAP_SHARE).toDp() }
-    Canvas(
-        modifier
-            .size(side)
-            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen },
-    ) {
+    Canvas(modifier.size(side)) {
         drawRoundRect(color = color, cornerRadius = CornerRadius(2.dp.toPx()))
+        // Draw a contrasting E instead of relying on DstOut to cut a hole in
+        // an offscreen layer; the glyph stays visible on Android surfaces.
         drawText(
             textLayoutResult = letter,
-            // Centred on the capital's own height rather than on its line box,
-            // whose ascent and descent are not the letter's.
             topLeft = Offset(
                 (this.size.width - letter.size.width) / 2f,
                 (this.size.height + capPx) / 2f - letter.firstBaseline,
             ),
-            blendMode = BlendMode.DstOut,
+            color = if (color.luminance() > 0.5f) Color.Black else Color.White,
         )
     }
 }
