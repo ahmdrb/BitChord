@@ -516,10 +516,10 @@ private fun artworkPageSurface(
     val useLiquidGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
 
     val surface = when {
-        // Playlist and Artist chrome stays bright and steady over artwork:
-        // a translucent neutral fill and a stronger white rim, without sampling
-        // or refracting the scrolling cover beneath it.
-        lightweightGlass -> Modifier.lightweightLiquidGlass(
+        // Keep the lightweight navigation glass only while Liquid Glass is on.
+        // With it off, Playlist/Artist controls use the same thin Haze material
+        // as the mini-player immediately below the page.
+        lightweightGlass && useLiquidGlass -> Modifier.lightweightLiquidGlass(
             shape = shape,
             fallbackColor = container,
             surfaceTint = navigationGlassSurfaceTint(),
@@ -529,7 +529,7 @@ private fun artworkPageSurface(
         reduceDynamicBlur || hazeState == null -> Modifier.background(container)
         else -> Modifier.optimizedHazeEffect(
             state = hazeState,
-            style = HazeMaterials.regular(container),
+            style = HazeMaterials.thin(container),
         )
     }
 
