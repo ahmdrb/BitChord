@@ -15,9 +15,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animate
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -33,7 +31,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.padding
@@ -461,15 +458,6 @@ private fun GlassNowPlaying(
         label = "accessoryPressScale",
     )
 
-    val titleStyle = MaterialTheme.typography.titleMedium.copy(
-        fontSize = ACCESSORY_TITLE_SIZE,
-        fontWeight = ACCESSORY_TITLE_WEIGHT,
-        letterSpacing = ACCESSORY_TITLE_TRACKING,
-    )
-    val artistStyle = MaterialTheme.typography.bodyMedium.copy(
-        fontSize = ACCESSORY_ARTIST_SIZE,
-        letterSpacing = ACCESSORY_ARTIST_TRACKING,
-    )
     // Liquid Glass stays neutral and theme-aware; artwork colours belong to the full player.
     val foreground = MaterialTheme.colorScheme.onSurface
     val secondaryForeground = MaterialTheme.colorScheme.onSurfaceVariant
@@ -730,8 +718,8 @@ private val EXPANDED_GLYPH_SIZE = 29.dp
 
 
 /**
- * Artwork and metadata move as one unit, like Mochy's mini-player carousel.
- * Transport controls remain outside this row, so they never shift on a track change.
+ * Artwork slides through its own clipped viewport; metadata crossfades separately.
+ * Transport controls remain outside both, so they never shift on a track change.
  */
 @Composable
 private fun GlassTrackArtwork(
