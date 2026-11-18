@@ -1745,13 +1745,23 @@ object InnertubeParser {
         is JsonPrimitive -> element.contentOrNull == "MUSIC_EXPLICIT_BADGE"
         is JsonArray -> element.any(::containsExplicitBadge)
         is JsonObject -> {
+            // Some response variants mark the track directly instead of
+            // attaching a musicInlineBadgeRenderer to the row.
+            val explicitFlag = listOf("isExplicit", "explicit", "isExplicitContent")
+                .any { key ->
+                    val value = element[key] as? JsonPrimitive
+                    value?.booleanOrNull == true ||
+                        value?.contentOrNull.equals("explicit", ignoreCase = true) ||
+                        value?.contentOrNull == "MUSIC_EXPLICIT_BADGE"
+                }
             val inlineBadge = element["musicInlineBadgeRenderer"]
             val iconType = inlineBadge.o("icon").s("iconType")
             val accessibility = inlineBadge.o("accessibilityData")
             val label = inlineBadge.s("label")
                 ?: accessibility.s("label")
                 ?: accessibility.o("accessibilityData").s("label")
-            iconType == "MUSIC_EXPLICIT_BADGE" ||
+            explicitFlag ||
+                iconType == "MUSIC_EXPLICIT_BADGE" ||
                 label.equals("Explicit", ignoreCase = true) ||
                 element.values.any(::containsExplicitBadge)
         }
