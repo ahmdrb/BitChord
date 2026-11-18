@@ -569,8 +569,23 @@ private fun BitChordApp(
     // is open inside the Library tab.
     var selectedPersonalPlaylistId by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedPersonalArtistId by rememberSaveable { mutableStateOf<String?>(null) }
+    var personalCollectionSearchOpen by remember { mutableStateOf(false) }
+    var personalCollectionSortMenuOpen by remember { mutableStateOf(false) }
+    var personalCollectionMoreMenuOpen by remember { mutableStateOf(false) }
     val personalCollectionDetailOpen =
         selectedPersonalPlaylistId != null || selectedPersonalArtistId != null
+    val dismissPersonalCollectionDetail: () -> Unit = {
+        selectedPersonalPlaylistId = null
+        selectedPersonalArtistId = null
+        personalCollectionSearchOpen = false
+        personalCollectionSortMenuOpen = false
+        personalCollectionMoreMenuOpen = false
+    }
+    LaunchedEffect(selectedPersonalPlaylistId, selectedPersonalArtistId) {
+        personalCollectionSearchOpen = false
+        personalCollectionSortMenuOpen = false
+        personalCollectionMoreMenuOpen = false
+    }
     // Explore loads the first time it's shown, not at launch beside Home.
     LaunchedEffect(selectedTab) {
         if (selectedTab == TAB_EXPLORE) viewModel.onExploreShown()
@@ -3819,7 +3834,7 @@ private fun BitChordApp(
                                             PersonalArtistDetailDialog(
                                                 artist = artist,
                                                 songs = artistSongs,
-                                                onDismiss = { selectedPersonalArtistId = null },
+                                                onDismiss = dismissPersonalCollectionDetail,
                                                 onAddSongs = { addingSongToPersonalArtistId = artistId },
                                                 onPlay = {
                                                     if (artistSongs.isNotEmpty()) {
@@ -3861,9 +3876,14 @@ private fun BitChordApp(
                                                 onDownloadAll = { artistSongs.forEach { downloadSong(it) } },
                                                 playingVideoId = player.song?.videoId,
                                                 isPlaying = player.isPlaying,
+                                                searchOpen = personalCollectionSearchOpen,
+                                                sortMenuOpen = personalCollectionSortMenuOpen,
+                                                onSortMenuOpenChange = { personalCollectionSortMenuOpen = it },
+                                                menuOpen = personalCollectionMoreMenuOpen,
+                                                onMenuOpenChange = { personalCollectionMoreMenuOpen = it },
                                                 onDelete = {
                                                     PersonalLibraryStore.removeArtist(artistId)
-                                                    selectedPersonalArtistId = null
+                                                    dismissPersonalCollectionDetail()
                                                 },
                                             )
                                         }
@@ -3872,7 +3892,7 @@ private fun BitChordApp(
                                         personalLibrary.playlists.firstOrNull { it.id == playlistId }?.let { playlist ->
                                             PersonalPlaylistDetailDialog(
                                                 playlist = playlist,
-                                                onDismiss = { selectedPersonalPlaylistId = null },
+                                                onDismiss = dismissPersonalCollectionDetail,
                                                 onAddSongs = { addingSongToPersonalPlaylistId = playlistId },
                                                 onPlay = {
                                                     if (playlist.songs.isNotEmpty()) {
@@ -3918,9 +3938,14 @@ private fun BitChordApp(
                                                 onDownloadAll = { playlist.songs.forEach { downloadSong(it) } },
                                                 playingVideoId = player.song?.videoId,
                                                 isPlaying = player.isPlaying,
+                                                searchOpen = personalCollectionSearchOpen,
+                                                sortMenuOpen = personalCollectionSortMenuOpen,
+                                                onSortMenuOpenChange = { personalCollectionSortMenuOpen = it },
+                                                menuOpen = personalCollectionMoreMenuOpen,
+                                                onMenuOpenChange = { personalCollectionMoreMenuOpen = it },
                                                 onDelete = {
                                                     PersonalLibraryStore.removePlaylist(playlistId)
-                                                    selectedPersonalPlaylistId = null
+                                                    dismissPersonalCollectionDetail()
                                                 },
                                             )
                                         }
@@ -4095,6 +4120,7 @@ private fun BitChordApp(
                     // The same step the back gesture takes — see [goBack] —
                     // offered on anything pushed over a tab.
                     onBack = when {
+                        personalCollectionDetailOpen -> dismissPersonalCollectionDetail
                         route != null || detail != null || selectedMoodGenre != null -> goBack
                         else -> null
                     },
@@ -4382,6 +4408,47 @@ private fun BitChordApp(
                                             }
                                         }
                                     }
+                                }
+                            }
+                            // Personal BitChord collections use these same shared
+                            // FrostedTopBar controls. Their page content owns only
+                            // the search field and popup menus, never another toolbar.
+                            if (personalCollectionDetailOpen) {
+                                IconButton(
+                                    onClick = {
+                                        personalCollectionSearchOpen = !personalCollectionSearchOpen
+                                    },
+                                ) {
+                                    Icon(
+                                        if (personalCollectionSearchOpen) Icons.Rounded.Close else BitChordIcons.Search,
+                                        contentDescription = stringResource(
+                                            if (personalCollectionSearchOpen) R.string.close_search
+                                            else R.string.search_this_list,
+                                        ),
+                                        tint = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        personalCollectionSortMenuOpen = !personalCollectionSortMenuOpen
+                                    },
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.Sort,
+                                        contentDescription = stringResource(R.string.sort_songs),
+                                        tint = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        personalCollectionMoreMenuOpen = !personalCollectionMoreMenuOpen
+                                    },
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.MoreHoriz,
+                                        contentDescription = stringResource(R.string.more),
+                                        tint = MaterialTheme.colorScheme.onSurface,
+                                    )
                                 }
                             }
                             // Left of the account photo, and only there while
