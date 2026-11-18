@@ -82,9 +82,7 @@ internal fun Modifier.seekLyricsWhenSheetConsumesTap(
                 requireUnconsumed = false,
                 pass = PointerEventPass.Initial,
             )
-            // Normal taps remain entirely with Modifier.clickable / combinedClickable.
-            if (!down.isConsumed) return@awaitEachGesture
-
+            val sheetConsumedDown = down.isConsumed
             var moved = false
             var released: androidx.compose.ui.input.pointer.PointerInputChange? = null
             do {
@@ -100,12 +98,23 @@ internal fun Modifier.seekLyricsWhenSheetConsumesTap(
 
             val up = released ?: return@awaitEachGesture
             if (moved) return@awaitEachGesture
+            // A normal row click consumes the up event. Only relay when the
+            // sheet consumed the down or no child claimed the tap at all.
+            if (!sheetConsumedDown && up.isConsumed) return@awaitEachGesture
 
-            // LazyListItemInfo offsets are in the LazyColumn's local viewport
-            // coordinates, the same space as this pointer's position.
-            val item = listState.layoutInfo.visibleItemsInfo.firstOrNull {
+            val layout = listState.layoutInfo
+            val visible = layout.visibleItemsInfo
+            // Most of the list uses viewport-local item offsets directly.
+            // At the start, however, the centred first-line padding makes the
+            // effective viewport begin before y=0. Try that viewport-relative
+            // coordinate as well so a tap on the first rows is not lost.
+            val viewportY = down.position.y + layout.viewportStartOffset
+            val item = visible.firstOrNull {
                 down.position.y >= it.offset.toFloat() &&
                     down.position.y < (it.offset + it.size).toFloat()
+            } ?: visible.firstOrNull {
+                viewportY >= it.offset.toFloat() &&
+                    viewportY < (it.offset + it.size).toFloat()
             } ?: return@awaitEachGesture
             val index = item.index
             val line = lines.getOrNull(index) ?: return@awaitEachGesture
