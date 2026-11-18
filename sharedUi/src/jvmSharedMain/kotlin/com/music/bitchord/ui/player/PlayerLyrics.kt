@@ -1830,9 +1830,22 @@ internal fun LyricsPanel(
     // movement until the touch ends so the row stays under the finger long
     // enough for its click handler to seek on the first tap.
     var touchInProgress by remember { mutableStateOf(false) }
+    // A line seek reaches the playhead asynchronously. Keep the old focus from
+    // pulling the list away during that hand-off after the finger has lifted.
+    var tapSeekLine by remember { mutableIntStateOf(-1) }
+    LaunchedEffect(tapSeekLine) {
+        if (tapSeekLine >= 0) {
+            delay(1_500)
+            tapSeekLine = -1
+        }
+    }
+    val seekFromLineTap: (Int, Long) -> Unit = { index, timeMs ->
+        tapSeekLine = index
+        onSeekToLine(timeMs)
+    }
     // While picking lines, the panel must not auto-scroll — the reader needs
     // the list to stay put so they can tap the lines they want.
-    val browsing = browsingByDrag || picking
+    val browsing = browsingByDrag || picking || tapSeekLine >= 0
     val onBottomHalfTap: () -> Unit = {
         // A pick has the whole panel to itself: the controls that a tap down
         // there would pull back in are the player's transport, and it must not
@@ -2168,7 +2181,7 @@ internal fun LyricsPanel(
                         // A gap is nothing to pick, so it only ever seeks — and
                         // not even that while a pick is open, where a stray tap
                         // in the silence would jump the song.
-                        .clickable(enabled = isSynced && !picking) { onSeekToLine(line.timeMs) }
+                        .clickable(enabled = isSynced && !picking) { seekFromLineTap(index, line.timeMs) }
                         // Matches the inset every sung line carries, so the
                         // rhythm of the list doesn't break at a break.
                         .padding(GLOW_ROOM)
@@ -2314,7 +2327,7 @@ internal fun LyricsPanel(
                                     if (picking) {
                                         onTogglePick(index)
                                     } else {
-                                        onSeekToLine(line.timeMs)
+                                        seekFromLineTap(index, line.timeMs)
                                     }
                                 },
                             )
@@ -2327,7 +2340,7 @@ internal fun LyricsPanel(
                                 enabled = isSynced,
                                 interactionSource = interaction,
                                 indication = LocalIndication.current,
-                            ) { onSeekToLine(line.timeMs) }
+                            ) { seekFromLineTap(index, line.timeMs) }
                         },
                     )
                 // Lead and answering vocal are one row: they are one line of
