@@ -4414,42 +4414,12 @@ private fun BitChordApp(
                             // FrostedTopBar controls. Their page content owns only
                             // the search field and popup menus, never another toolbar.
                             if (personalCollectionDetailOpen) {
-                                IconButton(
-                                    onClick = {
-                                        personalCollectionSearchOpen = !personalCollectionSearchOpen
-                                    },
-                                ) {
-                                    Icon(
-                                        if (personalCollectionSearchOpen) Icons.Rounded.Close else BitChordIcons.Search,
-                                        contentDescription = stringResource(
-                                            if (personalCollectionSearchOpen) R.string.close_search
-                                            else R.string.search_this_list,
-                                        ),
-                                        tint = MaterialTheme.colorScheme.onSurface,
-                                    )
-                                }
-                                IconButton(
-                                    onClick = {
-                                        personalCollectionSortMenuOpen = !personalCollectionSortMenuOpen
-                                    },
-                                ) {
-                                    Icon(
-                                        Icons.Rounded.Sort,
-                                        contentDescription = stringResource(R.string.sort_songs),
-                                        tint = MaterialTheme.colorScheme.onSurface,
-                                    )
-                                }
-                                IconButton(
-                                    onClick = {
-                                        personalCollectionMoreMenuOpen = !personalCollectionMoreMenuOpen
-                                    },
-                                ) {
-                                    Icon(
-                                        Icons.Rounded.MoreHoriz,
-                                        contentDescription = stringResource(R.string.more),
-                                        tint = MaterialTheme.colorScheme.onSurface,
-                                    )
-                                }
+                                PersonalCollectionTopBarActions(
+                                    searchOpen = personalCollectionSearchOpen,
+                                    onSearchToggle = { personalCollectionSearchOpen = !personalCollectionSearchOpen },
+                                    onSortToggle = { personalCollectionSortMenuOpen = !personalCollectionSortMenuOpen },
+                                    onMoreToggle = { personalCollectionMoreMenuOpen = !personalCollectionMoreMenuOpen },
+                                )
                             }
                             // Left of the account photo, and only there while
                             // there is a batch to report on — see
@@ -6806,3 +6776,25 @@ private const val TAB_HOME = 0
 private const val TAB_EXPLORE = 1
 private const val TAB_LIBRARY = 2
 private const val TAB_SEARCH = 3
+
+@Composable
+private fun PersonalCollectionTopBarActions(
+    searchOpen: Boolean,
+    onSearchToggle: () -> Unit,
+    onSortToggle: () -> Unit,
+    onMoreToggle: () -> Unit,
+) {
+    IconButton(onClick = onSearchToggle) {
+        Icon(
+            if (searchOpen) Icons.Rounded.Close else BitChordIcons.Search,
+            contentDescription = stringResource(if (searchOpen) R.string.close_search else R.string.search_this_list),
+            tint = MaterialTheme.colorScheme.onSurface,
+        )
+    }
+    IconButton(onClick = onSortToggle) {
+        Icon(Icons.Rounded.Sort, contentDescription = stringResource(R.string.sort_songs), tint = MaterialTheme.colorScheme.onSurface)
+    }
+    IconButton(onClick = onMoreToggle) {
+        Icon(Icons.Rounded.MoreHoriz, contentDescription = stringResource(R.string.more), tint = MaterialTheme.colorScheme.onSurface)
+    }
+}
