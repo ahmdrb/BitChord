@@ -779,7 +779,7 @@ private fun BitChordApp(
         }
         personalPlaylistArtworkTarget = null
     }
-    var personalArtistMenuOpen by remember { mutableStateOf(false) }
+    var artistMoreMenuOpen by remember { mutableStateOf(false) }
     // Which album or playlist the collection menu is open on, or null when it
     // is shut. One slot for every surface that can open it — the shelves on
     // three tabs, the search rows, the artist page's carousels, the release
@@ -996,8 +996,9 @@ private fun BitChordApp(
     // takes — as does an album or artist opened out of a folder. Hence the
     // folder question rather than the prefix.
     val isLocalDetail = detail?.browseId.isDeviceFolder()
-    // An album or playlist page: the one whose top bar carries its search,
-    // sort and overflow controls.
+    // Release and artist pages share the same app-level search, filter and
+    // overflow controls. Device folders keep their dedicated sort/view menu.
+    val isArtistDetail = detail != null && !isLocalDetail && detail.type == BrowseType.ARTIST
     val isReleaseDetail = detail != null && !isLocalDetail && detail.type != BrowseType.ARTIST
     // Not keyed on the browse id and not remembered here: each page's choice
     // lives in AppSettings keyed by that page — Spotify-style, one playlist's
@@ -4258,18 +4259,14 @@ private fun BitChordApp(
                                     }
                                 }
                             }
-                            // Sort, only on an album or playlist page or a device
-                            // folder — an artist page has no single track list to
-                            // reorder. A folder's opens its own menu: its sort
-                            // orders, and list or grid for its tabs.
-                            //
-                            // Search and the overflow flank it, as the share and
-                            // "…" pair do on Apple Music's album page: the header
-                            // below is left with just the sleeve, the title and
-                            // Shuffle / Play / Add.
-                            if ((isReleaseDetail || isLocalDetail) && detail != null) {
-                                val releaseSongs = (detail.songs as? UiState.Success)?.data.orEmpty()
-                                if (releaseSongs.isNotEmpty()) {
+                            // Release, artist and device-folder actions all live in
+                            // this one app-level FrostedTopBar pill. Artists used to
+                            // replace the Search / Filter / More set with separate
+                            // Share / Delete controls, making their navigation look
+                            // like a different toolbar.
+                            if ((isReleaseDetail || isLocalDetail || isArtistDetail) && detail != null) {
+                                val detailSongs = (detail.songs as? UiState.Success)?.data.orEmpty()
+                                if (detailSongs.isNotEmpty()) {
                                     IconButton(onClick = { detailSearching = !detailSearching }) {
                                         Icon(
                                             if (detailSearching) Icons.Rounded.Close else BitChordIcons.Search,
@@ -4295,15 +4292,9 @@ private fun BitChordApp(
                                         tint = MaterialTheme.colorScheme.onSurface,
                                     )
                                 }
-                                if (isReleaseDetail && releaseSongs.isNotEmpty()) {
-                                    // The page's own tracks, in the order the page
-                                    // shows them, so the sheet has them already and
-                                    // Play, Shuffle and Open are the buttons beside
-                                    // the one that opened it rather than rows on it.
-                                    // Download lives in the sheet too — and the
-                                    // tracks arrive stamped with the album they came
-                                    // off, which is what the download record groups
-                                    // them under.
+                                if (isReleaseDetail && detailSongs.isNotEmpty()) {
+                                    // The release's More action remains in the same
+                                    // shared pill and opens its existing collection menu.
                                     IconButton(
                                         modifier = Modifier.menuAnchor(),
                                         onClick = {
@@ -4313,7 +4304,7 @@ private fun BitChordApp(
                                                 subtitle = detail.subtitle,
                                                 thumbnailUrl = detail.thumbnailUrl,
                                                 type = detail.type,
-                                                songs = releaseSongs.sortedForDetail(songSort).map { song ->
+                                                songs = detailSongs.sortedForDetail(songSort).map { song ->
                                                     if (detail.type == BrowseType.ALBUM) {
                                                         song.copy(albumName = song.albumName ?: detail.title)
                                                     } else {
@@ -4332,59 +4323,55 @@ private fun BitChordApp(
                                         )
                                     }
                                 }
-                            }
-                            // A personal artist has its own delete action. It is deliberately
-                            // scoped to the curated collection and never calls YouTube's
-                            // channel or library APIs.
-                            if (detail != null && detail.type == BrowseType.ARTIST &&
-                                personalLibrary.artists.any { it.browseId == detail.browseId }
-                            ) {
-                                Box {
-                                    IconButton(onClick = { personalArtistMenuOpen = true }) {
-                                        Icon(
-                                            Icons.Rounded.MoreHoriz,
-                                            contentDescription = stringResource(R.string.more),
-                                            tint = MaterialTheme.colorScheme.onSurface,
-                                        )
+                                if (isArtistDetail) {
+                                    val isPersonalArtist = personalLibrary.artists.any {
+                                        it.browseId == detail.browseId
                                     }
-                                    DropdownMenu(
-                                        expanded = personalArtistMenuOpen,
-                                        onDismissRequest = { personalArtistMenuOpen = false },
-                                    ) {
-                                        DropdownMenuItem(
-                                            text = { Text("Delete artist") },
-                                            onClick = {
-                                                personalArtistMenuOpen = false
-                                                PersonalLibraryStore.removeArtist(detail.browseId)
-                                                viewModel.closeDetail()
-                                            },
-                                        )
-                                    }
-                                }
-                            }
-                            // Left of the account photo, on an artist page: iOS's
-                            // share glyph, sending the artist's channel link — the
-                            // one YouTube Music itself shares for an artist.
-                            if (detail != null && !isLocalDetail && detail.type == BrowseType.ARTIST &&
-                                detailActiveShelf == null && detail.browseId.startsWith("UC")
-                            ) {
-                                IconButton(
-                                    onClick = {
-                                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                                            type = "text/plain"
-                                            putExtra(
-                                                Intent.EXTRA_TEXT,
-                                                "https://music.youtube.com/channel/${detail.browseId}",
-                                            )
+                                    val canShareArtist = detail.browseId.startsWith("UC")
+                                    if (isPersonalArtist || canShareArtist) {
+                                        Box {
+                                            IconButton(onClick = { artistMoreMenuOpen = true }) {
+                                                Icon(
+                                                    Icons.Rounded.MoreHoriz,
+                                                    contentDescription = stringResource(R.string.more),
+                                                    tint = MaterialTheme.colorScheme.onSurface,
+                                                )
+                                            }
+                                            DropdownMenu(
+                                                expanded = artistMoreMenuOpen,
+                                                onDismissRequest = { artistMoreMenuOpen = false },
+                                            ) {
+                                                if (canShareArtist) {
+                                                    DropdownMenuItem(
+                                                        text = { Text(stringResource(R.string.share)) },
+                                                        onClick = {
+                                                            artistMoreMenuOpen = false
+                                                            val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                                                type = "text/plain"
+                                                                putExtra(
+                                                                    Intent.EXTRA_TEXT,
+                                                                    "https://music.youtube.com/channel/${detail.browseId}",
+                                                                )
+                                                            }
+                                                            context.startActivity(
+                                                                Intent.createChooser(sendIntent, detail.title),
+                                                            )
+                                                        },
+                                                    )
+                                                }
+                                                if (isPersonalArtist) {
+                                                    DropdownMenuItem(
+                                                        text = { Text("Delete artist") },
+                                                        onClick = {
+                                                            artistMoreMenuOpen = false
+                                                            PersonalLibraryStore.removeArtist(detail.browseId)
+                                                            viewModel.closeDetail()
+                                                        },
+                                                    )
+                                                }
+                                            }
                                         }
-                                        context.startActivity(Intent.createChooser(sendIntent, detail.title))
-                                    },
-                                ) {
-                                    Icon(
-                                        Icons.Rounded.IosShare,
-                                        contentDescription = stringResource(R.string.share),
-                                        tint = MaterialTheme.colorScheme.onSurface,
-                                    )
+                                    }
                                 }
                             }
                             // Left of the account photo, and only there while
@@ -4398,7 +4385,7 @@ private fun BitChordApp(
                             // Not on a release page, whose pill already carries
                             // three of its own controls — Apple Music leaves the
                             // profile off its album pages too.
-                            if (!isReleaseDetail && !personalCollectionDetailOpen) TopBarAccountButton(
+                            if (!isReleaseDetail && !isArtistDetail && !personalCollectionDetailOpen) TopBarAccountButton(
                                 account = account,
                                 onClick = {
                                     if (signedIn) {
