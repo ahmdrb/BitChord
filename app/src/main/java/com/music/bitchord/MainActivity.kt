@@ -2592,6 +2592,15 @@ private fun BitChordApp(
             it.videoId == convertedAudioId || it.videoId == convertedVideoId || it.videoId == keepVideoId ||
             it.videoId == YtMusicRepository.cachedAudioVersion(song.videoId)?.videoId ||
             it.videoId == YtMusicRepository.cachedVideoVersion(song.videoId)?.videoId
+        }?.let { versionSong ->
+            // A quality/version swap may not carry catalogue badges in its
+            // replacement metadata. Keep the source track's positive explicit
+            // flag so the player title does not lose its badge mid-session.
+            if (song.isExplicit == true && versionSong.isExplicit != true) {
+                versionSong.copy(isExplicit = true)
+            } else {
+                versionSong
+            }
         } ?: song
         val displayedSong = activeRadioSeed
             ?.takeIf { (videoId, _) -> effectiveSong.radioName == null && videoId == effectiveSong.videoId }
