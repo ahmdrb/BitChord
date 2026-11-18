@@ -103,6 +103,46 @@ class ExplicitBadgeTest {
     }
 
     @Test
+    fun duplicateRecommendationRowCannotEraseExplicitFlag() {
+        val response = Json.parseToJsonElement(
+            """
+            {
+              "contents": [
+                {
+                  "musicResponsiveListItemRenderer": {
+                    "playlistItemData": { "videoId": "same-track" },
+                    "badges": [
+                      { "musicInlineBadgeRenderer": { "icon": { "iconType": "MUSIC_EXPLICIT_BADGE" } } }
+                    ],
+                    "flexColumns": [
+                      { "musicResponsiveListItemFlexColumnRenderer": { "text": { "runs": [ { "text": "Track" } ] } } },
+                      { "musicResponsiveListItemFlexColumnRenderer": { "text": { "runs": [ { "text": "Artist" } ] } } }
+                    ]
+                  }
+                },
+                {
+                  "recommendations": [
+                    {
+                      "musicResponsiveListItemRenderer": {
+                        "playlistItemData": { "videoId": "same-track" },
+                        "flexColumns": [
+                          { "musicResponsiveListItemFlexColumnRenderer": { "text": { "runs": [ { "text": "Track" } ] } } },
+                          { "musicResponsiveListItemFlexColumnRenderer": { "text": { "runs": [ { "text": "Artist" } ] } } }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+            """,
+        )
+
+        val song = InnertubeParser.collectSongsDeep(response).single()
+        assertEquals(true, song.isExplicit)
+    }
+
+    @Test
     fun searchRowsCarryExplicitFlagThroughTheSearchParser() {
         val search = Json.parseToJsonElement(
             """
