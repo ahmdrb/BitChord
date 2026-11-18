@@ -1822,6 +1822,8 @@ internal fun LyricsPanel(
     // the blur and the movement are one gesture.
     val focusLine = if (leadLine >= 0) leadLine else scrollLine
     val listState = rememberLazyListState()
+    // Stop an in-flight fling from the pointer handler's unrestricted scope.
+    val scrollStopScope = rememberCoroutineScope()
     LaunchedEffect(listState) {
         snapshotFlow { listState.isScrollInProgress }.collect(onScrollingChange)
     }
@@ -2078,7 +2080,9 @@ internal fun LyricsPanel(
                         requireUnconsumed = false,
                         pass = PointerEventPass.Initial,
                     )
-                    if (listState.isScrollInProgress) listState.stopScroll()
+                    if (listState.isScrollInProgress) {
+                        scrollStopScope.launch { listState.stopScroll() }
+                    }
                 }
             }
             // Pause auto-follow without consuming the touch, then leave the
