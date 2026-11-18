@@ -190,14 +190,11 @@ private val ROW_PADDING_HORIZONTAL = 12.dp
  */
 private val ART_CORNER = 8.dp
 
-/** Distance that makes a horizontal drag an intentional track change. */
-private val TRACK_SWIPE_THRESHOLD = 72.dp
+/** Commit a track swipe after the finger travels this share of the mini-player width. */
+private const val TRACK_SWIPE_COMMIT_FRACTION = 0.38f
 
-/**
- * At the skip threshold the strip has moved half a tile: both covers occupy
- * the square together, edge-to-edge with no exposed gap.
- */
-private const val TRACK_ART_DRAG_FRACTION = 0.5f
+/** A quick horizontal flick may commit before the distance threshold is reached. */
+private val TRACK_SWIPE_FLING_VELOCITY = 1_000.dp
 
 /**
  * How much further a drag may go sideways than up and still be a pull. A
@@ -302,7 +299,11 @@ internal fun Modifier.miniPlayerGestures(
     val settle = remember { arrayOfNulls<Job>(1) }
     val trackReset = remember { arrayOfNulls<Job>(1) }
     return pointerInput(Unit) {
-        val trackThreshold = TRACK_SWIPE_THRESHOLD.toPx()
+        // The artwork travels its entire viewport by the time the finger reaches
+        // the commit point. The preview itself is clamped only at 100%, never 50%.
+        val trackThreshold = (size.width * TRACK_SWIPE_COMMIT_FRACTION)
+            .coerceAtLeast(viewConfiguration.touchSlop * 2f)
+        val trackFlingVelocity = TRACK_SWIPE_FLING_VELOCITY.toPx()
         val dismissThreshold = 48.dp.toPx()
         val liftEase = PULL_LIFT_EASE.toPx()
         val maxVelocity = viewConfiguration.maximumFlingVelocity
@@ -356,22 +357,35 @@ internal fun Modifier.miniPlayerGestures(
                     trackTransitionDirection?.intValue = if (movingNext) 1 else -1
                     draggedAdjacentSong?.value = adjacent
                     trackDragOffset?.floatValue = if (adjacent != null) {
-                        (dragged / trackThreshold).coerceIn(-1f, 1f) * TRACK_ART_DRAG_FRACTION
+                        // 0% at touch-down, 100% at the commit distance. This lets
+                        // the incoming cover travel all the way across the viewport.
+                        (dragged / trackThreshold).coerceIn(-1f, 1f)
                     } else {
                         0f
                     }
                 }
                 updateTrackPreview()
 
+                // Track horizontal velocity as well as distance, so a deliberate
+                // flick can complete the change without a long swipe.
+                val tracker = VelocityTracker()
+                tracker.addPointerInputChange(down)
+                tracker.addPointerInputChange(slopped)
+
                 // Read before consuming: a consumed change reports no movement.
                 val finished = drag(pointer) { change ->
                     dragged += change.positionChange().x
+                    tracker.addPointerInputChange(change)
                     updateTrackPreview()
                     change.consume()
                 }
+                val velocityX = tracker.calculateVelocity().x.coerceIn(-maxVelocity, maxVelocity)
                 val hasAdjacentTrack = draggedAdjacentSong?.value != null
+                val crossedByDistance = abs(dragged) >= trackThreshold
+                val crossedByFling = abs(velocityX) >= trackFlingVelocity &&
+                    dragged != 0f && dragged * velocityX > 0f
                 val crossed = finished && hasAdjacentTrack &&
-                    (dragged <= -trackThreshold || dragged >= trackThreshold)
+                    (crossedByDistance || crossedByFling)
                 if (crossed && !currentLocked) {
                     when {
                         dragged <= -trackThreshold -> currentOnNext()
