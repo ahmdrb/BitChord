@@ -2150,6 +2150,7 @@ private fun BitChordApp(
                 artist = InnertubeParser.artistFromSubtitle(item.subtitle),
                 thumbnailUrl = item.thumbnailUrl,
                 isVideo = item.isVideo,
+                isExplicit = item.isExplicit,
             )
         }
     }
