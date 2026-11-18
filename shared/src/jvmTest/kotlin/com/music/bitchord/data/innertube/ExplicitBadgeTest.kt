@@ -55,7 +55,17 @@ class ExplicitBadgeTest {
                     },
                     {
                       "musicResponsiveListItemRenderer": {
-                        "playlistItemData": { "videoId": "not-explicit-row", "playlistSetVideoId": "set-4" },
+                        "playlistItemData": { "videoId": "explicit-boolean-row", "playlistSetVideoId": "set-4" },
+                        "isExplicit": true,
+                        "flexColumns": [
+                          { "musicResponsiveListItemFlexColumnRenderer": { "text": { "runs": [ { "text": "Badged from direct flag" } ] } } },
+                          { "musicResponsiveListItemFlexColumnRenderer": { "text": { "runs": [ { "text": "Artist" } ] } } }
+                        ]
+                      }
+                    },
+                    {
+                      "musicResponsiveListItemRenderer": {
+                        "playlistItemData": { "videoId": "not-explicit-row", "playlistSetVideoId": "set-5" },
                         "flexColumns": [
                           { "musicResponsiveListItemFlexColumnRenderer": { "text": { "runs": [ { "text": "Clean track" } ] } } },
                           { "musicResponsiveListItemFlexColumnRenderer": { "text": { "runs": [ { "text": "Artist" } ] } } }
@@ -76,13 +86,20 @@ class ExplicitBadgeTest {
         val songs = InnertubeParser.parsePlaylistShelf(response())!!.songs
 
         assertEquals(
-            listOf("explicit-badges-row", "explicit-subtitle-row", "explicit-accessibility-row", "not-explicit-row"),
+            listOf(
+                "explicit-badges-row",
+                "explicit-subtitle-row",
+                "explicit-accessibility-row",
+                "explicit-boolean-row",
+                "not-explicit-row",
+            ),
             songs.map { it.videoId },
         )
         assertEquals(true, songs[0].isExplicit)
         assertEquals(true, songs[1].isExplicit)
         assertEquals(true, songs[2].isExplicit)
-        assertNull(songs[3].isExplicit)
+        assertEquals(true, songs[3].isExplicit)
+        assertNull(songs[4].isExplicit)
     }
 
     @Test
