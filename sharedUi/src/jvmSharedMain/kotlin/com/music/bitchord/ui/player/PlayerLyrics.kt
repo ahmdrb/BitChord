@@ -26,6 +26,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -2047,6 +2049,18 @@ internal fun LyricsPanel(
             .bleedHorizontally(PLAYER_GUTTER)
             .nestedScroll(controlsOnScroll)
             .nestedScroll(keepScroll)
+            // A fling is still a scroll gesture even after the finger has left
+            // the screen. Stop that motion on a fresh down so a tap on a distant
+            // visible line is not swallowed as the list finishes its fling.
+            .pointerInput(listState) {
+                awaitEachGesture {
+                    awaitFirstDown(
+                        requireUnconsumed = false,
+                        pass = PointerEventPass.Initial,
+                    )
+                    if (listState.isScrollInProgress) listState.stopScroll()
+                }
+            }
             // Pause auto-follow without consuming the touch, then leave the
             // actual tap to the lyric row so it seeks on the first attempt.
             .holdLyricsAutoFollowWhileTouched { touchInProgress = it }
