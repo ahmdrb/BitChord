@@ -4457,6 +4457,8 @@ private fun BitChordApp(
                         progressFraction = if (player.durationMs > 0L) {
                             (player.position.positionMs.toFloat() / player.durationMs.toFloat()).coerceIn(0f, 1f)
                         } else 0f,
+                        previousSong = player.previousSong.takeIf { player.hasPrevious },
+                        nextSong = player.nextSong.takeIf { player.hasNext },
                         onSeekFraction = { fraction ->
                             controller?.let { activePlayer ->
                                 val duration = activePlayer.duration
