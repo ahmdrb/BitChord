@@ -543,11 +543,33 @@ object InnertubeParser {
                 is JsonObject -> {
                     node["musicResponsiveListItemRenderer"]?.let { renderer ->
                         parseResponsiveListItem(renderer as? JsonObject, pageCredit)
-                            ?.let { out[it.videoId] = it }
+                            ?.let { song ->
+                                // The same track can appear in the main list and
+                                // again in a recommendation shelf. A later copy
+                                // without badges must never erase an explicit
+                                // marker already found on the primary row.
+                                val previous = out[song.videoId]
+                                out[song.videoId] = if (
+                                    previous?.isExplicit == true && song.isExplicit != true
+                                ) {
+                                    song.copy(isExplicit = true)
+                                } else {
+                                    song
+                                }
+                            }
                     }
                     node["musicMultiRowListItemRenderer"]?.let { renderer ->
                         parseMultiRowListItem(renderer as? JsonObject, show)
-                            ?.let { out[it.videoId] = it }
+                            ?.let { song ->
+                                val previous = out[song.videoId]
+                                out[song.videoId] = if (
+                                    previous?.isExplicit == true && song.isExplicit != true
+                                ) {
+                                    song.copy(isExplicit = true)
+                                } else {
+                                    song
+                                }
+                            }
                     }
                     node.values.forEach(::walk)
                 }
