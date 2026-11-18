@@ -19,11 +19,15 @@ internal fun DetailAwareTopFadeLayer(
     protectNavigationChrome: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    if (useBlur) {
+    // Playlist and Artist use the shared floating navigation controls. Do
+    // not mount a Haze layer on those pages at all: even a status-bar-only
+    // progressive layer can be sampled/composited into Liquid Glass surfaces
+    // and leave their controls looking washed out. Their own glass surfaces
+    // remain intact; progressive top blur continues on every other page.
+    if (useBlur && !protectNavigationChrome) {
         TopFadeBlur(
             hazeState = hazeState,
             pageColor = pageColor,
-            protectNavigationChrome = protectNavigationChrome,
             modifier = modifier,
         )
     }
