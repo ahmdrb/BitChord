@@ -2575,6 +2575,11 @@ private fun BitChordApp(
             )
         }
     }
+    // Feed the recovered catalogue metadata to the compact player too. The
+    // mini-player reads PlayerState directly, while the expanded player below
+    // receives playerSong; without this shared projection its E badge could
+    // still disappear after Media3 rebuilt the current item.
+    val chromePlayer = player.copy(song = playerSong ?: player.song)
     // The three-dot menu snapshots the track into songActions when it's opened,
     // so a menu opened before the lookup above resolves would otherwise be
     // stuck without album/artist rows even after the ids come in. Keep it in
@@ -4464,7 +4469,7 @@ private fun BitChordApp(
                             selectedIndex = selectedTab,
                             onTabSelected = onTabSelected,
                             scrollConnection = navBarScroll,
-                            song = player.song,
+                            song = chromePlayer.song,
                             isPlaying = player.isPlaying,
                             isLoading = playPauseBusy,
                             progressFraction = if (player.durationMs > 0L) {
@@ -4525,7 +4530,7 @@ private fun BitChordApp(
                         QueueActionNoticeHost(queueNotice)
                         player.song?.let { song ->
                             MiniPlayer(
-                                playerState = player,
+                                playerState = chromePlayer,
                                 isLoading = playPauseBusy,
                                 hazeState = hazeState,
                                 onPlayPause = {
