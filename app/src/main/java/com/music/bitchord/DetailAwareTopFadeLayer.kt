@@ -19,10 +19,11 @@ internal fun DetailAwareTopFadeLayer(
     protectNavigationChrome: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    if (useBlur && !protectNavigationChrome) {
+    if (useBlur) {
         TopFadeBlur(
             hazeState = hazeState,
             pageColor = pageColor,
+            protectNavigationChrome = protectNavigationChrome,
             modifier = modifier,
         )
     }
