@@ -28,10 +28,8 @@ private const val TAP_SLOP_FACTOR = 2.5f
 @Composable
 internal fun Modifier.holdLyricsAutoFollowWhileTouched(
     onTouchChanged: (Boolean) -> Unit,
-    onTouchStarted: suspend () -> Unit,
 ): Modifier {
     val currentOnTouchChanged = rememberUpdatedState(onTouchChanged)
-    val currentOnTouchStarted = rememberUpdatedState(onTouchStarted)
     return pointerInput(Unit) {
         awaitEachGesture {
             val down = awaitFirstDown(
@@ -40,11 +38,6 @@ internal fun Modifier.holdLyricsAutoFollowWhileTouched(
             )
             currentOnTouchChanged.value(true)
             try {
-                // A fling or automatic scroll can still own the list when a
-                // reader taps a distant line. Stop that motion on down without
-                // consuming the pointer, so the row's click handler gets this
-                // same first tap instead of only stopping the scroll.
-                currentOnTouchStarted.value()
                 do {
                     val event = awaitPointerEvent(PointerEventPass.Final)
                     val change = event.changes.firstOrNull { it.id == down.id } ?: break
