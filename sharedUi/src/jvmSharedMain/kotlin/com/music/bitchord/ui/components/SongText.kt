@@ -1,7 +1,8 @@
 package com.music.bitchord.ui.components
 
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -19,17 +20,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
@@ -155,30 +152,26 @@ private val FullFade = { 1f }
  */
 @Composable
 fun ExplicitBadge(color: Color, modifier: Modifier = Modifier) {
-    val measurer = rememberTextMeasurer()
-    // W800, the Bold cut in this app's family: a step up from the Semibold
-    // the label's Bold draws. No tracking, which sat the letter left of centre.
     val style = MaterialTheme.typography.labelSmall.copy(
         fontSize = BADGE_LETTER_SIZE,
         fontWeight = FontWeight.W800,
         letterSpacing = 0.sp,
     )
-    val letter = remember(measurer, style) { measurer.measure("E", style) }
-    val density = LocalDensity.current
-    val capPx = with(density) { style.fontSize.toPx() } * CAP_HEIGHT
-    // Square, as Apple's is, sized off the capital so it scales with the text.
-    val side = with(density) { (capPx / BADGE_CAP_SHARE).toDp() }
-    Canvas(modifier.size(side)) {
-        drawRoundRect(color = color, cornerRadius = CornerRadius(2.dp.toPx()))
-        // Draw a contrasting E instead of relying on DstOut to cut a hole in
-        // an offscreen layer; the glyph stays visible on Android surfaces.
-        drawText(
-            textLayoutResult = letter,
-            topLeft = Offset(
-                (this.size.width - letter.size.width) / 2f,
-                (this.size.height + capPx) / 2f - letter.firstBaseline,
-            ),
-            color = if (color.luminance() > 0.5f) Color.Black else Color.White,
+    val foreground = if (color.luminance() > 0.5f) Color.Black else Color.White
+    val capPx = with(LocalDensity.current) { style.fontSize.toPx() } * CAP_HEIGHT
+    val side = with(LocalDensity.current) { (capPx / BADGE_CAP_SHARE).toDp() }
+    Box(
+        modifier = modifier
+            .size(side)
+            .clip(RoundedCornerShape(2.dp))
+            .background(color),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = "E",
+            style = style,
+            color = foreground,
+            maxLines = 1,
         )
     }
 }
