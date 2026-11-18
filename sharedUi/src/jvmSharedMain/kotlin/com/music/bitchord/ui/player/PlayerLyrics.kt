@@ -2082,10 +2082,7 @@ internal fun LyricsPanel(
             }
             // Pause auto-follow without consuming the touch, then leave the
             // actual tap to the lyric row so it seeks on the first attempt.
-            .holdLyricsAutoFollowWhileTouched(
-                onTouchChanged = { touchInProgress = it },
-                onTouchStarted = { listState.stopScroll() },
-            )
+            .holdLyricsAutoFollowWhileTouched { touchInProgress = it }
             .fadingEdges(),
         // Each row carries GLOW_ROOM of its own inset for the halo, so the
         // list hands that much back — otherwise the lines would sit a glow's
