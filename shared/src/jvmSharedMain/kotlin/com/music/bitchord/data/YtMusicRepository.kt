@@ -38,6 +38,42 @@ import kotlinx.serialization.json.JsonObject
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 
+/**
+ * A track card already contains the catalogue metadata its playable Song needs.
+ * Keep both content markers when a shelf is turned into an autoplay candidate;
+ * losing them here strips the explicit badge from the queue and mini-player.
+ */
+internal fun ShelfItem.toPlayableSong(): Song? {
+    val id = videoId ?: return null
+    return Song(
+        videoId = id,
+        title = title,
+        artist = InnertubeParser.artistFromSubtitle(subtitle),
+        thumbnailUrl = thumbnailUrl,
+        isVideo = isVideo,
+        isExplicit = isExplicit,
+    )
+}
+
+/**
+ * Collapse repeated appearances of the same track without letting a later
+ * unbadged copy erase the explicit-content marker from an earlier one.
+ */
+internal fun List<Song>.distinctByVideoIdKeepingExplicit(): List<Song> {
+    val unique = LinkedHashMap<String, Song>()
+    for (song in this) {
+        val previous = unique[song.videoId]
+        unique[song.videoId] = if (
+            previous?.isExplicit == true && song.isExplicit != true
+        ) {
+            song.copy(isExplicit = true)
+        } else {
+            song
+        }
+    }
+    return unique.values.toList()
+}
+
 /** Suspend API over Innertube. Every call returns a Result so the UI can show a real error. */
 object YtMusicRepository {
 
@@ -131,7 +167,7 @@ object YtMusicRepository {
             emptyList()
         }
 
-        val allSongs = ytSongs.distinctBy { it.videoId }.take(RECENT_LIMIT)
+        val allSongs = ytSongs.distinctByVideoIdKeepingExplicit().take(RECENT_LIMIT)
         if (allSongs.isEmpty()) return null
         return HomeShelf(
             title = RECENT_TITLE,
@@ -142,6 +178,8 @@ object YtMusicRepository {
                     thumbnailUrl = it.thumbnailUrl,
                     videoId = it.videoId,
                     browseId = null,
+                    isVideo = it.isVideo,
+                    isExplicit = it.isExplicit,
                 )
             },
         )
@@ -165,7 +203,7 @@ object YtMusicRepository {
         // instead of sending the same request again.
         historyMemo?.takeIf { it.cookie == cookie && System.currentTimeMillis() - it.at < HISTORY_SHARE_MS }
             ?.let { return@withLock it.songs }
-        InnertubeParser.collectSongsDeep(Innertube.browse(HISTORY)).distinctBy { it.videoId }
+        InnertubeParser.collectSongsDeep(Innertube.browse(HISTORY)).distinctByVideoIdKeepingExplicit()
             .also { historyMemo = HistoryMemo(cookie, System.currentTimeMillis(), it) }
     }
 
@@ -216,16 +254,9 @@ object YtMusicRepository {
                 it.title.contains("mix", ignoreCase = true) ||
                 it.title.contains("recommend", ignoreCase = true)
         }
-        val qpSongs = qpShelf?.items?.mapNotNull { item ->
-            item.videoId?.takeUnless { it in excludeSongIds }?.let { vid ->
-                Song(
-                    videoId = vid,
-                    title = item.title,
-                    artist = InnertubeParser.artistFromSubtitle(item.subtitle),
-                    thumbnailUrl = item.thumbnailUrl,
-                )
-            }
-        }.orEmpty()
+        val qpSongs = qpShelf?.items.orEmpty()
+            .mapNotNull { item -> item.toPlayableSong()?.takeUnless { it.videoId in excludeSongIds } }
+            .distinctByVideoIdKeepingExplicit()
         if (qpSongs.isNotEmpty()) return@call qpSongs
 
         // 2. All shelves on Home (excluding shelves mentioning recent/history, and skipping top shelf if multiple exist)
@@ -239,32 +270,16 @@ object YtMusicRepository {
 
         val homeShelfSongs = candidateShelves.flatMap { shelf ->
             shelf.items.mapNotNull { item ->
-                item.videoId?.takeUnless { it in excludeSongIds }?.let { vid ->
-                    Song(
-                        videoId = vid,
-                        title = item.title,
-                        artist = InnertubeParser.artistFromSubtitle(item.subtitle),
-                        thumbnailUrl = item.thumbnailUrl,
-                    )
-                }
+                item.toPlayableSong()?.takeUnless { it.videoId in excludeSongIds }
             }
-        }.distinctBy { it.videoId }
+        }.distinctByVideoIdKeepingExplicit()
 
         if (homeShelfSongs.isNotEmpty()) return@call homeShelfSongs
 
         // 3. Any shelf items on Home that have videoId
         val allHomeTrackSongs = shelves.flatMap { shelf ->
-            shelf.items.mapNotNull { item ->
-                item.videoId?.let { vid ->
-                    Song(
-                        videoId = vid,
-                        title = item.title,
-                        artist = InnertubeParser.artistFromSubtitle(item.subtitle),
-                        thumbnailUrl = item.thumbnailUrl,
-                    )
-                }
-            }
-        }.distinctBy { it.videoId }
+            shelf.items.mapNotNull { item -> item.toPlayableSong() }
+        }.distinctByVideoIdKeepingExplicit()
 
         val uniqueAllHome = allHomeTrackSongs.filterNot { it.videoId in excludeSongIds }
         if (uniqueAllHome.isNotEmpty()) return@call uniqueAllHome
@@ -273,16 +288,9 @@ object YtMusicRepository {
         val explore = runCatching { shelvesOf("FEmusic_new_releases") }.getOrDefault(emptyList())
         val exploreSongs = explore.flatMap { shelf ->
             shelf.items.mapNotNull { item ->
-                item.videoId?.takeUnless { it in excludeSongIds }?.let { vid ->
-                    Song(
-                        videoId = vid,
-                        title = item.title,
-                        artist = InnertubeParser.artistFromSubtitle(item.subtitle),
-                        thumbnailUrl = item.thumbnailUrl,
-                    )
-                }
+                item.toPlayableSong()?.takeUnless { it.videoId in excludeSongIds }
             }
-        }.distinctBy { it.videoId }
+        }.distinctByVideoIdKeepingExplicit()
 
         if (exploreSongs.isNotEmpty()) return@call exploreSongs
 
