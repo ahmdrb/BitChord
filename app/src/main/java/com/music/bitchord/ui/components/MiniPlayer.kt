@@ -714,21 +714,21 @@ fun MiniPlayer(
                         previousSong?.let { previous ->
                             MiniPlayerTrackArtwork(
                                 artSong = previous,
-    playingSong = song,
+                                playingSong = song,
                                 translationX = -tileWidthPx,
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }
                         MiniPlayerTrackArtwork(
                             artSong = displayedSong.value,
-    playingSong = song,
+                            playingSong = song,
                             translationX = 0f,
                             modifier = Modifier.fillMaxSize(),
                         )
                         nextSong?.let { next ->
                             MiniPlayerTrackArtwork(
                                 artSong = next,
-    playingSong = song,
+                                playingSong = song,
                                 translationX = tileWidthPx,
                                 modifier = Modifier.fillMaxSize(),
                             )
@@ -736,7 +736,7 @@ fun MiniPlayer(
                     } else {
                         MiniPlayerTrackArtwork(
                             artSong = displayedSong.value,
-    playingSong = song,
+                            playingSong = song,
                             translationX = dragOffsetPx,
                             modifier = Modifier.fillMaxSize(),
                         )
@@ -747,7 +747,7 @@ fun MiniPlayer(
                         }
                         MiniPlayerTrackArtwork(
                             artSong = adjacent,
-    playingSong = song,
+                            playingSong = song,
                             translationX = adjacentStart + dragOffsetPx,
                             modifier = Modifier.fillMaxSize(),
                         )
