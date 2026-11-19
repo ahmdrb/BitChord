@@ -103,6 +103,86 @@ class ExplicitBadgeTest {
     }
 
     @Test
+    fun albumHeaderReadsItsExplicitBadgeFromSubtitleBadge() {
+        val response = Json.parseToJsonElement(
+            """
+            {
+              "header": {
+                "musicResponsiveHeaderRenderer": {
+                  "title": { "runs": [ { "text": "The Life Of Pablo" } ] },
+                  "subtitle": {
+                    "runs": [
+                      { "text": "Album" },
+                      { "text": " • " },
+                      { "text": "2016" }
+                    ]
+                  },
+                  "subtitleBadge": [
+                    {
+                      "musicInlineBadgeRenderer": {
+                        "icon": { "iconType": "MUSIC_EXPLICIT_BADGE" }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+            """,
+        )
+
+        val header = InnertubeParser.parseBrowseHeader(response)
+
+        assertEquals(true, header?.isExplicit)
+        assertEquals(true, header?.isRelease)
+    }
+
+    @Test
+    fun duplicatePlaylistRowCannotEraseExplicitFlag() {
+        val response = Json.parseToJsonElement(
+            """
+            {
+              "contents": {
+                "twoColumnBrowseResultsRenderer": {
+                  "secondaryContents": {
+                    "musicPlaylistShelfRenderer": {
+                      "contents": [
+                        {
+                          "musicResponsiveListItemRenderer": {
+                            "playlistItemData": { "videoId": "same-playlist-track", "playlistSetVideoId": "set-1" },
+                            "flexColumns": [
+                              { "musicResponsiveListItemFlexColumnRenderer": { "text": { "runs": [ { "text": "Track" } ] } } },
+                              { "musicResponsiveListItemFlexColumnRenderer": { "text": { "runs": [ { "text": "Artist" } ] } } }
+                            ]
+                          }
+                        },
+                        {
+                          "musicResponsiveListItemRenderer": {
+                            "playlistItemData": { "videoId": "same-playlist-track", "playlistSetVideoId": "set-2" },
+                            "flexColumns": [
+                              { "musicResponsiveListItemFlexColumnRenderer": { "text": { "runs": [ { "text": "Track" } ] } } },
+                              { "musicResponsiveListItemFlexColumnRenderer": { "text": { "runs": [ { "text": "Artist" } ] } } }
+                            ],
+                            "badges": [
+                              { "musicInlineBadgeRenderer": { "icon": { "iconType": "MUSIC_EXPLICIT_BADGE" } } }
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+            """,
+        )
+
+        val songs = InnertubeParser.parsePlaylistShelf(response)!!.songs
+
+        assertEquals(1, songs.size)
+        assertEquals(true, songs.single().isExplicit)
+    }
+
+    @Test
     fun duplicateRecommendationRowCannotEraseExplicitFlag() {
         val response = Json.parseToJsonElement(
             """
