@@ -104,17 +104,15 @@ internal fun Modifier.seekLyricsWhenSheetConsumesTap(
 
             val layout = listState.layoutInfo
             val visible = layout.visibleItemsInfo
-            // Most of the list uses viewport-local item offsets directly.
-            // At the start, however, the centred first-line padding makes the
-            // effective viewport begin before y=0. Try that viewport-relative
-            // coordinate as well so a tap on the first rows is not lost.
-            val viewportY = down.position.y + layout.viewportStartOffset
+            // Item offsets use the lazy list's content coordinate system,
+            // whose origin moves above the container when beforeContentPadding
+            // is present. Convert the pointer's container-local y coordinate
+            // before hit-testing; comparing raw y first can select a nearby
+            // row when the top padding is large (notably at either list end).
+            val itemSpaceY = down.position.y + layout.viewportStartOffset
             val item = visible.firstOrNull {
-                down.position.y >= it.offset.toFloat() &&
-                    down.position.y < (it.offset + it.size).toFloat()
-            } ?: visible.firstOrNull {
-                viewportY >= it.offset.toFloat() &&
-                    viewportY < (it.offset + it.size).toFloat()
+                itemSpaceY >= it.offset.toFloat() &&
+                    itemSpaceY < (it.offset + it.size).toFloat()
             } ?: return@awaitEachGesture
             val index = item.index
             val line = lines.getOrNull(index) ?: return@awaitEachGesture

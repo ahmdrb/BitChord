@@ -548,6 +548,7 @@ private fun MiniPlayerTrackMetadata(
             color = MaterialTheme.colorScheme.onBackground,
             badgeColor = MaterialTheme.colorScheme.onSurfaceVariant,
             fadeOverflow = true,
+            showExplicitBadge = false,
         )
         FadingLine(
             text = song.artist,
