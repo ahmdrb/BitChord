@@ -42,8 +42,8 @@ class ShelfItemSongTest {
     @Test
     fun duplicateUnbadgedSongCannotEraseAnExplicitFlag() {
         val songs = listOf(
-            Song(videoId = "same-track", title = "Track", artist = "Artist", isExplicit = true),
-            Song(videoId = "same-track", title = "Track", artist = "Artist"),
+            Song(videoId = "same-track", title = "Track", artist = "Artist", thumbnailUrl = null, isExplicit = true),
+            Song(videoId = "same-track", title = "Track", artist = "Artist", thumbnailUrl = null),
         )
 
         val result = songs.distinctByVideoIdKeepingExplicit()
@@ -55,8 +55,8 @@ class ShelfItemSongTest {
     @Test
     fun laterExplicitDuplicatePromotesAnEarlierUnbadgedSong() {
         val songs = listOf(
-            Song(videoId = "same-track", title = "Track", artist = "Artist"),
-            Song(videoId = "same-track", title = "Track", artist = "Artist", isExplicit = true),
+            Song(videoId = "same-track", title = "Track", artist = "Artist", thumbnailUrl = null),
+            Song(videoId = "same-track", title = "Track", artist = "Artist", thumbnailUrl = null, isExplicit = true),
         )
 
         assertEquals(true, songs.distinctByVideoIdKeepingExplicit().single().isExplicit)
