@@ -502,6 +502,7 @@ private fun MiniPlayerTrackArtwork(
 ) {
     Box(
         modifier = modifier
+            // Each moving cover stays square; only the outer viewport owns rounded clipping.
             .clip(RectangleShape)
             .graphicsLayer { this.translationX = translationX },
     ) {
