@@ -1,8 +1,10 @@
 package com.music.bitchord.ui.components
 
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,15 +22,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
@@ -154,25 +153,26 @@ fun ExplicitBadge(color: Color, modifier: Modifier = Modifier) {
         fontWeight = FontWeight.W800,
         letterSpacing = 0.sp,
     )
-    val letter = rememberTextMeasurer().measure("E", style)
     val foreground = if (color.luminance() > 0.5f) Color.Black else Color.White
     val capPx = with(LocalDensity.current) { style.fontSize.toPx() } * CAP_HEIGHT
     val side = with(LocalDensity.current) { (capPx / BADGE_CAP_SHARE).toDp() }
 
-    Canvas(modifier.size(side)) {
-        drawRoundRect(
-            color = color,
-            cornerRadius = CornerRadius(2.dp.toPx()),
-        )
-        // Draw the glyph directly instead of asking a short Text box to fit a
-        // full labelSmall line-height into the badge's smaller square.
-        drawText(
-            textLayoutResult = letter,
-            topLeft = Offset(
-                (size.width - letter.size.width) / 2f,
-                (size.height + capPx) / 2f - letter.firstBaseline,
-            ),
+    // Use a real Compose text node rather than drawing the glyph into a tiny
+    // Canvas. This keeps the E visible across Android and desktop renderers,
+    // and lets font shaping / density changes be handled by Text itself.
+    Box(
+        modifier = modifier
+            .size(side)
+            .clip(RoundedCornerShape(2.dp))
+            .background(color),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = "E",
+            style = style,
             color = foreground,
+            maxLines = 1,
+            softWrap = false,
         )
     }
 }
