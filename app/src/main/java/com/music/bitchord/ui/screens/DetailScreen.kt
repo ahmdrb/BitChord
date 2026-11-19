@@ -922,7 +922,6 @@ fun DetailScreen(
             hazeState = remember { HazeState() },
             artists = personalLibrary.artists,
             initialArtistId = page.browseId,
-            artwork = page.thumbnailUrl,
             onDismiss = { showPersonalSongPicker = false },
             onArtistAdded = {},
             onSongAdded = { song, artistIds -> PersonalLibraryStore.addSong(song, artistIds) },
