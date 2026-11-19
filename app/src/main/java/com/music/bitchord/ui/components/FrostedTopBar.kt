@@ -529,24 +529,23 @@ private fun artworkPageSurface(
     val useLiquidGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
 
     val surface = when {
-        // Keep the original Liquid Glass treatment and rim on artwork pages,
-        // but use the same neutral theme tint rather than artwork-derived color.
+        // Artwork pages use the same surface as the shared top bar outside the
+        // page: regular Liquid Glass (with its original rim) when enabled, and
+        // the mini-player's neutral thin Haze material when disabled.
+        neutralArtworkChrome && useLiquidGlass -> Modifier.liquidGlass(shape)
+        neutralArtworkChrome && (reduceDynamicBlur || hazeState == null) ->
+            Modifier.background(container)
+        neutralArtworkChrome -> Modifier.optimizedHazeEffect(
+            state = hazeState!!,
+            style = HazeMaterials.thin(container),
+        )
+        // Other pages can still opt into the lightweight navigation glass.
         lightweightGlass && useLiquidGlass -> Modifier.lightweightLiquidGlass(
             shape = shape,
             fallbackColor = container,
             surfaceTint = navigationGlassSurfaceTint(),
             edgeColor = NAVIGATION_GLASS_EDGE_COLOR,
         )
-        // With Liquid Glass off, protected artwork pages use the mini-player's
-        // thin Haze material instead of sampling cover-art colours.
-        neutralArtworkChrome -> if (reduceDynamicBlur || hazeState == null) {
-            Modifier.background(container)
-        } else {
-            Modifier.optimizedHazeEffect(
-                state = hazeState,
-                style = HazeMaterials.thin(container),
-            )
-        }
         useLiquidGlass -> Modifier.liquidGlass(shape)
         reduceDynamicBlur || hazeState == null -> Modifier.background(container)
         else -> Modifier.optimizedHazeEffect(
@@ -560,10 +559,11 @@ private fun artworkPageSurface(
         // lightweightLiquidGlass already supplies the brighter navigation rim.
         .then(
             when {
-                // lightweightLiquidGlass supplies the same brighter rim as before.
-                lightweightGlass && useLiquidGlass -> Modifier
+                // Regular Liquid Glass already paints the standard navigation rim.
+                neutralArtworkChrome && useLiquidGlass -> Modifier
                 neutralArtworkChrome || !useLiquidGlass ->
                     Modifier.border(0.5.dp, Color.White.copy(alpha = 0.10f), shape)
+                lightweightGlass && useLiquidGlass -> Modifier
                 lightweightGlass -> Modifier
                 else -> Modifier.border(GLASS_EDGE_WIDTH, GLASS_EDGE_COLOR, shape)
             },
