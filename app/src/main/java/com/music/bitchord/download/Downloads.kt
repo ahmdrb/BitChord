@@ -690,6 +690,10 @@ object Downloads {
         // is both, and an album page's rows are neither.
         val album = fetched.albumName?.takeIf { it.isNotBlank() }
             ?: asked.albumName?.takeIf { it.isNotBlank() }
+        // A video download and its catalogue-audio alias are the same track.
+        // Preserve a positive explicit marker from either side on both records.
+        val explicit = (asked.isExplicit == true || fetched.isExplicit == true)
+            .takeIf { it } ?: asked.isExplicit ?: fetched.isExplicit
         val metaAsked = SavedSongMetadata(
             videoId = asked.videoId,
             title = asked.title,
@@ -700,6 +704,7 @@ object Downloads {
             uri = uri.toString(),
             downloadFormat = downloadFormat,
             dateAddedSeconds = dateAddedSeconds,
+            isExplicit = explicit,
         )
         val metaFetched = SavedSongMetadata(
             videoId = fetched.videoId,
@@ -711,6 +716,7 @@ object Downloads {
             uri = uri.toString(),
             downloadFormat = downloadFormat,
             dateAddedSeconds = dateAddedSeconds,
+            isExplicit = explicit,
         )
         record(
             saved = { it + ids.associateWith { id -> uri.toString() } },
@@ -786,6 +792,7 @@ object Downloads {
                         thumbnailUrl = meta.thumbnailUrl,
                         durationText = meta.durationText,
                         albumName = meta.albumName,
+                        isExplicit = meta.isExplicit,
                         localUri = meta.uri,
                         downloadFormat = downloadFormat,
                         localDateAddedSeconds = dateAddedSeconds,
@@ -865,6 +872,7 @@ object Downloads {
                     thumbnailUrl = meta.thumbnailUrl,
                     durationText = meta.durationText,
                     albumName = meta.albumName,
+                    isExplicit = meta.isExplicit,
                     localUri = uriString,
                     downloadFormat = meta.downloadFormat ?: legacyYoutubeDownloadBadge(context, uri),
                     localDateAddedSeconds = dateAddedSeconds,
@@ -1634,6 +1642,8 @@ internal data class SavedSongMetadata(
     val downloadFormat: String? = null,
     /** Stable creation time for downloads that MediaStore does not index. */
     val dateAddedSeconds: Long? = null,
+    /** Added compatibly: old download records decode with no explicit marker. */
+    val isExplicit: Boolean? = null,
 )
 
 /**
