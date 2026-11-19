@@ -377,7 +377,7 @@ private fun PersonalCollectionDetailDialog(
                     DropdownMenu(
                         expanded = sortMenuOpen,
                         onDismissRequest = { onSortMenuOpenChange(false) },
-                        modifier = Modifier.iosMenuPanel(translucent = false, hazeState = hazeState),
+                        modifier = Modifier.iosMenuPanel(translucent = true, hazeState = hazeState),
                         shape = IosMenuShape,
                         containerColor = Color.Transparent,
                         tonalElevation = 0.dp,
@@ -426,7 +426,7 @@ private fun PersonalCollectionDetailDialog(
                     DropdownMenu(
                         expanded = menuOpen,
                         onDismissRequest = { onMenuOpenChange(false) },
-                        modifier = Modifier.iosMenuPanel(translucent = false, hazeState = hazeState),
+                        modifier = Modifier.iosMenuPanel(translucent = true, hazeState = hazeState),
                         shape = IosMenuShape,
                         containerColor = Color.Transparent,
                         tonalElevation = 0.dp,
@@ -649,7 +649,7 @@ private fun PersonalCollectionDetailDialog(
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            modifier = Modifier.iosMenuPanel(translucent = false, hazeState = hazeState),
+            modifier = Modifier.iosMenuPanel(translucent = true, hazeState = hazeState),
             shape = IosMenuShape,
             containerColor = Color.Transparent,
             tonalElevation = 0.dp,
@@ -957,7 +957,7 @@ internal fun PersonalLibraryAddDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        modifier = Modifier.iosMenuPanel(translucent = false, hazeState = hazeState),
+        modifier = Modifier.iosMenuPanel(translucent = true, hazeState = hazeState),
         shape = IosMenuShape,
         containerColor = Color.Transparent,
         tonalElevation = 0.dp,
@@ -1029,7 +1029,7 @@ internal fun PersonalLibraryAddDialog(
                         DropdownMenu(
                             expanded = artistMenuOpen,
                             onDismissRequest = { artistMenuOpen = false },
-                            modifier = Modifier.iosMenuPanel(translucent = false, hazeState = hazeState),
+                            modifier = Modifier.iosMenuPanel(translucent = true, hazeState = hazeState),
                             shape = IosMenuShape,
                             containerColor = Color.Transparent,
                             tonalElevation = 0.dp,
