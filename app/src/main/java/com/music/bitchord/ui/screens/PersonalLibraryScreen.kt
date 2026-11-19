@@ -546,8 +546,7 @@ private fun PersonalCollectionDetailDialog(
                             }
                             IconButton(
                                 onClick = onAddSongs,
-                                modifier = Modifier.size(56.dp).background(palette.elevated, RoundedCornerShape(50))
-                                    .border(1.dp, palette.divider, RoundedCornerShape(50)),
+                                modifier = Modifier.size(56.dp).then(actionSurface),
                             ) {
                                 Icon(Icons.Rounded.Add, contentDescription = "Add songs", tint = MaterialTheme.colorScheme.onSurface)
                             }
