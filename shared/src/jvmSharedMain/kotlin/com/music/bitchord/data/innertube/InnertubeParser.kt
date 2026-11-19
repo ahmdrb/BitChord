@@ -636,14 +636,14 @@ object InnertubeParser {
         val songs = playlistScope?.let { playlist ->
             collectRenderers(playlist, "musicResponsiveListItemRenderer")
                 .mapNotNull { parseResponsiveListItem(it, pageCredit) }
-                .distinctBy { it.videoId }
+                .distinctByVideoIdKeepingExplicit()
         }.orEmpty()
         val knownSongs = songs.mapTo(HashSet()) { it.videoId }
         val suggested = suggestionShelves
             .flatMap { collectRenderers(it, "musicResponsiveListItemRenderer") }
             .mapNotNull { parseResponsiveListItem(it, pageCredit) }
             .filterNot { it.videoId in knownSongs }
-            .distinctBy { it.videoId }
+            .distinctByVideoIdKeepingExplicit()
         // The "Suggestions" shelf's own continuation reloads it with a fresh
         // batch rather than paging it (see its "Refresh" button, wired to a
         // `reloadContinuationData` token). Only the playlist shelf's own
@@ -1769,6 +1769,25 @@ object InnertubeParser {
      * generated radio mix, and `OLAK`/`MPRE` are albums wearing a playlist id.
      */
     private val NOT_EDITABLE = listOf("LM", "SE", "RD", "OLAK", "MPRE")
+
+    /**
+     * Keep the latest row's other metadata, but never let an unbadged duplicate
+     * erase an explicit flag found on another copy of the same video.
+     */
+    private fun List<Song>.distinctByVideoIdKeepingExplicit(): List<Song> {
+        val unique = LinkedHashMap<String, Song>()
+        for (song in this) {
+            val previous = unique[song.videoId]
+            unique[song.videoId] = if (
+                previous?.isExplicit == true && song.isExplicit != true
+            ) {
+                song.copy(isExplicit = true)
+            } else {
+                song
+            }
+        }
+        return unique.values.toList()
+    }
 
     /** YouTube nests this badge differently across search, album and queue renderers. */
     private fun JsonElement?.hasExplicitBadge(): Boolean? =
