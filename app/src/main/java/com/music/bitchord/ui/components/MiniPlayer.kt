@@ -28,7 +28,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RectangleShape
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Pause
@@ -497,6 +497,7 @@ private val VIDEO_ART_WIDTH = 71.dp
 @Composable
 private fun MiniPlayerTrackArtwork(
     artSong: Song,
+    playingSong: Song,
     translationX: Float,
     modifier: Modifier = Modifier,
 ) {
@@ -713,18 +714,21 @@ fun MiniPlayer(
                         previousSong?.let { previous ->
                             MiniPlayerTrackArtwork(
                                 artSong = previous,
+    playingSong = song,
                                 translationX = -tileWidthPx,
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }
                         MiniPlayerTrackArtwork(
                             artSong = displayedSong.value,
+    playingSong = song,
                             translationX = 0f,
                             modifier = Modifier.fillMaxSize(),
                         )
                         nextSong?.let { next ->
                             MiniPlayerTrackArtwork(
                                 artSong = next,
+    playingSong = song,
                                 translationX = tileWidthPx,
                                 modifier = Modifier.fillMaxSize(),
                             )
@@ -732,6 +736,7 @@ fun MiniPlayer(
                     } else {
                         MiniPlayerTrackArtwork(
                             artSong = displayedSong.value,
+    playingSong = song,
                             translationX = dragOffsetPx,
                             modifier = Modifier.fillMaxSize(),
                         )
@@ -742,6 +747,7 @@ fun MiniPlayer(
                         }
                         MiniPlayerTrackArtwork(
                             artSong = adjacent,
+    playingSong = song,
                             translationX = adjacentStart + dragOffsetPx,
                             modifier = Modifier.fillMaxSize(),
                         )
