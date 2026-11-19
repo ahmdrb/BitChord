@@ -82,6 +82,11 @@ internal fun Modifier.seekLyricsWhenSheetConsumesTap(
                 requireUnconsumed = false,
                 pass = PointerEventPass.Initial,
             )
+            // Keep the item positions from the same frame as the pointer-down.
+            // The bottom sheet can still settle after consuming this down event;
+            // reading layoutInfo on pointer-up would pair the original finger
+            // position with rows that have already moved.
+            val layoutAtDown = listState.layoutInfo
             val sheetConsumedDown = down.isConsumed
             var moved = false
             var released: androidx.compose.ui.input.pointer.PointerInputChange? = null
@@ -102,17 +107,12 @@ internal fun Modifier.seekLyricsWhenSheetConsumesTap(
             // sheet consumed the down or no child claimed the tap at all.
             if (!sheetConsumedDown && up.isConsumed) return@awaitEachGesture
 
-            val layout = listState.layoutInfo
-            val visible = layout.visibleItemsInfo
-            // Item offsets use the lazy list's content coordinate system,
-            // whose origin moves above the container when beforeContentPadding
-            // is present. Convert the pointer's container-local y coordinate
-            // before hit-testing; comparing raw y first can select a nearby
-            // row when the top padding is large (notably at either list end).
-            val itemSpaceY = down.position.y + layout.viewportStartOffset
-            val item = visible.firstOrNull {
-                itemSpaceY >= it.offset.toFloat() &&
-                    itemSpaceY < (it.offset + it.size).toFloat()
+            // Match against the layout snapshot captured at pointer-down.
+            // LazyListItemInfo.offset is relative to the list container, the
+            // same coordinate space as this pointerInput node.
+            val item = layoutAtDown.visibleItemsInfo.firstOrNull {
+                down.position.y >= it.offset.toFloat() &&
+                    down.position.y < (it.offset + it.size).toFloat()
             } ?: return@awaitEachGesture
             val index = item.index
             val line = lines.getOrNull(index) ?: return@awaitEachGesture
