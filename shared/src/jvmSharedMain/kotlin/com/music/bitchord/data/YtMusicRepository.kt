@@ -838,26 +838,12 @@ object YtMusicRepository {
     private fun pageOf(response: JsonObject, show: String? = null): SongPage {
         val library = InnertubeParser.parseLibraryState(response)
         val header = InnertubeParser.parseBrowseHeader(response)
-        // Album headers can carry the only explicit marker (subtitleBadge).
-        // Keep it on the album's unknown track rows, but never override a
-        // row-level value or spread a playlist's own badge to its songs.
-        val albumExplicit = header?.isRelease == true && header.isExplicit == true
-        fun withAlbumAdvisory(songs: List<Song>): List<Song> =
-            if (!albumExplicit) songs else songs.map { song ->
-                if (song.isExplicit == null) song.copy(isExplicit = true) else song
-            }
         // A playlist page is scoped to its own shelf so its "Suggested
         // tracks" never read as songs the user added — see
         // parsePlaylistShelf. Anything else (album, library, history,
         // podcast) has no such shelf, and falls back to the layout-agnostic walk.
         InnertubeParser.parsePlaylistShelf(response)?.let { shelf ->
-            return SongPage(
-                withAlbumAdvisory(shelf.songs),
-                shelf.continuation,
-                withAlbumAdvisory(shelf.suggested),
-                library,
-                header = header,
-            )
+            return SongPage(shelf.songs, shelf.continuation, shelf.suggested, library, header = header)
         }
         val podcast = InnertubeParser.podcastShow(response) ?: show
         val continuation = InnertubeParser.continuationToken(response)
@@ -866,9 +852,7 @@ object YtMusicRepository {
             // One response can name the same track twice — an album page that
             // also carries a "you might also like" shelf, say. Collecting into a
             // map used to take care of that; paging by hand means saying so.
-            songs = withAlbumAdvisory(
-                InnertubeParser.collectSongsDeep(response, podcast).distinctBy { it.videoId },
-            ),
+            songs = InnertubeParser.collectSongsDeep(response, podcast).distinctBy { it.videoId },
             continuation = continuation,
             library = library,
             header = header,
@@ -906,16 +890,6 @@ object YtMusicRepository {
     private suspend fun songsPaged(browseId: String): List<Song> {
         val out = LinkedHashMap<String, Song>()
         var response = Innertube.browse(browseId)
-        // A full album listing can be fetched through its backing playlist,
-        // whose response has no header. Capture the advisory before switching
-        // endpoints so every continuation page retains the album's signal.
-        val albumExplicit = if (browseId.startsWith("MPREb")) {
-            InnertubeParser.parseBrowseHeader(response)?.let {
-                it.isRelease && it.isExplicit == true
-            } == true
-        } else {
-            false
-        }
         if (browseId.startsWith("MPREb")) {
             val albumRows = InnertubeParser.collectSongsDeep(response).size
             albumPlaylistOf(response, albumRows)?.let { response = it }
@@ -929,18 +903,13 @@ object YtMusicRepository {
             // shelf so a trailing "Suggested tracks" shelf never joins in.
             val shelf = InnertubeParser.parsePlaylistShelf(response)
             (shelf?.songs ?: InnertubeParser.collectSongsDeep(response, show)).forEach { song ->
-                val withAlbumAdvisory = if (albumExplicit && song.isExplicit == null) {
+                val previous = out[song.videoId]
+                out[song.videoId] = if (
+                    previous?.isExplicit == true && song.isExplicit != true
+                ) {
                     song.copy(isExplicit = true)
                 } else {
                     song
-                }
-                val previous = out[song.videoId]
-                out[song.videoId] = if (
-                    previous?.isExplicit == true && withAlbumAdvisory.isExplicit != true
-                ) {
-                    withAlbumAdvisory.copy(isExplicit = true)
-                } else {
-                    withAlbumAdvisory
                 }
             }
             val token = shelf?.continuation ?: InnertubeParser.continuationToken(response)
