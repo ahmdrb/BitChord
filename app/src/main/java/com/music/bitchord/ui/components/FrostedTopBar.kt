@@ -515,11 +515,11 @@ private fun Modifier.artworkActionEdgePadding(): Modifier = layout { measurable,
     }
 }
 
+private const val NEUTRAL_ARTWORK_CHROME_TINT = 0.68f
+
 /** The navbar's exact material choice, reusable by every floating top control. */
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
-private const val NEUTRAL_ARTWORK_CHROME_TINT = 0.68f
-
 private fun artworkPageSurface(
     shape: CornerBasedShape,
     hazeState: HazeState?,
