@@ -1155,6 +1155,10 @@ object InnertubeParser {
         /** The line under it — "Album • Artist • 2024", or a playlist's blurb. */
         val subtitle: String,
         val thumbnailUrl: String?,
+        /** Header advisory; albums can put the only explicit badge here. */
+        val isExplicit: Boolean? = null,
+        /** True only when the header names an album, single or EP. */
+        val isRelease: Boolean = false,
     )
 
     /**
@@ -1182,6 +1186,9 @@ object InnertubeParser {
             .filter { it.isNotBlank() }
             .distinct()
             .joinToString(" • ")
+        val headerParts = subtitle.split(" • ", " · ")
+            .map(String::trim)
+            .map { it.lowercase(Locale.ROOT) }
         return BrowseHeader(
             title = title,
             subtitle = subtitle,
@@ -1189,6 +1196,10 @@ object InnertubeParser {
             // there — so the first image under the header is the cover.
             thumbnailUrl = collectRenderers(header, "musicThumbnailRenderer").firstOrNull()
                 .o("thumbnail").a("thumbnails").best(),
+            // An explicit release can put its only badge on subtitleBadge,
+            // not on any individual track row.
+            isExplicit = header.hasExplicitBadge(),
+            isRelease = headerParts.any { it in RELEASE_WORDS },
         )
     }
 
