@@ -171,8 +171,6 @@ fun FrostedTopBar(
      * the hero image through those controls. The glass tint and rim remain.
      */
     lightweightArtworkChrome: Boolean = false,
-    /** Use the mini-player's neutral Haze surface and hairline for personal collections. */
-    neutralArtworkChrome: Boolean = false,
     /** Source sampled by floating top-bar surfaces when liquid glass is off. */
     backButtonHazeState: HazeState? = null,
     trailingTitle: String? = null,
@@ -302,7 +300,6 @@ fun FrostedTopBar(
                         onClick = onBack,
                         hazeState = backButtonHazeState,
                         lightweightGlass = lightweightArtworkChrome,
-                        neutralArtworkChrome = neutralArtworkChrome,
                         // The surface edge aligns with the floating navbar. The
                         // padding belongs outside the circle; its icon remains
                         // centred in the same 44dp control in every material.
@@ -348,8 +345,7 @@ fun FrostedTopBar(
                     ArtworkPageActions(
                         hazeState = backButtonHazeState,
                         lightweightGlass = lightweightArtworkChrome,
-                        neutralArtworkChrome = neutralArtworkChrome,
-                        content = actions,
+                                content = actions,
                     )
                 } else {
                     actions()
@@ -368,7 +364,6 @@ private fun ArtworkPageBackButton(
     onClick: () -> Unit,
     hazeState: HazeState?,
     lightweightGlass: Boolean,
-    neutralArtworkChrome: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val shape = CircleShape
@@ -389,7 +384,6 @@ private fun ArtworkPageBackButton(
                     shape = shape,
                     hazeState = hazeState,
                     lightweightGlass = lightweightGlass,
-                    neutralArtworkChrome = neutralArtworkChrome,
                 )),
         ) {
             Icon(
@@ -515,8 +509,6 @@ private fun Modifier.artworkActionEdgePadding(): Modifier = layout { measurable,
     }
 }
 
-private const val NEUTRAL_ARTWORK_CHROME_TINT = 0.68f
-
 /** The navbar's exact material choice, reusable by every floating top control. */
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
@@ -524,29 +516,12 @@ private fun artworkPageSurface(
     shape: CornerBasedShape,
     hazeState: HazeState?,
     lightweightGlass: Boolean,
-    neutralArtworkChrome: Boolean,
 ): Modifier {
     val container = MaterialTheme.colorScheme.surface
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val useLiquidGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
 
     val surface = when {
-        // Artwork pages use the same surface as the shared top bar outside the
-        // page: regular Liquid Glass (with its original rim) when enabled, and
-        // the mini-player's neutral thin Haze material when disabled.
-        neutralArtworkChrome && useLiquidGlass -> Modifier.liquidGlass(shape)
-        neutralArtworkChrome && (reduceDynamicBlur || hazeState == null) ->
-            Modifier.background(container)
-        neutralArtworkChrome -> Modifier
-            .optimizedHazeEffect(
-                state = hazeState!!,
-                style = HazeMaterials.thin(container),
-            )
-            // The artwork beneath a collection page can be much brighter than
-            // the Library backdrop. Keep a theme-neutral veil over the live
-            // frost so these controls retain the same steady surface colour.
-            .background(container.copy(alpha = NEUTRAL_ARTWORK_CHROME_TINT), shape)
-        // Other pages can still opt into the lightweight navigation glass.
         lightweightGlass && useLiquidGlass -> Modifier.lightweightLiquidGlass(
             shape = shape,
             fallbackColor = container,
@@ -563,14 +538,9 @@ private fun artworkPageSurface(
 
     return Modifier.clip(shape)
         .then(surface)
-        // lightweightLiquidGlass already supplies the brighter navigation rim.
         .then(
             when {
-                // lightweightLiquidGlass already paints its own brighter rim.
                 lightweightGlass && useLiquidGlass -> Modifier
-                // All standard top-bar surfaces share the same outline:
-                // a quiet white Haze hairline without Liquid Glass, and the
-                // regular glass rim with it. Artwork pages must not skip it.
                 !useLiquidGlass ->
                     Modifier.border(0.5.dp, Color.White.copy(alpha = 0.10f), shape)
                 else -> Modifier.border(GLASS_EDGE_WIDTH, GLASS_EDGE_COLOR, shape)
