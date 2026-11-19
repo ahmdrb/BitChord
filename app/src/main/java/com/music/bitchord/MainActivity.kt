@@ -4154,7 +4154,7 @@ private fun BitChordApp(
                         artworkPageChrome = true,
                         // Keep the same app-level controls as Local Music, but do
                         // not sample or refract the artwork behind Playlist/Artist.
-                        lightweightArtworkChrome = protectNavigationChrome,
+                        lightweightArtworkChrome = false,
                         neutralArtworkChrome = protectNavigationChrome,
                         // The artwork-page controls use the same neutral thin
                         // Haze material as the mini-player. Keep the shared source
