@@ -3892,6 +3892,7 @@ private fun BitChordApp(
                                                 PersonalArtistDetailDialog(
                                                     artist = artist,
                                                     songs = artistSongs,
+                                                    hazeState = hazeState,
                                                     onDismiss = dismissPersonalCollectionDetail,
                                                     onAddSongs = { addingSongToPersonalArtistId = artistId },
                                                     onPlay = {
@@ -3950,6 +3951,7 @@ private fun BitChordApp(
                                             personalLibrary.playlists.firstOrNull { it.id == playlistId }?.let { playlist ->
                                                 PersonalPlaylistDetailDialog(
                                                     playlist = playlist,
+                                                    hazeState = hazeState,
                                                     onDismiss = dismissPersonalCollectionDetail,
                                                     onAddSongs = { addingSongToPersonalPlaylistId = playlistId },
                                                     onPlay = {
@@ -4014,7 +4016,6 @@ private fun BitChordApp(
                                                 hazeState = hazeState,
                                                 artists = personalLibrary.artists,
                                                 initialArtistId = null,
-                                                artwork = personalLibrary.playlists.firstOrNull { it.id == playlistId }?.let { it.artworkPath ?: it.songs.firstOrNull()?.thumbnailUrl },
                                                 onDismiss = { addingSongToPersonalPlaylistId = null },
                                                 onArtistAdded = { },
                                                 onSongAdded = { song, artistIds ->
@@ -4029,7 +4030,6 @@ private fun BitChordApp(
                                                 hazeState = hazeState,
                                                 artists = personalLibrary.artists,
                                                 initialArtistId = artistId,
-                                                artwork = personalLibrary.artists.firstOrNull { it.browseId == artistId }?.thumbnailUrl,
                                                 onDismiss = { addingSongToPersonalArtistId = null },
                                                 onArtistAdded = { },
                                                 onSongAdded = { song, artistIds ->
@@ -4155,11 +4155,12 @@ private fun BitChordApp(
                         // Keep the same app-level controls as Local Music, but do
                         // not sample or refract the artwork behind Playlist/Artist.
                         lightweightArtworkChrome = protectNavigationChrome,
+                        neutralArtworkChrome = personalCollectionDetailOpen,
                         // Keep the shared Playlist/Artist navigation surfaces
                         // independent of the scrolling page's Haze sample. They are
                         // the same app-level controls used by Local Music, not page
                         // content to be washed by the progressive blur.
-                        backButtonHazeState = if (protectNavigationChrome) null else hazeState,
+                        backButtonHazeState = if (protectNavigationChrome && !personalCollectionDetailOpen) null else hazeState,
                         trailingTitle = if (detail != null && detailActiveShelf != null) detail.title else null,
                         // Search has no large in-list header to hand the title back to —
                         // the field takes that space — so its bar title is always up.

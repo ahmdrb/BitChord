@@ -11,7 +11,6 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -38,6 +37,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
@@ -97,12 +97,17 @@ import com.music.bitchord.data.model.SearchFilter
 import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
+import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.theme.rememberArtworkPalette
 import com.music.bitchord.ui.components.ExplicitSongTitle
 import com.music.bitchord.ui.components.PAGE_GUTTER
 import com.music.bitchord.ui.components.IosMenuShape
+import com.music.bitchord.ui.components.iosMenuColors
 import com.music.bitchord.ui.components.iosMenuPanel
+import com.music.bitchord.ui.components.optimizedHazeEffect
 import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import dev.chrisbanes.haze.materials.HazeMaterials
 import com.music.bitchord.ui.icons.BitChordIcons
 import kotlinx.coroutines.launch
 
@@ -112,6 +117,7 @@ internal enum class PersonalAddMode { ARTIST, SONG }
 internal fun PersonalArtistDetailDialog(
     artist: BrowseItem,
     songs: List<Song>,
+    hazeState: HazeState,
     onDismiss: () -> Unit,
     onAddSongs: () -> Unit,
     onPlay: () -> Unit,
@@ -136,6 +142,7 @@ internal fun PersonalArtistDetailDialog(
         title = artist.title,
         artwork = artist.thumbnailUrl,
         songs = songs,
+        hazeState = hazeState,
         collectionKind = "artist",
         onDismiss = onDismiss,
         onAddSongs = onAddSongs,
@@ -213,6 +220,7 @@ internal fun PersonalPlaylistCreateDialog(
 @Composable
 internal fun PersonalPlaylistDetailDialog(
     playlist: PersonalLibraryStore.PersonalPlaylist,
+    hazeState: HazeState,
     onDismiss: () -> Unit,
     onAddSongs: () -> Unit,
     onPlay: () -> Unit,
@@ -238,6 +246,7 @@ internal fun PersonalPlaylistDetailDialog(
         title = playlist.title,
         artwork = playlist.artworkPath ?: playlist.songs.firstOrNull()?.thumbnailUrl,
         songs = playlist.songs,
+        hazeState = hazeState,
         collectionKind = "playlist",
         onDismiss = onDismiss,
         onAddSongs = onAddSongs,
@@ -262,10 +271,12 @@ internal fun PersonalPlaylistDetailDialog(
 }
 
 @Composable
+@OptIn(ExperimentalHazeMaterialsApi::class)
 private fun PersonalCollectionDetailDialog(
     title: String,
     artwork: Any?,
     songs: List<Song>,
+    hazeState: HazeState,
     collectionKind: String,
     onDismiss: () -> Unit,
     onAddSongs: () -> Unit,
@@ -306,6 +317,22 @@ private fun PersonalCollectionDetailDialog(
 
     val artworkUrl = artwork?.toString()
     val palette = rememberArtworkPalette(artworkUrl)
+    val menuColors = iosMenuColors()
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val actionShape = CircleShape
+    val actionSurface = Modifier
+        .clip(actionShape)
+        .then(
+            if (reduceDynamicBlur) {
+                Modifier.background(MaterialTheme.colorScheme.surface)
+            } else {
+                Modifier.optimizedHazeEffect(
+                    state = hazeState,
+                    style = HazeMaterials.thin(MaterialTheme.colorScheme.surface),
+                )
+            },
+        )
+        .border(0.5.dp, Color.White.copy(alpha = 0.10f), actionShape)
     val visibleSongs = remember(songs, searchQuery, sortMode, dateAddedDescending) {
         val filtered = songs.filter {
             searchQuery.isBlank() ||
@@ -350,11 +377,11 @@ private fun PersonalCollectionDetailDialog(
                     DropdownMenu(
                         expanded = sortMenuOpen,
                         onDismissRequest = { onSortMenuOpenChange(false) },
-                        shape = RoundedCornerShape(18.dp),
-                        containerColor = palette.elevated,
+                        modifier = Modifier.iosMenuPanel(translucent = true, hazeState = hazeState),
+                        shape = IosMenuShape,
+                        containerColor = Color.Transparent,
                         tonalElevation = 0.dp,
-                        shadowElevation = 16.dp,
-                        border = BorderStroke(1.dp, palette.divider),
+                        shadowElevation = 0.dp,
                     ) {
                         listOf(
                             "Date added",
@@ -367,21 +394,21 @@ private fun PersonalCollectionDetailDialog(
                                     Text(
                                         option,
                                         style = MaterialTheme.typography.labelLarge,
-                                        color = palette.onBackground,
+                                        color = menuColors.label,
                                     )
                                 },
                                 trailingIcon = {
                                     if (option == "Date added" && sortMode == option) {
                                         Text(
                                             if (dateAddedDescending) "↓" else "↑",
-                                            color = palette.accent,
+                                            color = menuColors.label,
                                             style = MaterialTheme.typography.titleLarge,
                                         )
                                     } else if (sortMode == option) {
                                         Icon(
                                             Icons.Rounded.Check,
                                             contentDescription = "Selected",
-                                            tint = palette.accent,
+                                            tint = menuColors.label,
                                         )
                                     }
                                 },
@@ -399,22 +426,22 @@ private fun PersonalCollectionDetailDialog(
                     DropdownMenu(
                         expanded = menuOpen,
                         onDismissRequest = { onMenuOpenChange(false) },
-                        shape = RoundedCornerShape(18.dp),
-                        containerColor = palette.elevated,
+                        modifier = Modifier.iosMenuPanel(translucent = true, hazeState = hazeState),
+                        shape = IosMenuShape,
+                        containerColor = Color.Transparent,
                         tonalElevation = 0.dp,
-                        shadowElevation = 16.dp,
-                        border = BorderStroke(1.dp, palette.divider),
+                        shadowElevation = 0.dp,
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Play next", color = palette.onBackground) },
+                            text = { Text("Play next", color = menuColors.label) },
                             onClick = { onMenuOpenChange(false); onPlayNextAll() },
                         )
                         DropdownMenuItem(
-                            text = { Text("Add to queue", color = palette.onBackground) },
+                            text = { Text("Add to queue", color = menuColors.label) },
                             onClick = { onMenuOpenChange(false); onAddAllToQueue() },
                         )
                         DropdownMenuItem(
-                            text = { Text("Download all", color = palette.onBackground) },
+                            text = { Text("Download all", color = menuColors.label) },
                             onClick = { onMenuOpenChange(false); onDownloadAll() },
                         )
                         if (onCustomizeArtwork != null) {
@@ -423,7 +450,7 @@ private fun PersonalCollectionDetailDialog(
                                     Text(
                                         "Customize artwork",
                                         style = MaterialTheme.typography.labelLarge,
-                                        color = palette.onBackground,
+                                        color = menuColors.label,
                                     )
                                 },
                                 onClick = { onMenuOpenChange(false); onCustomizeArtwork() },
@@ -497,10 +524,9 @@ private fun PersonalCollectionDetailDialog(
                             IconButton(
                                 onClick = onShuffle,
                                 enabled = songs.isNotEmpty(),
-                                modifier = Modifier.size(56.dp).background(palette.elevated, RoundedCornerShape(50))
-                                    .border(1.dp, palette.divider, RoundedCornerShape(50)),
+                                modifier = Modifier.size(56.dp).then(actionSurface),
                             ) {
-                                Icon(BitChordIcons.Shuffle, contentDescription = "Shuffle", tint = palette.accent)
+                                Icon(BitChordIcons.Shuffle, contentDescription = "Shuffle", tint = MaterialTheme.colorScheme.onSurface)
                             }
                             androidx.compose.material3.Button(
                                 onClick = onPlay,
@@ -523,7 +549,7 @@ private fun PersonalCollectionDetailDialog(
                                 modifier = Modifier.size(56.dp).background(palette.elevated, RoundedCornerShape(50))
                                     .border(1.dp, palette.divider, RoundedCornerShape(50)),
                             ) {
-                                Icon(Icons.Rounded.Add, contentDescription = "Add songs", tint = palette.accent)
+                                Icon(Icons.Rounded.Add, contentDescription = "Add songs", tint = MaterialTheme.colorScheme.onSurface)
                             }
                         }
                         Spacer(Modifier.height(18.dp))
@@ -900,7 +926,6 @@ fun PersonalLibraryScreen(
             hazeState = remember { HazeState() },
             artists = collection.artists,
             initialArtistId = selectedArtist?.browseId,
-            artwork = selectedArtist?.thumbnailUrl,
             onDismiss = { addMode = null },
             onArtistAdded = { artist -> PersonalLibraryStore.addArtist(artist) },
             onSongAdded = { song, artistIds -> PersonalLibraryStore.addSong(song, artistIds) },
@@ -914,7 +939,6 @@ internal fun PersonalLibraryAddDialog(
     hazeState: HazeState,
     artists: List<BrowseItem>,
     initialArtistId: String?,
-    artwork: Any? = null,
     onDismiss: () -> Unit,
     onArtistAdded: (BrowseItem) -> Unit,
     onSongAdded: (Song, Set<String>) -> Unit,
@@ -929,25 +953,16 @@ internal fun PersonalLibraryAddDialog(
     }
     var artistMenuOpen by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val artworkPalette = rememberArtworkPalette(artwork?.toString())
-    val themedSongDialog = mode == PersonalAddMode.SONG && artwork != null
-    val dialogSurface = if (themedSongDialog) artworkPalette.elevated else MaterialTheme.colorScheme.surface.copy(alpha = 0.82f)
-    val dialogOnSurface = if (themedSongDialog) artworkPalette.onBackground else MaterialTheme.colorScheme.onSurface
-    val dialogOnSurfaceVariant = if (themedSongDialog) artworkPalette.onBackgroundVariant else MaterialTheme.colorScheme.onSurfaceVariant
-    val dialogAccent = if (themedSongDialog) artworkPalette.accent else MaterialTheme.colorScheme.primary
+    val dialogMenuColors = iosMenuColors()
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        modifier = if (themedSongDialog) {
-            Modifier.border(1.dp, artworkPalette.divider, RoundedCornerShape(26.dp))
-        } else {
-            Modifier.iosMenuPanel(translucent = true, hazeState = hazeState)
-        },
-        shape = if (themedSongDialog) RoundedCornerShape(26.dp) else IosMenuShape,
-        containerColor = if (themedSongDialog) dialogSurface else Color.Transparent,
+        modifier = Modifier.iosMenuPanel(translucent = true, hazeState = hazeState),
+        shape = IosMenuShape,
+        containerColor = Color.Transparent,
         tonalElevation = 0.dp,
-        titleContentColor = dialogOnSurface,
-        textContentColor = dialogOnSurfaceVariant,
+        titleContentColor = MaterialTheme.colorScheme.onSurface,
+        textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
         title = {
             Text(if (mode == PersonalAddMode.ARTIST) "Add artist" else "Add song", style = MaterialTheme.typography.headlineSmall)
         },
@@ -968,9 +983,9 @@ internal fun PersonalLibraryAddDialog(
                         shape = RoundedCornerShape(16.dp),
                         label = { Text(if (mode == PersonalAddMode.ARTIST) "Artist name" else "Song title or artist") },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = dialogAccent,
-                            unfocusedBorderColor = if (themedSongDialog) artworkPalette.divider else MaterialTheme.colorScheme.outlineVariant,
-                            cursorColor = dialogAccent,
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                            cursorColor = MaterialTheme.colorScheme.primary,
                         ),
                     )
                     IconButton(
@@ -1001,7 +1016,7 @@ internal fun PersonalLibraryAddDialog(
                             }
                         },
                     ) {
-                        Icon(Icons.Rounded.Search, contentDescription = "Search", tint = dialogAccent)
+                        Icon(Icons.Rounded.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.primary)
                     }
                 }
 
@@ -1014,13 +1029,14 @@ internal fun PersonalLibraryAddDialog(
                         DropdownMenu(
                             expanded = artistMenuOpen,
                             onDismissRequest = { artistMenuOpen = false },
-                            shape = RoundedCornerShape(18.dp),
-                            containerColor = dialogSurface,
+                            modifier = Modifier.iosMenuPanel(translucent = true, hazeState = hazeState),
+                            shape = IosMenuShape,
+                            containerColor = Color.Transparent,
                             tonalElevation = 0.dp,
-                            shadowElevation = 16.dp,
+                            shadowElevation = 0.dp,
                         ) {
                             DropdownMenuItem(
-                                text = { Text("No artist collection") },
+                                text = { Text("No artist collection", color = dialogMenuColors.label) },
                                 onClick = {
                                     selectedArtistIds = emptySet()
                                     artistMenuOpen = false
@@ -1034,7 +1050,7 @@ internal fun PersonalLibraryAddDialog(
                                                 checked = artist.browseId in selectedArtistIds,
                                                 onCheckedChange = null,
                                             )
-                                            Text(artist.title)
+                                            Text(artist.title, color = dialogMenuColors.label)
                                         }
                                     },
                                     onClick = {

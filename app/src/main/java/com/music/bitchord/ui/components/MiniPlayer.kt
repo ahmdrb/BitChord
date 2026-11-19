@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RectangleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Pause
@@ -496,20 +497,12 @@ private val VIDEO_ART_WIDTH = 71.dp
 @Composable
 private fun MiniPlayerTrackArtwork(
     artSong: Song,
-    playingSong: Song,
-    dock: PlayerDock?,
     translationX: Float,
     modifier: Modifier = Modifier,
 ) {
     Box(
         modifier = modifier
-            .then(
-                if (artSong.videoId == playingSong.videoId) {
-                    Modifier.playerDockArt(dock, ART_CORNER)
-                } else {
-                    Modifier
-                },
-            )
+            .clip(RectangleShape)
             .graphicsLayer { this.translationX = translationX },
     ) {
         AsyncImage(
@@ -701,7 +694,10 @@ fun MiniPlayer(
                     .size(width = artWidth, height = 40.dp)
                     .clip(RoundedCornerShape(ART_CORNER))
                     .thumbnailBorder(RoundedCornerShape(ART_CORNER))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    // The dock tracks the clipped viewport, not either moving image.
+                    // Its rounded mask stays here; each sliding tile remains square.
+                    .playerDockArt(dock, ART_CORNER),
             ) {
                 BoxWithConstraints(Modifier.fillMaxSize()) {
                     val tileWidthPx = constraints.maxWidth.toFloat()
@@ -717,24 +713,18 @@ fun MiniPlayer(
                         previousSong?.let { previous ->
                             MiniPlayerTrackArtwork(
                                 artSong = previous,
-                                playingSong = song,
-                                dock = dock,
                                 translationX = -tileWidthPx,
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }
                         MiniPlayerTrackArtwork(
                             artSong = displayedSong.value,
-                            playingSong = song,
-                            dock = dock,
                             translationX = 0f,
                             modifier = Modifier.fillMaxSize(),
                         )
                         nextSong?.let { next ->
                             MiniPlayerTrackArtwork(
                                 artSong = next,
-                                playingSong = song,
-                                dock = dock,
                                 translationX = tileWidthPx,
                                 modifier = Modifier.fillMaxSize(),
                             )
@@ -742,8 +732,6 @@ fun MiniPlayer(
                     } else {
                         MiniPlayerTrackArtwork(
                             artSong = displayedSong.value,
-                            playingSong = song,
-                            dock = dock,
                             translationX = dragOffsetPx,
                             modifier = Modifier.fillMaxSize(),
                         )
@@ -754,8 +742,6 @@ fun MiniPlayer(
                         }
                         MiniPlayerTrackArtwork(
                             artSong = adjacent,
-                            playingSong = song,
-                            dock = dock,
                             translationX = adjacentStart + dragOffsetPx,
                             modifier = Modifier.fillMaxSize(),
                         )

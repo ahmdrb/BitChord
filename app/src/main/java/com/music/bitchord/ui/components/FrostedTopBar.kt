@@ -171,6 +171,8 @@ fun FrostedTopBar(
      * the hero image through those controls. The glass tint and rim remain.
      */
     lightweightArtworkChrome: Boolean = false,
+    /** Use the mini-player's neutral Haze surface and hairline for personal collections. */
+    neutralArtworkChrome: Boolean = false,
     /** Source sampled by floating top-bar surfaces when liquid glass is off. */
     backButtonHazeState: HazeState? = null,
     trailingTitle: String? = null,
@@ -300,6 +302,7 @@ fun FrostedTopBar(
                         onClick = onBack,
                         hazeState = backButtonHazeState,
                         lightweightGlass = lightweightArtworkChrome,
+                        neutralArtworkChrome = neutralArtworkChrome,
                         // The surface edge aligns with the floating navbar. The
                         // padding belongs outside the circle; its icon remains
                         // centred in the same 44dp control in every material.
@@ -345,6 +348,7 @@ fun FrostedTopBar(
                     ArtworkPageActions(
                         hazeState = backButtonHazeState,
                         lightweightGlass = lightweightArtworkChrome,
+                        neutralArtworkChrome = neutralArtworkChrome,
                         content = actions,
                     )
                 } else {
@@ -364,12 +368,13 @@ private fun ArtworkPageBackButton(
     onClick: () -> Unit,
     hazeState: HazeState?,
     lightweightGlass: Boolean,
+    neutralArtworkChrome: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val shape = CircleShape
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val useLiquidGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
-    val contentColor = if (useLiquidGlass && !reduceDynamicBlur) {
+    val contentColor = if (!neutralArtworkChrome && useLiquidGlass && !reduceDynamicBlur) {
         glassContentColor()
     } else {
         MaterialTheme.colorScheme.onSurface
@@ -380,7 +385,12 @@ private fun ArtworkPageBackButton(
             onClick = onClick,
             modifier = modifier
                 .size(TOP_CONTROL_SIZE)
-                .then(artworkPageSurface(shape = shape, hazeState = hazeState, lightweightGlass = lightweightGlass)),
+                .then(artworkPageSurface(
+                    shape = shape,
+                    hazeState = hazeState,
+                    lightweightGlass = lightweightGlass,
+                    neutralArtworkChrome = neutralArtworkChrome,
+                )),
         ) {
             Icon(
                 SfIcons.ArrowBack,
@@ -396,6 +406,7 @@ private fun ArtworkPageBackButton(
 private fun ArtworkPageActions(
     hazeState: HazeState?,
     lightweightGlass: Boolean,
+    neutralArtworkChrome: Boolean,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
@@ -405,6 +416,7 @@ private fun ArtworkPageActions(
                 shape = CircleShape,
                 hazeState = hazeState,
                 lightweightGlass = lightweightGlass,
+                neutralArtworkChrome = neutralArtworkChrome,
             ))
             // Keep the right edge fixed while a new action opens room to its
             // left. The surface itself therefore grows instead of jumping to
@@ -510,12 +522,23 @@ private fun artworkPageSurface(
     shape: CornerBasedShape,
     hazeState: HazeState?,
     lightweightGlass: Boolean,
+    neutralArtworkChrome: Boolean,
 ): Modifier {
     val container = MaterialTheme.colorScheme.surface
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val useLiquidGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
 
     val surface = when {
+        // Personal collections use the mini-player's neutral material in both modes.
+        // Do not refract or tint these controls with the collection artwork.
+        neutralArtworkChrome -> if (reduceDynamicBlur || hazeState == null) {
+            Modifier.background(container)
+        } else {
+            Modifier.optimizedHazeEffect(
+                state = hazeState,
+                style = HazeMaterials.thin(container),
+            )
+        }
         // Keep the lightweight navigation glass only while Liquid Glass is on.
         // With it off, Playlist/Artist controls use the same thin Haze material
         // as the mini-player immediately below the page.
@@ -538,9 +561,10 @@ private fun artworkPageSurface(
         // lightweightLiquidGlass already supplies the brighter navigation rim.
         .then(
             when {
+                neutralArtworkChrome || !useLiquidGlass ->
+                    Modifier.border(0.5.dp, Color.White.copy(alpha = 0.10f), shape)
                 // The thin Haze navigation surface uses the same quiet white
                 // hairline as the mini-player. Leave the Liquid Glass rim alone.
-                !useLiquidGlass -> Modifier.border(0.5.dp, Color.White.copy(alpha = 0.10f), shape)
                 lightweightGlass -> Modifier
                 else -> Modifier.border(GLASS_EDGE_WIDTH, GLASS_EDGE_COLOR, shape)
             },
