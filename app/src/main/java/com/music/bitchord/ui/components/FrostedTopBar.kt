@@ -374,7 +374,7 @@ private fun ArtworkPageBackButton(
     val shape = CircleShape
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val useLiquidGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
-    val contentColor = if (!neutralArtworkChrome && useLiquidGlass && !reduceDynamicBlur) {
+    val contentColor = if (useLiquidGlass && !reduceDynamicBlur) {
         glassContentColor()
     } else {
         MaterialTheme.colorScheme.onSurface
@@ -529,8 +529,16 @@ private fun artworkPageSurface(
     val useLiquidGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
 
     val surface = when {
-        // Personal collections use the mini-player's neutral material in both modes.
-        // Do not refract or tint these controls with the collection artwork.
+        // Keep the original Liquid Glass treatment and rim on artwork pages,
+        // but use the same neutral theme tint rather than artwork-derived color.
+        lightweightGlass && useLiquidGlass -> Modifier.lightweightLiquidGlass(
+            shape = shape,
+            fallbackColor = container,
+            surfaceTint = navigationGlassSurfaceTint(),
+            edgeColor = NAVIGATION_GLASS_EDGE_COLOR,
+        )
+        // With Liquid Glass off, protected artwork pages use the mini-player's
+        // thin Haze material instead of sampling cover-art colours.
         neutralArtworkChrome -> if (reduceDynamicBlur || hazeState == null) {
             Modifier.background(container)
         } else {
@@ -539,15 +547,6 @@ private fun artworkPageSurface(
                 style = HazeMaterials.thin(container),
             )
         }
-        // Keep the lightweight navigation glass only while Liquid Glass is on.
-        // With it off, Playlist/Artist controls use the same thin Haze material
-        // as the mini-player immediately below the page.
-        lightweightGlass && useLiquidGlass -> Modifier.lightweightLiquidGlass(
-            shape = shape,
-            fallbackColor = container,
-            surfaceTint = navigationGlassSurfaceTint(),
-            edgeColor = NAVIGATION_GLASS_EDGE_COLOR,
-        )
         useLiquidGlass -> Modifier.liquidGlass(shape)
         reduceDynamicBlur || hazeState == null -> Modifier.background(container)
         else -> Modifier.optimizedHazeEffect(
@@ -561,10 +560,10 @@ private fun artworkPageSurface(
         // lightweightLiquidGlass already supplies the brighter navigation rim.
         .then(
             when {
+                // lightweightLiquidGlass supplies the same brighter rim as before.
+                lightweightGlass && useLiquidGlass -> Modifier
                 neutralArtworkChrome || !useLiquidGlass ->
                     Modifier.border(0.5.dp, Color.White.copy(alpha = 0.10f), shape)
-                // The thin Haze navigation surface uses the same quiet white
-                // hairline as the mini-player. Leave the Liquid Glass rim alone.
                 lightweightGlass -> Modifier
                 else -> Modifier.border(GLASS_EDGE_WIDTH, GLASS_EDGE_COLOR, shape)
             },
