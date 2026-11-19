@@ -4155,7 +4155,7 @@ private fun BitChordApp(
                         // Keep the same app-level controls as Local Music, but do
                         // not sample or refract the artwork behind Playlist/Artist.
                         lightweightArtworkChrome = protectNavigationChrome,
-                        neutralArtworkChrome = personalCollectionDetailOpen,
+                        neutralArtworkChrome = protectNavigationChrome,
                         // Keep the shared Playlist/Artist navigation surfaces
                         // independent of the scrolling page's Haze sample. They are
                         // the same app-level controls used by Local Music, not page
