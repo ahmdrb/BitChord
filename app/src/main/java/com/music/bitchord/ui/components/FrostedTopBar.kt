@@ -518,6 +518,8 @@ private fun Modifier.artworkActionEdgePadding(): Modifier = layout { measurable,
 /** The navbar's exact material choice, reusable by every floating top control. */
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
+private const val NEUTRAL_ARTWORK_CHROME_TINT = 0.68f
+
 private fun artworkPageSurface(
     shape: CornerBasedShape,
     hazeState: HazeState?,
@@ -535,10 +537,15 @@ private fun artworkPageSurface(
         neutralArtworkChrome && useLiquidGlass -> Modifier.liquidGlass(shape)
         neutralArtworkChrome && (reduceDynamicBlur || hazeState == null) ->
             Modifier.background(container)
-        neutralArtworkChrome -> Modifier.optimizedHazeEffect(
-            state = hazeState!!,
-            style = HazeMaterials.thin(container),
-        )
+        neutralArtworkChrome -> Modifier
+            .optimizedHazeEffect(
+                state = hazeState!!,
+                style = HazeMaterials.thin(container),
+            )
+            // The artwork beneath a collection page can be much brighter than
+            // the Library backdrop. Keep a theme-neutral veil over the live
+            // frost so these controls retain the same steady surface colour.
+            .background(container.copy(alpha = NEUTRAL_ARTWORK_CHROME_TINT), shape)
         // Other pages can still opt into the lightweight navigation glass.
         lightweightGlass && useLiquidGlass -> Modifier.lightweightLiquidGlass(
             shape = shape,
