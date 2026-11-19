@@ -97,10 +97,12 @@ internal fun Modifier.relayLyricsTapWhenSheetConsumes(
             } while (true)
 
             val up = released ?: return@awaitEachGesture
-            // The normal row action owns every down the sheet did not consume.
-            // Only this row's own handler relays a tap that would otherwise be
-            // lost, so the item identity is never inferred from list offsets.
-            if (!sheetConsumedDown || moved) return@awaitEachGesture
+            // The normal row action owns a down it can claim. Relay only
+            // when the sheet consumed that down or no child claimed the tap;
+            // this row's identity comes from Compose hit-testing, not offsets.
+            if (moved || (!sheetConsumedDown && up.isConsumed)) {
+                return@awaitEachGesture
+            }
 
             val heldFor = (up.uptimeMillis - down.uptimeMillis).coerceAtLeast(0L)
             when {
