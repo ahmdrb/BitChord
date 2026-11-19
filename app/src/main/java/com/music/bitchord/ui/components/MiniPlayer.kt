@@ -503,9 +503,13 @@ private fun MiniPlayerTrackArtwork(
 ) {
     Box(
         modifier = modifier
-            // Each moving cover stays square; only the outer viewport owns rounded clipping.
-            .clip(RectangleShape)
-            .graphicsLayer { this.translationX = translationX },
+            // The rectangular clip travels with this tile. The shared viewport
+            // below owns the only rounded mask in the artwork transition.
+            .graphicsLayer {
+                this.translationX = translationX
+                shape = RectangleShape
+                clip = true
+            },
     ) {
         AsyncImage(
             model = rememberRemoteArtworkUrl(artSong)?.artworkAt(ROW_ART_PX),
@@ -697,11 +701,12 @@ fun MiniPlayer(
                     .clip(RoundedCornerShape(ART_CORNER))
                     .thumbnailBorder(RoundedCornerShape(ART_CORNER))
                     .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .clipToBounds()
                     // The dock tracks the clipped viewport, not either moving image.
                     // Its rounded mask stays here; each sliding tile remains square.
                     .playerDockArt(dock, ART_CORNER),
             ) {
-                BoxWithConstraints(Modifier.fillMaxSize()) {
+                BoxWithConstraints(Modifier.fillMaxSize().clipToBounds()) {
                     val tileWidthPx = constraints.maxWidth.toFloat()
                     val dragOffsetPx = if (draggedAdjacentSong.value != null) {
                         trackDragOffset.floatValue * tileWidthPx
