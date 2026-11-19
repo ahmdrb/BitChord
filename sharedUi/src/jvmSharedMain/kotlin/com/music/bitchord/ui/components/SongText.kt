@@ -150,6 +150,7 @@ private val FullFade = { 1f }
 fun ExplicitBadge(color: Color, modifier: Modifier = Modifier) {
     val style = MaterialTheme.typography.labelSmall.copy(
         fontSize = BADGE_LETTER_SIZE,
+        lineHeight = BADGE_LETTER_SIZE,
         fontWeight = FontWeight.W800,
         letterSpacing = 0.sp,
     )
