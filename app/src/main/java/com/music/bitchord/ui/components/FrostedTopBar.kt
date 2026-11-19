@@ -400,7 +400,6 @@ private fun ArtworkPageBackButton(
 private fun ArtworkPageActions(
     hazeState: HazeState?,
     lightweightGlass: Boolean,
-    neutralArtworkChrome: Boolean,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
@@ -410,7 +409,6 @@ private fun ArtworkPageActions(
                 shape = CircleShape,
                 hazeState = hazeState,
                 lightweightGlass = lightweightGlass,
-                neutralArtworkChrome = neutralArtworkChrome,
             ))
             // Keep the right edge fixed while a new action opens room to its
             // left. The surface itself therefore grows instead of jumping to
