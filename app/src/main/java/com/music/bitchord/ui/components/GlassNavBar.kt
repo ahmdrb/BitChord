@@ -59,6 +59,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.stringResource
@@ -551,7 +552,8 @@ private fun GlassNowPlaying(
             Box(
                 modifier = Modifier
                     .size(width = artWidth, height = ACCESSORY_ART_SIZE)
-                    .clipToBounds(),
+                    // Only the shared viewport owns rounded clipping.
+                    .clip(RoundedCornerShape(ACCESSORY_ART_CORNER)),
             ) {
                 if (adjacentSong == null) {
                     GlassTrackArtwork(
@@ -740,21 +742,23 @@ private fun GlassTrackArtwork(
     Box(
         modifier = modifier
             .then(if (isCurrent) Modifier.playerDockArt(dock, ACCESSORY_ART_CORNER) else Modifier)
-            .clip(RoundedCornerShape(ACCESSORY_ART_CORNER))
+            // A translated tile must stay square at the seam. The shared
+            // GlassNowPlaying viewport above provides the sole rounded mask.
+            .clip(RectangleShape)
             .background(MaterialTheme.colorScheme.surfaceVariant),
     ) {
         AsyncImage(
             model = rememberRemoteArtworkUrl(artSong)?.artworkAt(ROW_ART_PX),
             contentDescription = null,
             contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().clip(RectangleShape),
         )
         if (showsPicture) {
             AndroidMusicVideo(
                 videoId = artSong.videoId,
                 fit = false,
                 onRenderedChanged = {},
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().clip(RectangleShape),
                 priority = 0,
             )
         }
