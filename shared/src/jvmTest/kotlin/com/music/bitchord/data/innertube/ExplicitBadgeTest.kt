@@ -223,6 +223,49 @@ class ExplicitBadgeTest {
     }
 
     @Test
+    fun promotedSearchCardReadsItsBadgeFromSubtitleBadges() {
+        val search = Json.parseToJsonElement(
+            """
+            {
+              "contents": {
+                "musicCardShelfRenderer": {
+                  "onTap": {
+                    "watchEndpoint": { "videoId": "top-explicit-track" }
+                  },
+                  "title": {
+                    "runs": [ { "text": "Top explicit track" } ]
+                  },
+                  "subtitle": {
+                    "runs": [
+                      { "text": "Song" },
+                      { "text": " • " },
+                      { "text": "Artist" },
+                      { "text": " • " },
+                      { "text": "3:12" }
+                    ]
+                  },
+                  "subtitleBadges": [
+                    {
+                      "musicInlineBadgeRenderer": {
+                        "icon": { "iconType": "MUSIC_EXPLICIT_BADGE" }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+            """,
+        ).jsonObject
+
+        val top = InnertubeParser.parseSearchPage(search).rows
+            .filterIsInstance<com.music.bitchord.data.model.SearchResult.TopTrack>()
+            .single()
+
+        assertEquals("top-explicit-track", top.song.videoId)
+        assertEquals(true, top.song.isExplicit)
+    }
+
+    @Test
     fun searchRowsCarryExplicitFlagThroughTheSearchParser() {
         val search = Json.parseToJsonElement(
             """
