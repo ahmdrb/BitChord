@@ -2,13 +2,11 @@ package com.music.bitchord.ui.player
 
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
-import com.music.bitchord.data.lyrics.LyricLine
 
 /**
  * How far a finger may wander inside a lower-half tap and still be a tap, as a
@@ -53,27 +51,29 @@ internal fun Modifier.holdLyricsAutoFollowWhileTouched(
 }
 
 /**
- * A fully expanded ModalBottomSheet can consume the Initial down for its
- * short post-fling settle. In that one case a child clickable never receives
- * an eligible down, even though the listener tapped a lyric row. Observe that
- * consumed gesture at the list root and relay only a stationary tap to the
- * same row action; ordinary unconsumed taps stay owned by the row's clickable.
+ * Relay a stationary tap to this exact lyric row when a fully expanded
+ * ModalBottomSheet consumes the Initial down during its short post-fling
+ * settle.
+ *
+ * This lives on the row, not at the LazyColumn root. Compose has already
+ * performed hit-testing against the row's real bounds (including transforms),
+ * so no arithmetic over LazyListItemInfo offsets can accidentally choose the
+ * line above or below it when content padding or sheet motion is involved.
+ * Ordinary taps stay with the row's clickable/combinedClickable.
  */
 @Composable
-internal fun Modifier.seekLyricsWhenSheetConsumesTap(
-    listState: LazyListState,
-    lines: List<LyricLine>,
+internal fun Modifier.relayLyricsTapWhenSheetConsumes(
     enabled: Boolean,
     canPick: Boolean,
     picking: Boolean,
-    onSeek: (Long) -> Unit,
-    onPick: (Int) -> Unit,
-    onTogglePick: (Int) -> Unit,
+    onSeek: () -> Unit,
+    onPick: () -> Unit,
+    onTogglePick: () -> Unit,
 ): Modifier {
     val currentSeek = rememberUpdatedState(onSeek)
     val currentPick = rememberUpdatedState(onPick)
     val currentTogglePick = rememberUpdatedState(onTogglePick)
-    return pointerInput(listState, lines, enabled, canPick, picking) {
+    return pointerInput(enabled, canPick, picking) {
         if (!enabled) return@pointerInput
         val tapSlop = viewConfiguration.touchSlop
         val longPressTimeout = viewConfiguration.longPressTimeoutMillis
@@ -82,11 +82,6 @@ internal fun Modifier.seekLyricsWhenSheetConsumesTap(
                 requireUnconsumed = false,
                 pass = PointerEventPass.Initial,
             )
-            // Keep the item positions from the same frame as the pointer-down.
-            // The bottom sheet can still settle after consuming this down event;
-            // reading layoutInfo on pointer-up would pair the original finger
-            // position with rows that have already moved.
-            val layoutAtDown = listState.layoutInfo
             val sheetConsumedDown = down.isConsumed
             var moved = false
             var released: androidx.compose.ui.input.pointer.PointerInputChange? = null
@@ -102,29 +97,16 @@ internal fun Modifier.seekLyricsWhenSheetConsumesTap(
             } while (true)
 
             val up = released ?: return@awaitEachGesture
-            if (moved) return@awaitEachGesture
-            // A normal row click consumes the up event. Only relay when the
-            // sheet consumed the down or no child claimed the tap at all.
-            if (!sheetConsumedDown && up.isConsumed) return@awaitEachGesture
-
-            // Match against the layout snapshot captured at pointer-down.
-            // LazyListItemInfo.offset is relative to the list container, the
-            // same coordinate space as this pointerInput node.
-            val item = layoutAtDown.visibleItemsInfo.firstOrNull {
-                down.position.y >= it.offset.toFloat() &&
-                    down.position.y < (it.offset + it.size).toFloat()
-            } ?: return@awaitEachGesture
-            val index = item.index
-            val line = lines.getOrNull(index) ?: return@awaitEachGesture
-            if (line.isGap && picking) return@awaitEachGesture
+            // The normal row action owns every down the sheet did not consume.
+            // Only this row's own handler relays a tap that would otherwise be
+            // lost, so the item identity is never inferred from list offsets.
+            if (!sheetConsumedDown || moved) return@awaitEachGesture
 
             val heldFor = (up.uptimeMillis - down.uptimeMillis).coerceAtLeast(0L)
-            if (canPick && heldFor >= longPressTimeout) {
-                currentPick.value(index)
-            } else if (picking) {
-                currentTogglePick.value(index)
-            } else {
-                currentSeek.value(line.timeMs)
+            when {
+                canPick && heldFor >= longPressTimeout -> currentPick.value()
+                picking -> currentTogglePick.value()
+                else -> currentSeek.value()
             }
         }
     }

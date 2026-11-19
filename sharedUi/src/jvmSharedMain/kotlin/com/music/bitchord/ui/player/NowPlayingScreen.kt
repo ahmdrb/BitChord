@@ -955,10 +955,16 @@ fun NowPlayingScreen(
     // A music video plays its own picture where the sleeve is — see
     // [MusicVideoSurface] — and takes the place of any animated cover.
     val videoMode = showsMusicVideo(song)
+    // Landscape uses the release cover as the sleeve. Spotify Canvas remains
+    // a portrait-player presentation, rather than replacing the album artwork
+    // in the two-column landscape layout.
+    val sideways = landscapePlayerAvailable(windowWidth, windowHeight)
     // Square video thumbnails: the picture takes the sleeve's own slot, cropped
     // to it, in place of the full-width box at the video's shape.
     val squareVideo = videoMode && VideoThumbnails.square
-    val canvas = rememberCanvasArtwork(song)?.takeUnless { videoMode }?.let {
+    val canvas = rememberCanvasArtwork(song)?.takeUnless {
+        videoMode || (sideways && it.source == CanvasSource.SPOTIFY)
+    }?.let {
         // Apple's 3:4 rendition runs under the whole phone screen, the way its
         // own player shows it; the square one stays the fallback.
         val tall = it.portraitUrl
@@ -978,7 +984,6 @@ fun NowPlayingScreen(
     // Whether a full-screen button turned the screen, which outlasts the video
     // that asked: the queue can move on to a song while it is still sideways.
     var fullscreenRequested by remember { mutableStateOf(false) }
-    val sideways = landscapePlayerAvailable(windowWidth, windowHeight)
     LaunchedEffect(sideways) { if (!sideways) fullscreenRequested = false }
     val exitFullscreen = {
         fullscreenRequested = false

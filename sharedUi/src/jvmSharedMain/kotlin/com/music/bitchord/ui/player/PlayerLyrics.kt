@@ -2064,16 +2064,6 @@ internal fun LyricsPanel(
             .bleedHorizontally(PLAYER_GUTTER)
             .nestedScroll(controlsOnScroll)
             .nestedScroll(keepScroll)
-            .seekLyricsWhenSheetConsumesTap(
-                listState = listState,
-                lines = lines,
-                enabled = isSynced,
-                canPick = canPick,
-                picking = picking,
-                onSeek = seekFromLineTap,
-                onPick = onPickLine,
-                onTogglePick = onTogglePick,
-            )
             // Pause auto-follow without consuming the touch, then leave the
             // actual tap to the lyric row so it seeks on the first attempt.
             .holdLyricsAutoFollowWhileTouched { touchInProgress = it }
@@ -2245,7 +2235,15 @@ internal fun LyricsPanel(
                                 )
                             }
                         }
-                        .semantics { contentDescription = instrumental },
+                        .semantics { contentDescription = instrumental }
+                        .relayLyricsTapWhenSheetConsumes(
+                            enabled = isSynced && !picking,
+                            canPick = false,
+                            picking = false,
+                            onSeek = { seekFromLineTap(line.timeMs) },
+                            onPick = {},
+                            onTogglePick = {},
+                        ),
                 )
                 }
             } else {
@@ -2369,6 +2367,14 @@ internal fun LyricsPanel(
                                 indication = LocalIndication.current,
                             ) { seekFromLineTap(line.timeMs) }
                         },
+                    )
+                    .relayLyricsTapWhenSheetConsumes(
+                        enabled = picking || isSynced,
+                        canPick = canPick,
+                        picking = picking,
+                        onSeek = { seekFromLineTap(line.timeMs) },
+                        onPick = { onPickLine(index) },
+                        onTogglePick = { onTogglePick(index) },
                     )
                 // Lead and answering vocal are one row: they are one line of
                 // the song, they scale and dim together, and tapping either
