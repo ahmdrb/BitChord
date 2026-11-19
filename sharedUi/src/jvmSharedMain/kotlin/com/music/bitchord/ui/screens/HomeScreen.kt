@@ -82,6 +82,7 @@ import com.music.bitchord.ui.components.PullToRefresh
 import com.music.bitchord.ui.components.SHELF_CARD_WIDTH
 import com.music.bitchord.ui.components.VideoThumbnails
 import com.music.bitchord.ui.components.SearchPlayingBars
+import com.music.bitchord.ui.components.ExplicitBadge
 import com.music.bitchord.ui.components.SignInBanner
 import com.music.bitchord.ui.components.feedMoreSkeleton
 import com.music.bitchord.ui.components.feedSkeleton
@@ -389,6 +390,7 @@ private fun RecentTrackRow(
         isCurrent = isCurrent,
         isPlaying = isPlaying,
         isVideo = item.isVideo,
+        isExplicit = item.isExplicit == true,
     )
 }
 
@@ -408,6 +410,8 @@ fun CompactTrackRow(
     isPlaying: Boolean = false,
     /** A music video: its thumbnail at 16:9 rather than squared off. */
     isVideo: Boolean = false,
+    /** Catalogue advisory, when this shelf item is an explicit track. */
+    isExplicit: Boolean = false,
 ) {
     Row(
         modifier = Modifier
@@ -432,13 +436,20 @@ fun CompactTrackRow(
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onBackground,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (isExplicit) {
+                    ExplicitBadge(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.width(6.dp))
+                }
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+            }
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodyMedium,
@@ -1022,6 +1033,10 @@ internal fun ShelfCard(
                     modifier = Modifier.size(14.dp),
                 )
                 Spacer(Modifier.width(4.dp))
+            }
+            if (item.isExplicit == true) {
+                ExplicitBadge(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.width(5.dp))
             }
             Text(
                 text = item.title,
