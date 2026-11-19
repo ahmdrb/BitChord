@@ -306,4 +306,44 @@ class ExplicitBadgeTest {
         assertEquals("search-explicit-track", song.videoId)
         assertEquals(true, song.isExplicit)
     }
+
+    @Test
+    fun homeShelfTrackCarriesItsExplicitBadgeIntoTheShelfItem() {
+        val response = Json.parseToJsonElement(
+            """
+            {
+              "contents": [
+                {
+                  "musicTwoRowItemRenderer": {
+                    "title": { "runs": [ { "text": "Explicit track" } ] },
+                    "subtitle": {
+                      "runs": [
+                        { "text": "Song" },
+                        { "text": " • " },
+                        { "text": "Artist" }
+                      ]
+                    },
+                    "navigationEndpoint": {
+                      "watchEndpoint": { "videoId": "home-explicit-track" }
+                    },
+                    "badges": [
+                      {
+                        "musicInlineBadgeRenderer": {
+                          "icon": { "iconType": "MUSIC_EXPLICIT_BADGE" }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+            """,
+        )
+
+        val item = InnertubeParser.parseTwoRowItemsDeep(response).single()
+
+        assertEquals("home-explicit-track", item.videoId)
+        assertEquals(true, item.isExplicit)
+    }
+
 }
