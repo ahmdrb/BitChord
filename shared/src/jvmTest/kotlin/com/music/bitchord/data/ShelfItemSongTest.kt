@@ -12,7 +12,7 @@ class ShelfItemSongTest {
     fun playableSongKeepsExplicitAndVideoFlagsFromItsShelfCard() {
         val song = ShelfItem(
             title = "Explicit track",
-            subtitle = "Song • Artist",
+            subtitle = "Song • Example Artist",
             thumbnailUrl = "https://example.invalid/art.jpg",
             videoId = "explicit-track",
             browseId = null,
@@ -21,7 +21,7 @@ class ShelfItemSongTest {
         ).toPlayableSong()
 
         assertEquals("explicit-track", song?.videoId)
-        assertEquals("Artist", song?.artist)
+        assertEquals("Example Artist", song?.artist)
         assertEquals(true, song?.isVideo)
         assertEquals(true, song?.isExplicit)
     }
