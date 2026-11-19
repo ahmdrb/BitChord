@@ -559,12 +559,13 @@ private fun artworkPageSurface(
         // lightweightLiquidGlass already supplies the brighter navigation rim.
         .then(
             when {
-                // Regular Liquid Glass already paints the standard navigation rim.
-                neutralArtworkChrome && useLiquidGlass -> Modifier
-                neutralArtworkChrome || !useLiquidGlass ->
-                    Modifier.border(0.5.dp, Color.White.copy(alpha = 0.10f), shape)
+                // lightweightLiquidGlass already paints its own brighter rim.
                 lightweightGlass && useLiquidGlass -> Modifier
-                lightweightGlass -> Modifier
+                // All standard top-bar surfaces share the same outline:
+                // a quiet white Haze hairline without Liquid Glass, and the
+                // regular glass rim with it. Artwork pages must not skip it.
+                !useLiquidGlass ->
+                    Modifier.border(0.5.dp, Color.White.copy(alpha = 0.10f), shape)
                 else -> Modifier.border(GLASS_EDGE_WIDTH, GLASS_EDGE_COLOR, shape)
             },
         )
