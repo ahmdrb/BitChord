@@ -270,7 +270,6 @@ import com.music.bitchord.ui.components.FloatingBottomBar
 import com.music.bitchord.ui.components.GlassNavBar
 import com.music.bitchord.ui.components.floatingtabbar.rememberFloatingTabBarScrollConnection
 import com.music.bitchord.ui.components.FrostedTopBar
-import com.music.bitchord.ui.components.NEUTRAL_NAVIGATION_HAZE_SOURCE_KEY
 import com.music.bitchord.ui.components.LastfmLoginAlert
 import com.music.bitchord.ui.components.LocalAppBackdrop
 import com.music.bitchord.ui.components.LocalLiquidGlassEnabled
@@ -2943,11 +2942,7 @@ private fun BitChordApp(
                         // Keep this source behind the artwork page's Haze
                         // layer in Haze's own z-order, so it remains eligible
                         // for the top controls even when a page source is nested.
-                        .hazeSource(
-                            navigationChromeHazeState,
-                            zIndex = -1f,
-                            key = NEUTRAL_NAVIGATION_HAZE_SOURCE_KEY,
-                        )
+                        .hazeSource(navigationChromeHazeState, zIndex = -1f)
                         // Match the backdrop Local Music naturally has before
                         // any artwork palette is applied.
                         .background(MaterialTheme.colorScheme.background),
