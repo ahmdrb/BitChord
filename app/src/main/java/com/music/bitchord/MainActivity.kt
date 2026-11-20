@@ -548,6 +548,8 @@ private fun BitChordApp(
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     val hazeState = remember { HazeState() }
+    // Artwork pages use a separate, stable Haze source for navigation controls.
+    val navigationChromeHazeState = remember { HazeState() }
     // Recording the backdrop layer costs a draw pass, so it only runs when a
     // liquid-glass surface (the nav bar or artwork-page back button) can sample it.
     val glassActive = LocalLiquidGlassEnabled.current && isGlassSupported()
@@ -2926,6 +2928,17 @@ private fun BitChordApp(
                     if (!coveredByPlayer) drawContent()
                 },
         ) {
+            // Keep a neutral, theme-only source available beneath every page.
+            // Artwork is drawn by the page sibling below and therefore never
+            // enters this source. Floating Playlist/Artist controls can keep
+            // the same translucent Haze material with or without a cover.
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .hazeSource(navigationChromeHazeState)
+                    .background(MaterialTheme.colorScheme.background),
+            )
+
             // A pushed page replaces the tab content but leaves the tab bar and
             // mini player in place.
             //
@@ -4156,7 +4169,7 @@ private fun BitChordApp(
                         // not sample or refract the artwork behind Playlist/Artist.
                         lightweightArtworkChrome = false,
                         neutralArtworkChrome = protectNavigationChrome,
-                        backButtonHazeState = hazeState,
+                        backButtonHazeState = if (protectNavigationChrome) navigationChromeHazeState else hazeState,
                         trailingTitle = if (detail != null && detailActiveShelf != null) detail.title else null,
                         // Search has no large in-list header to hand the title back to —
                         // the field takes that space — so its bar title is always up.
