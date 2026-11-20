@@ -2936,8 +2936,11 @@ private fun BitChordApp(
                 Box(
                     Modifier
                         .fillMaxSize()
+                        // Match the app's neutral surface, not the black
+                        // window floor; an empty source region then resolves
+                        // to the same surface as ordinary Local Music chrome.
                         .hazeSource(navigationChromeHazeState)
-                        .background(MaterialTheme.colorScheme.background),
+                        .background(MaterialTheme.colorScheme.surface),
                 )
             }
 
