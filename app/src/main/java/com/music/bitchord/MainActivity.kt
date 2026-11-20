@@ -2932,12 +2932,14 @@ private fun BitChordApp(
             // Artwork is drawn by the page sibling below and therefore never
             // enters this source. Floating Playlist/Artist controls can keep
             // the same translucent Haze material with or without a cover.
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .hazeSource(navigationChromeHazeState)
-                    .background(MaterialTheme.colorScheme.background),
-            )
+            if (protectNavigationChrome) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .hazeSource(navigationChromeHazeState)
+                        .background(MaterialTheme.colorScheme.background),
+                )
+            }
 
             // A pushed page replaces the tab content but leaves the tab bar and
             // mini player in place.
