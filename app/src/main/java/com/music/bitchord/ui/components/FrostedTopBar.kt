@@ -573,12 +573,17 @@ private fun artworkPageSurface(
             )
         useLiquidGlass -> Modifier.liquidGlass(shape)
         reduceDynamicBlur || hazeState == null -> Modifier.background(container)
-        // Same thin Haze fill as the ordinary top controls and mini-player,
-        // with no artwork-presence override to a solid theme fill.
-        else -> Modifier.optimizedHazeEffect(
-            state = hazeState,
-            style = HazeMaterials.thin(container),
-        )
+        // Haze is drawn over the page rather than replacing the pixels
+        // beneath its effect. Give artwork-page controls their own neutral
+        // base inside the clipped circle/pill so the sleeve or artist photo
+        // cannot show through the material. The Haze effect still sits above
+        // this fill and keeps the same thin material as the mini-player.
+        else -> Modifier
+            .then(if (neutralArtworkChrome) Modifier.background(container) else Modifier)
+            .optimizedHazeEffect(
+                state = hazeState,
+                style = HazeMaterials.thin(container),
+            )
     }
 
     return Modifier.clip(shape)
