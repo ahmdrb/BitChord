@@ -2939,8 +2939,13 @@ private fun BitChordApp(
                         // Match the app's neutral surface, not the black
                         // window floor; an empty source region then resolves
                         // to the same surface as ordinary Local Music chrome.
-                        .hazeSource(navigationChromeHazeState)
-                        .background(MaterialTheme.colorScheme.surface),
+                        // Keep this source behind the artwork page's Haze
+                        // layer in Haze's own z-order, so it remains eligible
+                        // for the top controls even when a page source is nested.
+                        .hazeSource(navigationChromeHazeState, zIndex = -1f)
+                        // Match the backdrop Local Music naturally has before
+                        // any artwork palette is applied.
+                        .background(MaterialTheme.colorScheme.background),
                 )
             }
 
