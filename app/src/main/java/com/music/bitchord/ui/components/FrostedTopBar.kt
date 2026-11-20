@@ -559,19 +559,20 @@ private fun artworkPageSurface(
     val useLiquidGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
 
     val surface = when {
-        // Sample a stable theme backdrop (provided by the control itself), never artwork.
-        neutralArtworkChrome && useLiquidGlass -> Modifier.liquidGlass(shape)
-        // Do not sample Haze from the page on artwork-led screens. A stable theme
-        // fill makes the controls identical with or without a playlist cover.
-        neutralArtworkChrome -> Modifier.background(container, shape)
-        lightweightGlass && useLiquidGlass -> Modifier.lightweightLiquidGlass(
-            shape = shape,
-            fallbackColor = container,
-            surfaceTint = navigationGlassSurfaceTint(),
-            edgeColor = NAVIGATION_GLASS_EDGE_COLOR,
-        )
+        // The optional lightweight treatment is reserved for its explicit
+        // call sites. Playlist and Artist controls use the shared top-bar
+        // material regardless of whether their page has artwork.
+        lightweightGlass && useLiquidGlass && !neutralArtworkChrome ->
+            Modifier.lightweightLiquidGlass(
+                shape = shape,
+                fallbackColor = container,
+                surfaceTint = navigationGlassSurfaceTint(),
+                edgeColor = NAVIGATION_GLASS_EDGE_COLOR,
+            )
         useLiquidGlass -> Modifier.liquidGlass(shape)
         reduceDynamicBlur || hazeState == null -> Modifier.background(container)
+        // Same thin Haze fill as the ordinary top controls and mini-player,
+        // with no artwork-presence override to a solid theme fill.
         else -> Modifier.optimizedHazeEffect(
             state = hazeState,
             style = HazeMaterials.thin(container),
