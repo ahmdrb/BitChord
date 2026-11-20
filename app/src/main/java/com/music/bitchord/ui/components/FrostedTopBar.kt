@@ -515,7 +515,7 @@ private fun Modifier.artworkActionEdgePadding(): Modifier = layout { measurable,
     }
 }
 
-private const val NEUTRAL_ARTWORK_CHROME_TINT = 0.68f
+private const val NEUTRAL_ARTWORK_CHROME_TINT = 0.92f
 
 /** The navbar's exact material choice, reusable by every floating top control. */
 @OptIn(ExperimentalHazeMaterialsApi::class)
@@ -536,7 +536,7 @@ private fun artworkPageSurface(
         // With blur reduced or no source available, use the same neutral theme surface.
         neutralArtworkChrome && (reduceDynamicBlur || hazeState == null) ->
             Modifier.background(container)
-        // The neutral veil belongs to each rounded control, never to a full-width bar.
+        // Keep only a faint trace of the sampled backdrop in each rounded control; never add a full-width bar.
         neutralArtworkChrome -> Modifier
             .optimizedHazeEffect(
                 state = hazeState!!,
