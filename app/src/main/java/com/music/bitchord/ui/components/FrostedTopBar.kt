@@ -76,6 +76,7 @@ import com.music.bitchord.R
 import com.music.bitchord.data.model.Account
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.theme.stableStatusBarInsets
+import dev.chrisbanes.haze.ExperimentalHazeApi
 import dev.chrisbanes.haze.HazeState
 import com.music.bitchord.ui.components.backdrop.backdrops.rememberCanvasBackdrop
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
@@ -91,6 +92,9 @@ import kotlin.math.roundToInt
  * rather than from a copy of the number.
  */
 val TopBarContentHeight = 52.dp
+
+/** Haze source reserved for artwork pages' neutral navigation backdrop. */
+internal const val NEUTRAL_NAVIGATION_HAZE_SOURCE_KEY = "neutral-navigation-chrome"
 
 /**
  * The breathing room between the bar's bottom edge and the first thing under
@@ -548,7 +552,7 @@ private fun Modifier.artworkActionEdgePadding(): Modifier = layout { measurable,
 }
 
 /** The navbar's exact material choice, reusable by every floating top control. */
-@OptIn(ExperimentalHazeMaterialsApi::class)
+@OptIn(ExperimentalHazeMaterialsApi::class, ExperimentalHazeApi::class)
 @Composable
 private fun artworkPageSurface(
     shape: CornerBasedShape,
@@ -579,19 +583,19 @@ private fun artworkPageSurface(
         // cannot show through the material. The Haze effect still sits above
         // this fill and keeps the same thin material as the mini-player.
         else -> Modifier
-            // Local Music's no-artwork page uses colorScheme.background
-            // behind this same Haze material. Keep that exact fallback here.
-            .then(
-                if (neutralArtworkChrome) {
-                    Modifier.background(MaterialTheme.colorScheme.background)
-                } else {
-                    Modifier
-                },
-            )
+            // Keep the exact same thin Haze treatment used by ordinary pages.
+            // Artwork pages explicitly select only their neutral, theme-colored
+            // source; no second fill is added beneath the effect.
             .optimizedHazeEffect(
                 state = hazeState,
                 style = HazeMaterials.thin(container),
-            )
+            ) {
+                if (neutralArtworkChrome) {
+                    canDrawArea = { area ->
+                        area.key == NEUTRAL_NAVIGATION_HAZE_SOURCE_KEY
+                    }
+                }
+            }
     }
 
     return Modifier.clip(shape)
