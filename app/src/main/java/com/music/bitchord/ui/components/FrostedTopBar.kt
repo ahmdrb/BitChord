@@ -171,6 +171,8 @@ fun FrostedTopBar(
      * the hero image through those controls. The glass tint and rim remain.
      */
     lightweightArtworkChrome: Boolean = false,
+    /** Neutralize artwork sampling on each floating control without adding a bar behind them. */
+    neutralArtworkChrome: Boolean = false,
     /** Source sampled by floating top-bar surfaces when liquid glass is off. */
     backButtonHazeState: HazeState? = null,
     trailingTitle: String? = null,
@@ -300,6 +302,7 @@ fun FrostedTopBar(
                         onClick = onBack,
                         hazeState = backButtonHazeState,
                         lightweightGlass = lightweightArtworkChrome,
+                        neutralArtworkChrome = neutralArtworkChrome,
                         // The surface edge aligns with the floating navbar. The
                         // padding belongs outside the circle; its icon remains
                         // centred in the same 44dp control in every material.
@@ -345,7 +348,8 @@ fun FrostedTopBar(
                     ArtworkPageActions(
                         hazeState = backButtonHazeState,
                         lightweightGlass = lightweightArtworkChrome,
-                                content = actions,
+                        neutralArtworkChrome = neutralArtworkChrome,
+                        content = actions,
                     )
                 } else {
                     actions()
@@ -364,6 +368,7 @@ private fun ArtworkPageBackButton(
     onClick: () -> Unit,
     hazeState: HazeState?,
     lightweightGlass: Boolean,
+    neutralArtworkChrome: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val shape = CircleShape
@@ -384,6 +389,7 @@ private fun ArtworkPageBackButton(
                     shape = shape,
                     hazeState = hazeState,
                     lightweightGlass = lightweightGlass,
+                    neutralArtworkChrome = neutralArtworkChrome,
                 )),
         ) {
             Icon(
@@ -400,6 +406,7 @@ private fun ArtworkPageBackButton(
 private fun ArtworkPageActions(
     hazeState: HazeState?,
     lightweightGlass: Boolean,
+    neutralArtworkChrome: Boolean,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
@@ -409,6 +416,7 @@ private fun ArtworkPageActions(
                 shape = CircleShape,
                 hazeState = hazeState,
                 lightweightGlass = lightweightGlass,
+                neutralArtworkChrome = neutralArtworkChrome,
             ))
             // Keep the right edge fixed while a new action opens room to its
             // left. The surface itself therefore grows instead of jumping to
@@ -507,6 +515,8 @@ private fun Modifier.artworkActionEdgePadding(): Modifier = layout { measurable,
     }
 }
 
+private const val NEUTRAL_ARTWORK_CHROME_TINT = 0.68f
+
 /** The navbar's exact material choice, reusable by every floating top control. */
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
@@ -514,12 +524,25 @@ private fun artworkPageSurface(
     shape: CornerBasedShape,
     hazeState: HazeState?,
     lightweightGlass: Boolean,
+    neutralArtworkChrome: Boolean,
 ): Modifier {
     val container = MaterialTheme.colorScheme.surface
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val useLiquidGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
 
     val surface = when {
+        // Keep the shared Liquid Glass material and rim exactly as they are.
+        neutralArtworkChrome && useLiquidGlass -> Modifier.liquidGlass(shape)
+        // With blur reduced or no source available, use the same neutral theme surface.
+        neutralArtworkChrome && (reduceDynamicBlur || hazeState == null) ->
+            Modifier.background(container)
+        // The neutral veil belongs to each rounded control, never to a full-width bar.
+        neutralArtworkChrome -> Modifier
+            .optimizedHazeEffect(
+                state = hazeState!!,
+                style = HazeMaterials.thin(container),
+            )
+            .background(container.copy(alpha = NEUTRAL_ARTWORK_CHROME_TINT), shape)
         lightweightGlass && useLiquidGlass -> Modifier.lightweightLiquidGlass(
             shape = shape,
             fallbackColor = container,
@@ -538,7 +561,7 @@ private fun artworkPageSurface(
         .then(surface)
         .then(
             when {
-                lightweightGlass && useLiquidGlass -> Modifier
+                lightweightGlass && useLiquidGlass && !neutralArtworkChrome -> Modifier
                 !useLiquidGlass ->
                     Modifier.border(0.5.dp, Color.White.copy(alpha = 0.10f), shape)
                 else -> Modifier.border(GLASS_EDGE_WIDTH, GLASS_EDGE_COLOR, shape)

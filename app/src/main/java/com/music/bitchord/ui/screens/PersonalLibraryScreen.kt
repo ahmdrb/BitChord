@@ -105,7 +105,6 @@ import com.music.bitchord.ui.components.IosMenuShape
 import com.music.bitchord.ui.components.iosMenuColors
 import com.music.bitchord.ui.components.iosMenuPanel
 import com.music.bitchord.ui.components.optimizedHazeEffect
-import com.music.bitchord.ui.components.topBarHeight
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
@@ -364,16 +363,6 @@ private fun PersonalCollectionDetailDialog(
                     modifier = Modifier.fillMaxSize().blur(42.dp).alpha(0.20f),
                 )
             }
-            // The shared top bar samples this page through Haze/Glass. Keep
-            // its source backdrop theme-neutral even when the collection has
-            // artwork; the artwork palette still colours the page below.
-            Box(
-                Modifier
-                    .align(Alignment.TopCenter)
-                    .fillMaxWidth()
-                    .height(topBarHeight())
-                    .background(MaterialTheme.colorScheme.background),
-            )
             Box(Modifier.fillMaxSize()) {
                 // The actual controls live in MainActivity's shared FrostedTopBar.
                 // These invisible anchors keep the existing popups attached to that

@@ -180,7 +180,6 @@ import com.music.bitchord.ui.components.lightweightLiquidGlass
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.components.detailSkeleton
 import com.music.bitchord.ui.components.topBarContentPadding
-import com.music.bitchord.ui.components.topBarHeight
 import com.music.bitchord.ui.components.trackColumnWidth
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
@@ -587,18 +586,6 @@ fun DetailScreen(
                         modifier = Modifier.matchParentSize(),
                     )
                 }
-
-                // Artwork/detail pages use the same app-level top controls as
-                // Library. Neutralize only their backdrop sampling footprint so
-                // album sleeves and artist photos cannot recolour that chrome.
-                Box(
-                    Modifier
-                        .align(Alignment.TopCenter)
-                        .fillMaxWidth()
-                        .height(topBarHeight())
-                        .background(MaterialTheme.colorScheme.background)
-                        .zIndex(1f),
-                )
 
                 if (reorder != null) {
                     reorder(palette)

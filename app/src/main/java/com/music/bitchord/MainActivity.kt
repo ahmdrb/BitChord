@@ -4155,9 +4155,7 @@ private fun BitChordApp(
                         // Keep the same app-level controls as Local Music, but do
                         // not sample or refract the artwork behind Playlist/Artist.
                         lightweightArtworkChrome = false,
-                        // The artwork-page controls use the same neutral thin
-                        // Haze material as the mini-player. Keep the shared source
-                        // available instead of falling back to a flat surface.
+                        neutralArtworkChrome = protectNavigationChrome,
                         backButtonHazeState = hazeState,
                         trailingTitle = if (detail != null && detailActiveShelf != null) detail.title else null,
                         // Search has no large in-list header to hand the title back to —
