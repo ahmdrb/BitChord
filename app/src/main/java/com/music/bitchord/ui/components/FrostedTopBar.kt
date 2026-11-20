@@ -579,7 +579,15 @@ private fun artworkPageSurface(
         // cannot show through the material. The Haze effect still sits above
         // this fill and keeps the same thin material as the mini-player.
         else -> Modifier
-            .then(if (neutralArtworkChrome) Modifier.background(container) else Modifier)
+            // Local Music's no-artwork page uses colorScheme.background
+            // behind this same Haze material. Keep that exact fallback here.
+            .then(
+                if (neutralArtworkChrome) {
+                    Modifier.background(MaterialTheme.colorScheme.background)
+                } else {
+                    Modifier
+                },
+            )
             .optimizedHazeEffect(
                 state = hazeState,
                 style = HazeMaterials.thin(container),
