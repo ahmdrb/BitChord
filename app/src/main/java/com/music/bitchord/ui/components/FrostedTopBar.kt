@@ -370,7 +370,9 @@ fun FrostedTopBar(
  */
 @Composable
 private fun NeutralArtworkGlassBackdrop(content: @Composable () -> Unit) {
-    val neutralBackdropColor = MaterialTheme.colorScheme.background
+    // Keep Liquid Glass on the same neutral material as non-artwork pages.
+    // Using the window background here made dark-theme controls collapse to pure black.
+    val neutralBackdropColor = MaterialTheme.colorScheme.surface
     val neutralBackdrop = rememberCanvasBackdrop {
         drawRect(color = neutralBackdropColor)
     }
