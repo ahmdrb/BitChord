@@ -93,9 +93,6 @@ import kotlin.math.roundToInt
  */
 val TopBarContentHeight = 52.dp
 
-/** Haze source reserved for artwork pages' neutral navigation backdrop. */
-internal const val NEUTRAL_NAVIGATION_HAZE_SOURCE_KEY = "neutral-navigation-chrome"
-
 /**
  * The breathing room between the bar's bottom edge and the first thing under
  * it, so content rests below the glass instead of against it.
@@ -177,7 +174,7 @@ fun FrostedTopBar(
      */
     lightweightArtworkChrome: Boolean = false,
     /** Neutralize artwork sampling on each floating control without adding a bar behind them. */
-    neutralArtworkChrome: Boolean = false,
+    neutralLiquidGlassBackdrop: Boolean = false,
     /** Source sampled by floating top-bar surfaces when liquid glass is off. */
     backButtonHazeState: HazeState? = null,
     trailingTitle: String? = null,
@@ -307,7 +304,7 @@ fun FrostedTopBar(
                         onClick = onBack,
                         hazeState = backButtonHazeState,
                         lightweightGlass = lightweightArtworkChrome,
-                        neutralArtworkChrome = neutralArtworkChrome,
+                        neutralLiquidGlassBackdrop = neutralLiquidGlassBackdrop,
                         // The surface edge aligns with the floating navbar. The
                         // padding belongs outside the circle; its icon remains
                         // centred in the same 44dp control in every material.
@@ -353,7 +350,7 @@ fun FrostedTopBar(
                     ArtworkPageActions(
                         hazeState = backButtonHazeState,
                         lightweightGlass = lightweightArtworkChrome,
-                        neutralArtworkChrome = neutralArtworkChrome,
+                        neutralLiquidGlassBackdrop = neutralLiquidGlassBackdrop,
                         content = actions,
                     )
                 } else {
@@ -392,7 +389,7 @@ private fun ArtworkPageBackButton(
     onClick: () -> Unit,
     hazeState: HazeState?,
     lightweightGlass: Boolean,
-    neutralArtworkChrome: Boolean,
+    neutralLiquidGlassBackdrop: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val shape = CircleShape
@@ -414,7 +411,7 @@ private fun ArtworkPageBackButton(
                         shape = shape,
                         hazeState = hazeState,
                         lightweightGlass = lightweightGlass,
-                        neutralArtworkChrome = neutralArtworkChrome,
+                        neutralLiquidGlassBackdrop = neutralLiquidGlassBackdrop,
                     )),
             ) {
                 Icon(
@@ -425,7 +422,7 @@ private fun ArtworkPageBackButton(
             }
         }
     }
-    if (neutralArtworkChrome && useLiquidGlass && !reduceDynamicBlur) {
+    if (neutralLiquidGlassBackdrop && useLiquidGlass && !reduceDynamicBlur) {
         NeutralArtworkGlassBackdrop(content = button)
     } else {
         button()
@@ -437,7 +434,7 @@ private fun ArtworkPageBackButton(
 private fun ArtworkPageActions(
     hazeState: HazeState?,
     lightweightGlass: Boolean,
-    neutralArtworkChrome: Boolean,
+    neutralLiquidGlassBackdrop: Boolean,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
@@ -448,7 +445,7 @@ private fun ArtworkPageActions(
                     shape = CircleShape,
                     hazeState = hazeState,
                     lightweightGlass = lightweightGlass,
-                    neutralArtworkChrome = neutralArtworkChrome,
+                    neutralLiquidGlassBackdrop = neutralLiquidGlassBackdrop,
                 ))
                 // Keep the right edge fixed while a new action opens room to its
                 // left. The surface itself therefore grows instead of jumping to
@@ -470,7 +467,7 @@ private fun ArtworkPageActions(
     }
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val useLiquidGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
-    if (neutralArtworkChrome && useLiquidGlass && !reduceDynamicBlur) {
+    if (neutralLiquidGlassBackdrop && useLiquidGlass && !reduceDynamicBlur) {
         NeutralArtworkGlassBackdrop(content = actions)
     } else {
         actions()
@@ -558,7 +555,7 @@ private fun artworkPageSurface(
     shape: CornerBasedShape,
     hazeState: HazeState?,
     lightweightGlass: Boolean,
-    neutralArtworkChrome: Boolean,
+    neutralLiquidGlassBackdrop: Boolean,
 ): Modifier {
     val container = MaterialTheme.colorScheme.surface
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
@@ -568,7 +565,7 @@ private fun artworkPageSurface(
         // The optional lightweight treatment is reserved for its explicit
         // call sites. Playlist and Artist controls use the shared top-bar
         // material regardless of whether their page has artwork.
-        lightweightGlass && useLiquidGlass && !neutralArtworkChrome ->
+        lightweightGlass && useLiquidGlass && !neutralLiquidGlassBackdrop ->
             Modifier.lightweightLiquidGlass(
                 shape = shape,
                 fallbackColor = container,
@@ -577,32 +574,20 @@ private fun artworkPageSurface(
             )
         useLiquidGlass -> Modifier.liquidGlass(shape)
         reduceDynamicBlur || hazeState == null -> Modifier.background(container)
-        // Haze is drawn over the page rather than replacing the pixels
-        // beneath its effect. Give artwork-page controls their own neutral
-        // base inside the clipped circle/pill so the sleeve or artist photo
-        // cannot show through the material. The Haze effect still sits above
-        // this fill and keeps the same thin material as the mini-player.
-        else -> Modifier
-            // Keep the exact same thin Haze treatment used by ordinary pages.
-            // Artwork pages explicitly select only their neutral, theme-colored
-            // source; no second fill is added beneath the effect.
-            .optimizedHazeEffect(
-                state = hazeState,
-                style = HazeMaterials.thin(container),
-            ) {
-                if (neutralArtworkChrome) {
-                    canDrawArea = { area ->
-                        area.key == NEUTRAL_NAVIGATION_HAZE_SOURCE_KEY
-                    }
-                }
-            }
+        // Use one shared translucent Haze treatment for every floating
+        // top control. The source may be neutral on artwork pages, but the
+        // material and its outline never change with cover-art state.
+        else -> Modifier.optimizedHazeEffect(
+            state = hazeState,
+            style = HazeMaterials.thin(container),
+        )
     }
 
     return Modifier.clip(shape)
         .then(surface)
         .then(
             when {
-                lightweightGlass && useLiquidGlass && !neutralArtworkChrome -> Modifier
+                lightweightGlass && useLiquidGlass && !neutralLiquidGlassBackdrop -> Modifier
                 !useLiquidGlass ->
                     Modifier.border(0.5.dp, Color.White.copy(alpha = 0.10f), shape)
                 else -> Modifier.border(GLASS_EDGE_WIDTH, GLASS_EDGE_COLOR, shape)
