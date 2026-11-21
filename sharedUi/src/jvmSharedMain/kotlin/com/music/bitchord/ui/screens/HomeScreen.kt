@@ -389,6 +389,7 @@ private fun RecentTrackRow(
         isCurrent = isCurrent,
         isPlaying = isPlaying,
         isVideo = item.isVideo,
+        isExplicit = item.isExplicit == true,
     )
 }
 
@@ -408,6 +409,8 @@ fun CompactTrackRow(
     isPlaying: Boolean = false,
     /** A music video: its thumbnail at 16:9 rather than squared off. */
     isVideo: Boolean = false,
+    /** Catalogue advisory, when this shelf item is an explicit track. */
+    isExplicit: Boolean = false,
 ) {
     Row(
         modifier = Modifier
@@ -432,13 +435,16 @@ fun CompactTrackRow(
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onBackground,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+            }
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodyMedium,

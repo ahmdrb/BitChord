@@ -289,7 +289,15 @@ object InnertubeParser {
             parseTwoRowItem(item.o("musicTwoRowItemRenderer"))
                 ?: parseResponsiveListItem(item.o("musicResponsiveListItemRenderer"))
                     ?.let { song ->
-                        ShelfItem(song.title, song.artist, song.thumbnailUrl, song.videoId, null, isVideo = song.isVideo)
+                        ShelfItem(
+                            song.title,
+                            song.artist,
+                            song.thumbnailUrl,
+                            song.videoId,
+                            null,
+                            isVideo = song.isVideo,
+                            isExplicit = song.isExplicit,
+                        )
                     }
                 // A chart row with nothing to play — "Top artists" lists the
                 // artist alone, no track — falls through parseResponsiveListItem
@@ -310,7 +318,17 @@ object InnertubeParser {
         val title = shelf.o("title").runs()
         val items = shelf.a("contents").orEmpty().mapNotNull {
             parseResponsiveListItem(it.o("musicResponsiveListItemRenderer"))
-        }.map { ShelfItem(it.title, it.artist, it.thumbnailUrl, it.videoId, null, isVideo = it.isVideo) }
+        }.map {
+            ShelfItem(
+                it.title,
+                it.artist,
+                it.thumbnailUrl,
+                it.videoId,
+                null,
+                isVideo = it.isVideo,
+                isExplicit = it.isExplicit,
+            )
+        }
         if (items.isEmpty()) return null
         val shelfTitle = title.ifBlank { "For you" }
         return HomeShelf(shelfTitle, items, layout = shelfLayoutFor(shelfTitle, items, fromList = true))
@@ -525,11 +543,33 @@ object InnertubeParser {
                 is JsonObject -> {
                     node["musicResponsiveListItemRenderer"]?.let { renderer ->
                         parseResponsiveListItem(renderer as? JsonObject, pageCredit)
-                            ?.let { out[it.videoId] = it }
+                            ?.let { song ->
+                                // The same track can appear in the main list and
+                                // again in a recommendation shelf. A later copy
+                                // without badges must never erase an explicit
+                                // marker already found on the primary row.
+                                val previous = out[song.videoId]
+                                out[song.videoId] = if (
+                                    previous?.isExplicit == true && song.isExplicit != true
+                                ) {
+                                    song.copy(isExplicit = true)
+                                } else {
+                                    song
+                                }
+                            }
                     }
                     node["musicMultiRowListItemRenderer"]?.let { renderer ->
                         parseMultiRowListItem(renderer as? JsonObject, show)
-                            ?.let { out[it.videoId] = it }
+                            ?.let { song ->
+                                val previous = out[song.videoId]
+                                out[song.videoId] = if (
+                                    previous?.isExplicit == true && song.isExplicit != true
+                                ) {
+                                    song.copy(isExplicit = true)
+                                } else {
+                                    song
+                                }
+                            }
                     }
                     node.values.forEach(::walk)
                 }
@@ -596,14 +636,14 @@ object InnertubeParser {
         val songs = playlistScope?.let { playlist ->
             collectRenderers(playlist, "musicResponsiveListItemRenderer")
                 .mapNotNull { parseResponsiveListItem(it, pageCredit) }
-                .distinctBy { it.videoId }
+                .distinctByVideoIdKeepingExplicit()
         }.orEmpty()
         val knownSongs = songs.mapTo(HashSet()) { it.videoId }
         val suggested = suggestionShelves
             .flatMap { collectRenderers(it, "musicResponsiveListItemRenderer") }
             .mapNotNull { parseResponsiveListItem(it, pageCredit) }
             .filterNot { it.videoId in knownSongs }
-            .distinctBy { it.videoId }
+            .distinctByVideoIdKeepingExplicit()
         // The "Suggestions" shelf's own continuation reloads it with a fresh
         // batch rather than paging it (see its "Refresh" button, wired to a
         // `reloadContinuationData` token). Only the playlist shelf's own
@@ -887,7 +927,9 @@ object InnertubeParser {
             albumId = credits.albumId,
             albumName = credits.albumName,
             isVideo = rowType == "video" || thumbnails.isNotSquare(),
-            isExplicit = renderer["subtitleBadges"].hasExplicitBadge(),
+            // The promoted card can put its explicit marker outside subtitleBadges.
+            // Search the complete card, as the ordinary track-row parser does.
+            isExplicit = renderer.hasExplicitBadge(),
         )
     }
 
@@ -1113,6 +1155,10 @@ object InnertubeParser {
         /** The line under it — "Album • Artist • 2024", or a playlist's blurb. */
         val subtitle: String,
         val thumbnailUrl: String?,
+        /** Header advisory; albums can put the only explicit badge here. */
+        val isExplicit: Boolean? = null,
+        /** True only when the header names an album, single or EP. */
+        val isRelease: Boolean = false,
     )
 
     /**
@@ -1140,6 +1186,9 @@ object InnertubeParser {
             .filter { it.isNotBlank() }
             .distinct()
             .joinToString(" • ")
+        val headerParts = subtitle.split(" • ", " · ")
+            .map(String::trim)
+            .map { it.lowercase(Locale.ROOT) }
         return BrowseHeader(
             title = title,
             subtitle = subtitle,
@@ -1147,6 +1196,10 @@ object InnertubeParser {
             // there — so the first image under the header is the cover.
             thumbnailUrl = collectRenderers(header, "musicThumbnailRenderer").firstOrNull()
                 .o("thumbnail").a("thumbnails").best(),
+            // An explicit release can put its only badge on subtitleBadge,
+            // not on any individual track row.
+            isExplicit = header.hasExplicitBadge(),
+            isRelease = headerParts.any { it in RELEASE_WORDS },
         )
     }
 
@@ -1690,6 +1743,7 @@ object InnertubeParser {
             videoId = videoId,
             browseId = resolvedBrowseId,
             isVideo = isVideo,
+            isExplicit = renderer.hasExplicitBadge(),
         )
     }
 
@@ -1716,16 +1770,55 @@ object InnertubeParser {
      */
     private val NOT_EDITABLE = listOf("LM", "SE", "RD", "OLAK", "MPRE")
 
-    /** YouTube nests this badge differently across search, album and queue renderers. */
-    private fun JsonElement?.hasExplicitBadge(): Boolean? =
-        true.takeIf {
-            when (this) {
-                is JsonPrimitive -> contentOrNull == "MUSIC_EXPLICIT_BADGE"
-                is JsonArray -> any { it.hasExplicitBadge() == true }
-                is JsonObject -> values.any { it.hasExplicitBadge() == true }
-                null -> false
+    /**
+     * Keep the latest row's other metadata, but never let an unbadged duplicate
+     * erase an explicit flag found on another copy of the same video.
+     */
+    private fun List<Song>.distinctByVideoIdKeepingExplicit(): List<Song> {
+        val unique = LinkedHashMap<String, Song>()
+        for (song in this) {
+            val previous = unique[song.videoId]
+            unique[song.videoId] = if (
+                previous?.isExplicit == true && song.isExplicit != true
+            ) {
+                song.copy(isExplicit = true)
+            } else {
+                song
             }
         }
+        return unique.values.toList()
+    }
+
+    /** YouTube nests this badge differently across search, album and queue renderers. */
+    private fun JsonElement?.hasExplicitBadge(): Boolean? =
+        true.takeIf { containsExplicitBadge(this) }
+
+    private fun containsExplicitBadge(element: JsonElement?): Boolean = when (element) {
+        is JsonPrimitive -> element.contentOrNull == "MUSIC_EXPLICIT_BADGE"
+        is JsonArray -> element.any(::containsExplicitBadge)
+        is JsonObject -> {
+            // Some response variants mark the track directly instead of
+            // attaching a musicInlineBadgeRenderer to the row.
+            val explicitFlag = listOf("isExplicit", "explicit", "isExplicitContent")
+                .any { key ->
+                    val value = element[key] as? JsonPrimitive
+                    value?.booleanOrNull == true ||
+                        value?.contentOrNull.equals("explicit", ignoreCase = true) ||
+                        value?.contentOrNull == "MUSIC_EXPLICIT_BADGE"
+                }
+            val inlineBadge = element["musicInlineBadgeRenderer"]
+            val iconType = inlineBadge.o("icon").s("iconType")
+            val accessibility = inlineBadge.o("accessibilityData")
+            val label = inlineBadge.s("label")
+                ?: accessibility.s("label")
+                ?: accessibility.o("accessibilityData").s("label")
+            explicitFlag ||
+                iconType == "MUSIC_EXPLICIT_BADGE" ||
+                label.equals("Explicit", ignoreCase = true) ||
+                element.values.any(::containsExplicitBadge)
+        }
+        null -> false
+    }
 
     private val DURATION = Regex("""\d+:\d{2}""")
     /** One unit of an episode's runtime — "2 hr", "43 min", "10 sec". */

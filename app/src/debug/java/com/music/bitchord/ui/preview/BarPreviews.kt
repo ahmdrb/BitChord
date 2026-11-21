@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.playback.PlayerState
 import com.music.bitchord.ui.components.BottomFadeScrim
 import com.music.bitchord.ui.components.BottomTab
 import com.music.bitchord.ui.components.FloatingBottomBar
@@ -155,8 +156,7 @@ private fun ChromeStack(scrolled: Boolean, withMiniPlayer: Boolean) {
         ) {
             if (withMiniPlayer) {
                 MiniPlayer(
-                    song = PreviewSong,
-                    isPlaying = true,
+                    playerState = PlayerState(song = PreviewSong, isPlaying = true),
                     isLoading = false,
                     hazeState = hazeState,
                     onPlayPause = {},
@@ -223,24 +223,21 @@ private fun MiniPlayerPreview() {
         ) {
             val haze = remember { HazeState() }
             MiniPlayer(
-                song = PreviewSong,
-                isPlaying = true,
+                playerState = PlayerState(song = PreviewSong, isPlaying = true),
                 isLoading = false,
                 hazeState = haze,
                 onPlayPause = {}, onNext = {}, onPrevious = {}, onExpand = {},
                 modifier = Modifier.fillMaxWidth(),
             )
             MiniPlayer(
-                song = PreviewSong.copy(title = "A considerably longer track title that has to truncate"),
-                isPlaying = false,
+                playerState = PlayerState(song = PreviewSong.copy(title = "A considerably longer track title that has to truncate"), isPlaying = false),
                 isLoading = false,
                 hazeState = haze,
                 onPlayPause = {}, onNext = {}, onPrevious = {}, onExpand = {},
                 modifier = Modifier.fillMaxWidth(),
             )
             MiniPlayer(
-                song = PreviewSong,
-                isPlaying = false,
+                playerState = PlayerState(song = PreviewSong, isPlaying = false),
                 isLoading = true,
                 hazeState = haze,
                 onPlayPause = {}, onNext = {}, onPrevious = {}, onExpand = {},

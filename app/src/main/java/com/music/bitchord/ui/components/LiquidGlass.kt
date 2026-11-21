@@ -101,6 +101,22 @@ internal val GLASS_EDGE_WIDTH = 0.5.dp
 internal val GLASS_EDGE_COLOR = Color.White.copy(alpha = 0.10f)
 
 /**
+ * Navigation chrome uses the same neutral, theme-aware glass fill as the
+ * mini-player and other player surfaces. A separate white navigation wash
+ * made the top controls and tab bar look much brighter than the player.
+ */
+@Composable
+internal fun navigationGlassSurfaceTint(): Color =
+    if (MaterialTheme.colorScheme.surface.luminance() > 0.5f) {
+        Color(0xFFFAFAFA).copy(alpha = SURFACE_OPACITY)
+    } else {
+        Color(0xFF121212).copy(alpha = SURFACE_OPACITY)
+    }
+
+internal val NAVIGATION_GLASS_EDGE_WIDTH = 0.75.dp
+internal val NAVIGATION_GLASS_EDGE_COLOR = Color.White.copy(alpha = 0.28f)
+
+/**
  * Icon and label colour for content sitting on a glass surface.
  *
  * Glass shows whatever is behind it rather than the theme's surface colour, so
@@ -143,6 +159,10 @@ private const val DARK_INDICATOR_OPACITY = 0.14f
 fun Modifier.lightweightLiquidGlass(
     shape: CornerBasedShape,
     fallbackColor: Color,
+    /** Optional fill for a specific lightweight glass surface. */
+    surfaceTint: Color? = null,
+    /** Optional rim for surfaces that need a more visible edge. */
+    edgeColor: Color = GLASS_EDGE_COLOR,
 ): Modifier {
     val useGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
     val glassTint = if (MaterialTheme.colorScheme.surface.luminance() > 0.5f) {
@@ -151,10 +171,11 @@ fun Modifier.lightweightLiquidGlass(
         Color(0xFF121212)
     }
     val shapeProvider = ShapeProvider { shape }
+    val tint = surfaceTint ?: glassTint.copy(alpha = SURFACE_OPACITY)
 
     return clip(shape)
         .background(
-            color = if (useGlass) glassTint.copy(alpha = SURFACE_OPACITY) else fallbackColor,
+            color = if (useGlass) tint else fallbackColor,
             shape = shape,
         )
         .then(
@@ -167,7 +188,7 @@ fun Modifier.lightweightLiquidGlass(
                 Modifier
             },
         )
-        .border(GLASS_EDGE_WIDTH, GLASS_EDGE_COLOR, shape)
+        .border(GLASS_EDGE_WIDTH, if (useGlass) edgeColor else GLASS_EDGE_COLOR, shape)
 }
 
 /**

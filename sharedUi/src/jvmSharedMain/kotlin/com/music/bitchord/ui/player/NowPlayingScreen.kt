@@ -40,6 +40,7 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.verticalDrag
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -954,10 +955,16 @@ fun NowPlayingScreen(
     // A music video plays its own picture where the sleeve is — see
     // [MusicVideoSurface] — and takes the place of any animated cover.
     val videoMode = showsMusicVideo(song)
+    // Landscape uses the release cover as the sleeve. Spotify Canvas remains
+    // a portrait-player presentation, rather than replacing the album artwork
+    // in the two-column landscape layout.
+    val sideways = landscapePlayerAvailable(windowWidth, windowHeight)
     // Square video thumbnails: the picture takes the sleeve's own slot, cropped
     // to it, in place of the full-width box at the video's shape.
     val squareVideo = videoMode && VideoThumbnails.square
-    val canvas = rememberCanvasArtwork(song)?.takeUnless { videoMode }?.let {
+    val canvas = rememberCanvasArtwork(song)?.takeUnless {
+        videoMode || (sideways && it.source == CanvasSource.SPOTIFY)
+    }?.let {
         // Apple's 3:4 rendition runs under the whole phone screen, the way its
         // own player shows it; the square one stays the fallback.
         val tall = it.portraitUrl
@@ -977,7 +984,6 @@ fun NowPlayingScreen(
     // Whether a full-screen button turned the screen, which outlasts the video
     // that asked: the queue can move on to a song while it is still sideways.
     var fullscreenRequested by remember { mutableStateOf(false) }
-    val sideways = landscapePlayerAvailable(windowWidth, windowHeight)
     LaunchedEffect(sideways) { if (!sideways) fullscreenRequested = false }
     val exitFullscreen = {
         fullscreenRequested = false
@@ -1676,13 +1682,23 @@ fun NowPlayingScreen(
                 modifier = Modifier.fillMaxWidth().widthIn(max = PLAYER_MAX_WIDTH),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(
-                    text = song.title,
-                    style = MaterialTheme.typography.titleLarge,
-                    color = Color.White,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    if (song.isExplicit == true) {
+                        ExplicitBadge(color = Color.White, modifier = Modifier.size(15.dp))
+                        Spacer(Modifier.width(6.dp))
+                    }
+                    Text(
+                        text = song.title,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
                 Text(
                     text = song.artist,
                     style = MaterialTheme.typography.bodyLarge,

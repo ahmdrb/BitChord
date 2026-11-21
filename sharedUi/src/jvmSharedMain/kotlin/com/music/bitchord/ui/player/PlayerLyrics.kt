@@ -150,6 +150,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 
 /** Returns true if any character in [text] belongs to a BMP RTL script. */
@@ -1826,9 +1827,42 @@ internal fun LyricsPanel(
     }
     val keepScroll = remember(listState) { keepScrollInList(listState) }
     var browsingByDrag by remember { mutableStateOf(false) }
+    // A finger may land while automatic line-follow is in flight. Hold that
+    // movement until the touch ends so the row stays under the finger long
+    // enough for its click handler to seek on the first tap.
+    var touchInProgress by remember { mutableStateOf(false) }
+    // Keep the manually chosen row in place until the playhead has actually
+    // reached it. A fixed delay was too short for a far seek and let auto-follow
+    // pull the reader back to the previous verse before the seek had settled.
+    var tapSeekTargetMs by remember { mutableLongStateOf(-1L) }
+    var tapSeekRequest by remember { mutableIntStateOf(0) }
+    var tapSeekBaseline by remember { mutableStateOf<Pair<Long, Long>?>(null) }
+    LaunchedEffect(tapSeekRequest) {
+        val targetMs = tapSeekTargetMs.takeIf { it >= 0L } ?: return@LaunchedEffect
+        val request = tapSeekRequest
+        val (startingDiscontinuity, startingPosition) =
+            tapSeekBaseline ?: (playhead.discontinuity to clock.longValue)
+        withTimeoutOrNull(5_000L) {
+            snapshotFlow { playhead.discontinuity to clock.longValue }.first { (discontinuity, positionMs) ->
+                abs(positionMs - targetMs) <= 1_800L &&
+                    (discontinuity != startingDiscontinuity ||
+                        abs(startingPosition - targetMs) <= 1_800L)
+            }
+        }
+        if (tapSeekRequest == request) {
+            tapSeekTargetMs = -1L
+            tapSeekBaseline = null
+        }
+    }
+    val seekFromLineTap: (Long) -> Unit = { timeMs ->
+        tapSeekBaseline = playhead.discontinuity to clock.longValue
+        tapSeekTargetMs = timeMs
+        tapSeekRequest++
+        onSeekToLine(timeMs)
+    }
     // While picking lines, the panel must not auto-scroll — the reader needs
     // the list to stay put so they can tap the lines they want.
-    val browsing = browsingByDrag || picking
+    val browsing = browsingByDrag || picking || tapSeekTargetMs >= 0L
     val onBottomHalfTap: () -> Unit = {
         // A pick has the whole panel to itself: the controls that a tap down
         // there would pull back in are the player's transport, and it must not
@@ -1943,8 +1977,8 @@ internal fun LyricsPanel(
     // browse on their own terms.
     // A newer line replaces an unfinished automatic scroll. Only a user's
     // browsing gesture should suspend following, not our own animation.
-    LaunchedEffect(focusLine, browsing, controlsOpen, active) {
-        if (active && isSynced && !browsing &&
+    LaunchedEffect(focusLine, browsing, controlsOpen, active, touchInProgress) {
+        if (active && !touchInProgress && isSynced && !browsing &&
             focusLine >= 0 && focusLine in lines.indices
         ) {
             // Centred, the top padding is half the viewport, and it only exists
@@ -2030,11 +2064,9 @@ internal fun LyricsPanel(
             .bleedHorizontally(PLAYER_GUTTER)
             .nestedScroll(controlsOnScroll)
             .nestedScroll(keepScroll)
-            // Browsing leaves taps to each lyric row's seek action throughout
-            // the list — and picking leaves them nothing at all: the gesture
-            // below takes taps at the initial pass, so while a pick is open it
-            // would swallow every choice before the row ever saw it.
-            .revealLyricsControlsOnTap(!controlsOpen && !picking, onBottomHalfTap)
+            // Pause auto-follow without consuming the touch, then leave the
+            // actual tap to the lyric row so it seeks on the first attempt.
+            .holdLyricsAutoFollowWhileTouched { touchInProgress = it }
             .fadingEdges(),
         // Each row carries GLOW_ROOM of its own inset for the halo, so the
         // list hands that much back — otherwise the lines would sit a glow's
@@ -2166,7 +2198,7 @@ internal fun LyricsPanel(
                         // A gap is nothing to pick, so it only ever seeks — and
                         // not even that while a pick is open, where a stray tap
                         // in the silence would jump the song.
-                        .clickable(enabled = isSynced && !picking) { onSeekToLine(line.timeMs) }
+                        .clickable(enabled = isSynced && !picking) { seekFromLineTap(line.timeMs) }
                         // Matches the inset every sung line carries, so the
                         // rhythm of the list doesn't break at a break.
                         .padding(GLOW_ROOM)
@@ -2203,7 +2235,15 @@ internal fun LyricsPanel(
                                 )
                             }
                         }
-                        .semantics { contentDescription = instrumental },
+                        .semantics { contentDescription = instrumental }
+                        .relayLyricsTapWhenSheetConsumes(
+                            enabled = isSynced && !picking,
+                            canPick = false,
+                            picking = false,
+                            onSeek = { seekFromLineTap(line.timeMs) },
+                            onPick = {},
+                            onTogglePick = {},
+                        ),
                 )
                 }
             } else {
@@ -2312,7 +2352,7 @@ internal fun LyricsPanel(
                                     if (picking) {
                                         onTogglePick(index)
                                     } else {
-                                        onSeekToLine(line.timeMs)
+                                        seekFromLineTap(line.timeMs)
                                     }
                                 },
                             )
@@ -2325,8 +2365,16 @@ internal fun LyricsPanel(
                                 enabled = isSynced,
                                 interactionSource = interaction,
                                 indication = LocalIndication.current,
-                            ) { onSeekToLine(line.timeMs) }
+                            ) { seekFromLineTap(line.timeMs) }
                         },
+                    )
+                    .relayLyricsTapWhenSheetConsumes(
+                        enabled = picking || isSynced,
+                        canPick = canPick,
+                        picking = picking,
+                        onSeek = { seekFromLineTap(line.timeMs) },
+                        onPick = { onPickLine(index) },
+                        onTogglePick = { onTogglePick(index) },
                     )
                 // Lead and answering vocal are one row: they are one line of
                 // the song, they scale and dim together, and tapping either

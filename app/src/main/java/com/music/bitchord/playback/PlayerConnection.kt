@@ -63,6 +63,9 @@ data class PlayerState(
     val repeatMode: Int = Player.REPEAT_MODE_OFF,
     val queue: List<Song> = emptyList(),
     val queueIndex: Int = 0,
+    /** The traversal neighbours, respecting shuffle and repeat order. */
+    val previousSong: Song? = null,
+    val nextSong: Song? = null,
     /**
      * Whether the queue has somewhere to go either side of the current track.
      * Taken from the player rather than [queueIndex], so the wrap-around of
@@ -352,6 +355,8 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
                 repeatMode = player.repeatMode,
                 queue = queueSnapshot,
                 queueIndex = player.currentMediaItemIndex,
+                previousSong = queueSnapshot.getOrNull(player.previousMediaItemIndex),
+                nextSong = queueSnapshot.getOrNull(player.nextMediaItemIndex),
                 hasPrevious = player.hasPreviousMediaItem(),
                 hasNext = player.hasNextMediaItem(),
                 isQualityUpgraded = item?.mediaMetadata?.extras
