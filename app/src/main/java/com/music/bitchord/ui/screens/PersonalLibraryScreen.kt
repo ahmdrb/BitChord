@@ -501,13 +501,6 @@ private fun PersonalCollectionDetailDialog(
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
-                        if (collectionKind != "playlist") {
-                            Text(
-                                "${songs.size} ${if (songs.size == 1) "song" else "songs"}",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = palette.onBackgroundVariant,
-                            )
-                        }
                         val trackCount = if (songs.size == 1) "1 Track" else "${songs.size} Tracks"
                         val duration = collectionDurationLabel(songs)
                         Text(
