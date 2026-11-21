@@ -3211,20 +3211,6 @@ private fun BitChordApp(
                             } else if (pageRoute == AppRoute.WearOs) {
                                 WearOsScreen(contentPadding = listPadding)
                             } else if (pageRoute == AppRoute.ListenTogether) {
-                            } else if (pageRoute == AppRoute.DriveBackup) {
-                                DriveBackupScreen(
-                                    contentPadding = listPadding,
-                                    onOpenDevices = { navigator.push(AppRoute.DriveDevices) },
-                                    onConfirmDisconnect = { driveAlerts.disconnect = true },
-                                    onConfirmRemove = { driveAlerts.remove = it },
-                                    onRename = { driveAlerts.renaming = it },
-                                )
-                            } else if (pageRoute == AppRoute.DriveDevices) {
-                                DriveDevicesScreen(
-                                    contentPadding = listPadding,
-                                    onConfirmRestore = { driveAlerts.restore = it },
-                                    onDone = { navigator.pop() },
-                                )
                                 ListenTogetherScreen(
                                     signedIn = signedIn,
                                     inviteCode = activeJamInviteCode,
@@ -3239,6 +3225,20 @@ private fun BitChordApp(
                                     },
                                     contentPadding = listPadding,
                                     onEditServer = { editingPartyServer = true },
+                                )
+                            } else if (pageRoute == AppRoute.DriveBackup) {
+                                DriveBackupScreen(
+                                    contentPadding = listPadding,
+                                    onOpenDevices = { navigator.push(AppRoute.DriveDevices) },
+                                    onConfirmDisconnect = { driveAlerts.disconnect = true },
+                                    onConfirmRemove = { device -> driveAlerts.remove = device },
+                                    onRename = { name -> driveAlerts.renaming = name },
+                                )
+                            } else if (pageRoute == AppRoute.DriveDevices) {
+                                DriveDevicesScreen(
+                                    contentPadding = listPadding,
+                                    onConfirmRestore = { device -> driveAlerts.restore = device },
+                                    onDone = { navigator.pop() },
                                 )
                             } else if (pageRoute == AppRoute.Equalizer) {
                                 EqualizerScreen(
@@ -6482,6 +6482,16 @@ private fun BitChordApp(
     
             // Over the page and its frosted bars, under nothing but the alerts.
             DacVolumeHud(hazeState)
+
+            // Drive backup confirmations belong at the root so their scrim covers
+            // the tab bar and mini-player without borrowing the sort menu's scope.
+            DriveBackupAlertsHost(
+                alerts = driveAlerts,
+                hazeState = hazeState,
+                onRestoreStarted = {
+                    if (navigator.visibleRoute() == AppRoute.DriveDevices) navigator.pop()
+                },
+            )
     
             blockedAddonSong?.let { song ->
                 AddonBlockedAlert(
@@ -6564,12 +6574,6 @@ private fun FrostedSortMenu(
             label = "dateAddedArrow",
         )
 
-        // Google Drive backup questions are hosted above the tab bar and mini-player.
-        DriveBackupAlertsHost(
-            alerts = driveAlerts,
-            hazeState = hazeState,
-            onRestoreStarted = { if (navigator.visibleRoute() == AppRoute.DriveDevices) navigator.pop() },
-        )
         Row(
             Modifier
                 .fillMaxWidth()
