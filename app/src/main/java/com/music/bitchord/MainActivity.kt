@@ -174,6 +174,10 @@ import com.music.bitchord.ui.screens.EqualizerPresetPage
 import com.music.bitchord.ui.screens.SettingsChoicePage
 import com.music.bitchord.ui.components.SpotifyImportAlert
 import com.music.bitchord.ui.screens.WearOsScreen
+import com.music.bitchord.ui.screens.DriveBackupScreen
+import com.music.bitchord.ui.screens.DriveDevicesScreen
+import com.music.bitchord.ui.screens.DriveBackupAlerts
+import com.music.bitchord.ui.screens.DriveBackupAlertsHost
 import com.music.bitchord.ui.screens.AccountAndScrobblingScreen
 import com.music.bitchord.ui.screens.DiscordDialog
 import com.music.bitchord.ui.screens.DiscordDialogHost
@@ -697,6 +701,8 @@ private fun BitChordApp(
     }
     var editingPartyServer by remember { mutableStateOf(false) }
     var editingSignatureApi by remember { mutableStateOf(false) }
+    // Raised backup confirmations live at the activity level so their scrim covers the tab bar and mini-player.
+    val driveAlerts = remember { DriveBackupAlerts() }
     var librarySortMenuOpen by remember { mutableStateOf(false) }
     var showLyricsSources by remember { mutableStateOf(false) }
     var showAppLanguage by remember { mutableStateOf(false) }
@@ -3193,6 +3199,20 @@ private fun BitChordApp(
                             } else if (pageRoute == AppRoute.WearOs) {
                                 WearOsScreen(contentPadding = listPadding)
                             } else if (pageRoute == AppRoute.ListenTogether) {
+                            } else if (pageRoute == AppRoute.DriveBackup) {
+                                DriveBackupScreen(
+                                    contentPadding = listPadding,
+                                    onOpenDevices = { navigator.push(AppRoute.DriveDevices) },
+                                    onConfirmDisconnect = { driveAlerts.disconnect = true },
+                                    onConfirmRemove = { driveAlerts.remove = it },
+                                    onRename = { driveAlerts.renaming = it },
+                                )
+                            } else if (pageRoute == AppRoute.DriveDevices) {
+                                DriveDevicesScreen(
+                                    contentPadding = listPadding,
+                                    onConfirmRestore = { driveAlerts.restore = it },
+                                    onDone = { navigator.pop() },
+                                )
                                 ListenTogetherScreen(
                                     signedIn = signedIn,
                                     inviteCode = activeJamInviteCode,
@@ -3246,6 +3266,7 @@ private fun BitChordApp(
                                         replayLandingPage = ReplayStoryPage.INTRO
                                         navigator.push(AppRoute.Replay)
                                     },
+                                    onDriveBackup = { navigator.push(AppRoute.DriveBackup) },
                                     onLyricsSources = { showLyricsSources = true },
                                     onTranslationLanguage = { showTranslationLanguage = true },
                                     onSources = { navigator.push(AppRoute.Sources) },
@@ -6506,6 +6527,13 @@ private fun FrostedSortMenu(
             targetValue = if (selected == SongSort.DATE_ADDED_ASC) 180f else 0f,
             animationSpec = tween(durationMillis = 200),
             label = "dateAddedArrow",
+        )
+
+        // Google Drive backup questions are hosted above the tab bar and mini-player.
+        DriveBackupAlertsHost(
+            alerts = driveAlerts,
+            hazeState = hazeState,
+            onRestoreStarted = { if (navigator.visibleRoute() == AppRoute.DriveDevices) navigator.pop() },
         )
         Row(
             Modifier
