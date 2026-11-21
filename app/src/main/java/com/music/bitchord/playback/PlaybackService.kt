@@ -279,6 +279,12 @@ const val EXTRA_QUEUE_MOVE_INDEX = "bitchord.queueMove.index"
 const val EXTRA_QUEUE_MOVE_ENTRY = "bitchord.queueMove.entry"
 const val EXTRA_QUEUE_MOVE_MEDIA = "bitchord.queueMove.media"
 
+/** Session extras that make same-position queue edits observable to the UI. */
+const val EXTRA_QUEUE_REFRESH_REVISION = "bitchord.queueRefresh.revision"
+const val EXTRA_QUEUE_REFRESH_ENTRY_ID = "bitchord.queueRefresh.entry"
+const val EXTRA_QUEUE_REFRESH_MEDIA_ID = "bitchord.queueRefresh.media"
+const val EXTRA_QUEUE_REFRESH_TIER = "bitchord.queueRefresh.tier"
+
 /**
  * Play a history row again from the queue screen, keeping later history as
  * history. Takes the same index/entry/media extras as [ACTION_QUEUE_MOVE_TO_USER].
