@@ -270,7 +270,6 @@ import com.music.bitchord.ui.components.FloatingBottomBar
 import com.music.bitchord.ui.components.GlassNavBar
 import com.music.bitchord.ui.components.floatingtabbar.rememberFloatingTabBarScrollConnection
 import com.music.bitchord.ui.components.FrostedTopBar
-import com.music.bitchord.ui.components.TopBarCircleIconButton
 import com.music.bitchord.ui.components.LastfmLoginAlert
 import com.music.bitchord.ui.components.LocalAppBackdrop
 import com.music.bitchord.ui.components.LocalLiquidGlassEnabled
@@ -6780,19 +6779,17 @@ private fun PersonalCollectionTopBarActions(
     onSortToggle: () -> Unit,
     onMoreToggle: () -> Unit,
 ) {
-    TopBarCircleIconButton(
-        icon = if (searchOpen) Icons.Rounded.Close else BitChordIcons.Search,
-        contentDescription = stringResource(if (searchOpen) R.string.close_search else R.string.search_this_list),
-        onClick = onSearchToggle,
-    )
-    TopBarCircleIconButton(
-        icon = Icons.Rounded.Sort,
-        contentDescription = stringResource(R.string.sort_songs),
-        onClick = onSortToggle,
-    )
-    TopBarCircleIconButton(
-        icon = Icons.Rounded.MoreHoriz,
-        contentDescription = stringResource(R.string.more),
-        onClick = onMoreToggle,
-    )
+    IconButton(onClick = onSearchToggle) {
+        Icon(
+            if (searchOpen) Icons.Rounded.Close else BitChordIcons.Search,
+            contentDescription = stringResource(if (searchOpen) R.string.close_search else R.string.search_this_list),
+            tint = MaterialTheme.colorScheme.onSurface,
+        )
+    }
+    IconButton(onClick = onSortToggle) {
+        Icon(Icons.Rounded.Sort, contentDescription = stringResource(R.string.sort_songs), tint = MaterialTheme.colorScheme.onSurface)
+    }
+    IconButton(onClick = onMoreToggle) {
+        Icon(Icons.Rounded.MoreHoriz, contentDescription = stringResource(R.string.more), tint = MaterialTheme.colorScheme.onSurface)
+    }
 }
