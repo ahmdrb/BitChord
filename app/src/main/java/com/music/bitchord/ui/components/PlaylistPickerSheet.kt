@@ -201,7 +201,7 @@ fun PlaylistPickerSheet(
                     )
                     HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
                 } else if (song != null) {
-                    SheetTrackHeader(song, title = headerTitle)
+                    SheetTrackHeader(headerTitle?.let { song.copy(title = it) } ?: song)
                     HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
                 }
                 SheetHeading(
