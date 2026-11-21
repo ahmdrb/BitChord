@@ -8,30 +8,21 @@ import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Sort
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.music.bitchord.data.settings.AppSettings
-import com.music.bitchord.ui.components.LocalLiquidGlassEnabled
-import com.music.bitchord.ui.components.isGlassSupported
-import com.music.bitchord.ui.components.glassContentColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.ui.components.TopBarCircleIconButton
 import com.music.bitchord.ui.components.menuAnchor
 import com.music.bitchord.ui.icons.BitChordIcons
 
 /**
  * Navigation actions for album, playlist, artist and device-folder detail pages.
- *
- * Kept outside BitChordApp so Compose does not generate one oversized method
- * for the app's entire navigation hierarchy. All controls remain children of
- * the shared FrostedTopBar action pill.
+ * Each action is a separate outlined circle, matching the Shuffle and Plus
+ * controls in the detail-page action row.
  */
 @Composable
 internal fun DetailPageTopBarActions(
@@ -51,57 +42,42 @@ internal fun DetailPageTopBarActions(
     onDeleteArtist: () -> Unit,
 ) {
     val context = LocalContext.current
-    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
-    val glassControls = LocalLiquidGlassEnabled.current && isGlassSupported() && !reduceDynamicBlur
-    val controlTint = if (glassControls) glassContentColor() else MaterialTheme.colorScheme.onSurface
     val canShareArtist = browseId.startsWith("UC")
 
     if (songs.isNotEmpty()) {
-        IconButton(onClick = onDetailSearchToggle) {
-            Icon(
-                if (detailSearching) Icons.Rounded.Close else BitChordIcons.Search,
-                contentDescription = stringResource(
-                    if (detailSearching) R.string.close_search else R.string.search_this_list,
-                ),
-                tint = controlTint,
-            )
-        }
-    }
-
-    // The menu itself is FrostedSortMenu, composed with the app's other
-    // frosted overlays in the main hierarchy where Haze can sample the page.
-    IconButton(onClick = onSortClick) {
-        Icon(
-            Icons.Rounded.Sort,
+        TopBarCircleIconButton(
+            icon = if (detailSearching) Icons.Rounded.Close else BitChordIcons.Search,
             contentDescription = stringResource(
-                if (isLocalDetail) R.string.sort_music else R.string.sort_songs,
+                if (detailSearching) R.string.close_search else R.string.search_this_list,
             ),
-            tint = controlTint,
+            onClick = onDetailSearchToggle,
         )
     }
 
+    TopBarCircleIconButton(
+        icon = Icons.Rounded.Sort,
+        contentDescription = stringResource(
+            if (isLocalDetail) R.string.sort_music else R.string.sort_songs,
+        ),
+        onClick = onSortClick,
+    )
+
     if (isReleaseDetail && songs.isNotEmpty()) {
-        IconButton(
-            modifier = Modifier.menuAnchor(),
+        TopBarCircleIconButton(
+            icon = Icons.Rounded.MoreHoriz,
+            contentDescription = stringResource(R.string.more),
             onClick = onMoreClick,
-        ) {
-            Icon(
-                Icons.Rounded.MoreHoriz,
-                contentDescription = stringResource(R.string.more),
-                tint = controlTint,
-            )
-        }
+            modifier = Modifier.menuAnchor(),
+        )
     }
 
     if (isArtistDetail && (isPersonalArtist || canShareArtist)) {
         Box {
-            IconButton(onClick = { onArtistMoreMenuOpenChange(true) }) {
-                Icon(
-                    Icons.Rounded.MoreHoriz,
-                    contentDescription = stringResource(R.string.more),
-                    tint = controlTint,
-                )
-            }
+            TopBarCircleIconButton(
+                icon = Icons.Rounded.MoreHoriz,
+                contentDescription = stringResource(R.string.more),
+                onClick = { onArtistMoreMenuOpenChange(true) },
+            )
             DropdownMenu(
                 expanded = artistMoreMenuOpen,
                 onDismissRequest = { onArtistMoreMenuOpenChange(false) },
