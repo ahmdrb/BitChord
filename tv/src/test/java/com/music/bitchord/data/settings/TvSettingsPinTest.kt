@@ -27,8 +27,9 @@ class TvSettingsPinTest {
 
         val rawStored = fakePrefs.getString("tv_profile_pin_$profileId", null)
         assertTrue("Stored value should not be null", rawStored != null)
-        // Ensure plaintext PIN is never stored directly
-        assertFalse("Raw PIN must not appear in stored preference", rawStored!!.contains(plainPin))
+        // The random salt/hash can coincidentally contain the PIN's digits.
+        // Only fail when the stored preference is exactly the plaintext PIN.
+        assertNotEquals("Raw PIN must not be stored as plaintext", plainPin, rawStored)
         // Verify format pbkdf2_sha256:<iterations>:<saltHex>:<hashHex>
         assertTrue("Stored value must start with pbkdf2_sha256 prefix", rawStored.startsWith("pbkdf2_sha256:"))
         val parts = rawStored.split(':')
