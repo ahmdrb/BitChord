@@ -3390,11 +3390,18 @@ private fun BitChordApp(
                                         page.browseId,
                                     )
                                     val selected = songs.getOrNull(index)
-                                    val pageSongKeys =
-                                        (page.songs as? UiState.Success)?.data.orEmpty().mapTo(HashSet()) { it.contextEntryKey() }
+                                    val pageSongs = (page.songs as? UiState.Success)?.data.orEmpty()
+                                    val pageSongKeys = pageSongs.map { it.contextEntryKey() }
+                                    val visibleSongKeys = songs.map { it.contextEntryKey() }
+                                    // The paged context can replace the tapped list only when
+                                    // the visible release is complete and still in its own order.
+                                    // A search result is a subset; a sort is a reordered list.
+                                    // Neither should silently turn into the unfiltered/original queue.
                                     val useBounded =
                                         (page.type == BrowseType.ALBUM || page.type == BrowseType.PLAYLIST) &&
                                             selected?.contextEntryKey()?.let(pageSongKeys::contains) == true &&
+                                            visibleSongKeys.size == pageSongKeys.size &&
+                                            inPageOrder(visibleSongKeys, pageSongKeys) &&
                                             !CastController.state.value.casting
                                     val latestPage = if (useBounded) {
                                         viewModel.takePlaybackContext(page.browseId)
