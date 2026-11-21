@@ -8,33 +8,37 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
 import com.music.bitchord.data.OfflinePlaylists
+import com.music.bitchord.data.PersonalLibraryStore
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.UserPlaylist
 import com.music.bitchord.ui.MainViewModel
 
 /**
- * One picker transaction over a frozen queue selection. Submission removes the
- * sheet, not this host: only an acknowledged result calls [onComplete]. The
- * base sheet's asynchronous hide callback must never turn submission into a
- * cancellation while account writes are still in flight.
+ * A multi-select queue transaction over BitChord's own playlists.
+ *
+ * Remote songs go into PersonalLibraryStore, not YouTube Music's account
+ * library. Device files can additionally be filed into OfflinePlaylists.
+ * The selected queue snapshot stays frozen while the picker is open.
  */
 @Composable
 fun QueuePlaylistPicker(
     songs: List<Song>,
-    viewModel: MainViewModel,
+    @Suppress("UNUSED_PARAMETER") viewModel: MainViewModel,
     onNotice: (String) -> Unit,
     onComplete: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
-    val selected = remember { songs.toList() }
-    val device = remember { selected.isNotEmpty() && selected.all(::usesDevicePlaylist) }
-    val compatible = remember { if (device) selected else selected.filterNot(::usesDevicePlaylist) }
-    val incompatible = selected.size - compatible.size
+    val selected = remember(songs) { songs.toList() }
+    val deviceSongs = remember(selected) { selected.filter(::usesDevicePlaylist) }
     var submitted by remember { mutableStateOf(false) }
     var finished by remember { mutableStateOf(false) }
+
+    val personalLibrary by PersonalLibraryStore.state.collectAsStateWithLifecycle()
+    val offlinePlaylists by OfflinePlaylists.playlists.collectAsState()
 
     val cancel: () -> Unit = {
         if (!submitted && !finished) {
@@ -47,97 +51,127 @@ fun QueuePlaylistPicker(
             finished = true
             val base = context.getString(R.string.queue_playlist_added, added, selected.size)
             onNotice(
-                if (incompatible == 0 && alreadyThere == 0 && failed == 0) base else context.getString(
-                    R.string.queue_playlist_partial, base, incompatible, alreadyThere, failed,
+                if (alreadyThere == 0 && failed == 0) base else context.getString(
+                    R.string.queue_playlist_partial, base, 0, alreadyThere, failed,
                 ),
             )
             onComplete()
         }
     }
 
-    LaunchedEffect(Unit) {
-        if (selected.isEmpty()) cancel() else if (!device) viewModel.loadPlaylists()
+    LaunchedEffect(context) {
+        PersonalLibraryStore.initialize(context)
+        if (selected.isEmpty()) cancel()
     }
-    // Keep the transaction composed even though the picker is no longer drawn.
+
     if (submitted || finished || selected.isEmpty()) return
 
-    val choices = if (device) {
-        val playlists by OfflinePlaylists.playlists.collectAsState()
-        remember(playlists, context) {
-            playlists.map { playlist ->
+    val choices = remember(personalLibrary.playlists, offlinePlaylists, deviceSongs.size) {
+        val personal = personalLibrary.playlists.map { item ->
+            UserPlaylist(
+                playlistId = "personal:" + item.id,
+                title = item.title,
+                subtitle = context.resources.getQuantityString(
+                    R.plurals.song_count_plural, item.songs.size, item.songs.size,
+                ),
+                thumbnailUrl = item.artworkPath ?: item.songs.firstNotNullOfOrNull { it.thumbnailUrl },
+            )
+        }
+        val device = if (deviceSongs.isNotEmpty()) {
+            offlinePlaylists.map { item ->
                 UserPlaylist(
-                    playlistId = playlist.id,
-                    title = playlist.title,
+                    playlistId = "device:" + item.id,
+                    title = item.title,
                     subtitle = context.resources.getQuantityString(
-                        R.plurals.song_count_plural, playlist.songs.size, playlist.songs.size,
+                        R.plurals.song_count_plural, item.songs.size, item.songs.size,
                     ),
-                    thumbnailUrl = playlist.songs.firstNotNullOfOrNull { it.thumbnailUrl }
-                        .takeUnless { playlist.isLiked },
+                    thumbnailUrl = item.songs.firstNotNullOfOrNull { it.thumbnailUrl }
+                        .takeUnless { item.isLiked },
                 )
             }
+        } else {
+            emptyList()
         }
-    } else {
-        viewModel.playlists.collectAsState().value
+        personal + device
     }
-    val loading = if (device) false else viewModel.playlistsLoading.collectAsState().value
 
     PlaylistPickerSheet(
         playlists = choices,
-        loading = loading,
+        loading = false,
         songs = selected,
-        offline = device,
+        personal = true,
         onDismiss = cancel,
         onAdd = { picked ->
             if (!submitted && !finished) {
                 submitted = true
-                when {
-                    compatible.isEmpty() -> complete(0, 0, 0)
-                    device -> {
-                        val counts = addToDevicePlaylists(picked, compatible)
-                        complete(counts.first, counts.second, counts.third)
+                val personalIds = picked.filter { it.playlistId.startsWith("personal:") }
+                    .map { it.playlistId.removePrefix("personal:") }
+                val deviceIds = picked.filter { it.playlistId.startsWith("device:") }
+                    .map { it.playlistId.removePrefix("device:") }
+
+                val personalBefore = PersonalLibraryStore.state.value.playlists
+                    .filter { it.id in personalIds }
+                    .associate { item -> item.id to item.songs.mapTo(HashSet()) { it.videoId } }
+                val newPersonalIds = mutableSetOf<String>()
+                val existingPersonalIds = mutableSetOf<String>()
+
+                personalIds.forEach { id ->
+                    selected.forEach { song ->
+                        if (song.videoId in personalBefore[id].orEmpty()) {
+                            existingPersonalIds += song.videoId
+                        } else if (PersonalLibraryStore.addSongToPlaylist(id, song)) {
+                            newPersonalIds += song.videoId
+                        } else {
+                            existingPersonalIds += song.videoId
+                        }
                     }
-                    else -> viewModel.addSongsToPlaylists(picked, compatible, complete)
                 }
+
+                val deviceBefore = OfflinePlaylists.playlists.value
+                    .filter { it.id in deviceIds }
+                    .associate { item -> item.id to item.songs.mapNotNullTo(HashSet()) { it.localUri } }
+                if (deviceIds.isNotEmpty() && deviceSongs.isNotEmpty()) {
+                    OfflinePlaylists.add(deviceIds, deviceSongs)
+                }
+                val deviceAfter = OfflinePlaylists.playlists.value
+                    .filter { it.id in deviceIds }
+                    .associate { item -> item.id to item.songs.mapNotNullTo(HashSet()) { it.localUri } }
+                val newDeviceIds = mutableSetOf<String>()
+                val existingDeviceIds = mutableSetOf<String>()
+                deviceSongs.forEach { song ->
+                    val uri = song.localUri ?: return@forEach
+                    val existed = deviceIds.any { uri in deviceBefore[it].orEmpty() }
+                    val present = deviceIds.any { uri in deviceAfter[it].orEmpty() }
+                    if (present && existed) existingDeviceIds += song.videoId
+                    else if (present) newDeviceIds += song.videoId
+                }
+
+                var added = 0
+                var alreadyThere = 0
+                var failed = 0
+                selected.forEach { song ->
+                    when {
+                        song.videoId in newPersonalIds || song.videoId in newDeviceIds -> added++
+                        song.videoId in existingPersonalIds || song.videoId in existingDeviceIds -> alreadyThere++
+                        else -> failed++
+                    }
+                }
+                complete(added, alreadyThere, failed)
             }
         },
-        onCreate = { title, privacy ->
+        onCreate = { title, _ ->
             if (!submitted && !finished) {
                 submitted = true
-                when {
-                    compatible.isEmpty() -> complete(0, 0, 0)
-                    device -> {
-                        // A new playlist holds each file once; a repeated queue row is already there.
-                        val created = runCatching { OfflinePlaylists.create(title, compatible) }.isSuccess
-                        val distinct = compatible.distinctBy { it.localUri }.size
-                        if (created) complete(distinct, compatible.size - distinct, 0)
-                        else complete(0, 0, compatible.size)
-                    }
-                    else -> viewModel.createPlaylist(title, privacy, compatible, complete)
-                }
+                val created = runCatching {
+                    PersonalLibraryStore.addPlaylistWithSongs(title, selected)
+                }.isSuccess
+                if (created) complete(selected.size, 0, 0)
+                else complete(0, 0, selected.size)
             }
         },
     )
 }
 
-/** Match MainActivity's existing single-song dispatcher, not generic locality. */
-private fun usesDevicePlaylist(song: Song): Boolean = song.localUri != null &&
-    (song.videoId.startsWith("content://") || song.videoId.startsWith("file://"))
-
-/**
- * Adds [songs] to the device playlists picked, counting songs rather than
- * playlists: one every picked playlist already held is already there, and a
- * repeated queue row counts once.
- */
-private fun addToDevicePlaylists(
-    picked: List<UserPlaylist>,
-    songs: List<Song>,
-): Triple<Int, Int, Int> {
-    val ids = picked.map { it.playlistId }.distinct()
-    if (ids.isEmpty()) return Triple(0, 0, songs.size)
-    val held = OfflinePlaylists.playlists.value.filter { it.id in ids }
-        .map { playlist -> playlist.songs.mapNotNullTo(HashSet()) { it.localUri } }
-    val distinct = songs.distinctBy { it.localUri }
-    val alreadyThere = distinct.count { song -> held.isNotEmpty() && held.all { song.localUri in it } }
-    if (runCatching { OfflinePlaylists.add(ids, songs) }.isFailure) return Triple(0, 0, songs.size)
-    return Triple(distinct.size - alreadyThere, alreadyThere + songs.size - distinct.size, 0)
-}
+/** Match the main library's dispatcher: a localUri alone is not enough. */
+private fun usesDevicePlaylist(song: Song): Boolean =
+    song.localUri != null && (song.videoId.startsWith("content://") || song.videoId.startsWith("file://"))
