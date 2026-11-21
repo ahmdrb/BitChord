@@ -2,12 +2,15 @@ package com.music.bitchord.ui.components
 
 import androidx.compose.animation.core.EaseInOut
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
@@ -80,12 +83,22 @@ private val FootFade = Brush.verticalGradient(
 fun TopFadeBlur(
     hazeState: HazeState,
     pageColor: Color,
+    /** Keep the shared Playlist/Artist navigation controls outside the blur strip. */
+    protectNavigationChrome: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
+    val stripHeight = if (protectNavigationChrome) {
+        // These pages draw their controls in FrostedTopBar. The old strip
+        // extended behind that row and the Haze layer washed out its surfaces.
+        // Keep the status bar frosted, but stop before the shared action pill.
+        with(LocalDensity.current) { WindowInsets.statusBars.getTop(this).toDp() }
+    } else {
+        topBarHeight() + FADE_RUN
+    }
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(topBarHeight() + FADE_RUN)
+            .height(stripHeight)
             // The strip is a third-resolution copy of the page, softer than the
             // page itself even where the blur has run out, so ending it outright
             // left a line across whatever text it ended on. Its last stretch

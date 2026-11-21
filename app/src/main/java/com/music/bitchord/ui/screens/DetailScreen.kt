@@ -78,6 +78,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.pluralStringResource
@@ -922,7 +923,6 @@ fun DetailScreen(
             hazeState = remember { HazeState() },
             artists = personalLibrary.artists,
             initialArtistId = page.browseId,
-            artwork = page.thumbnailUrl,
             onDismiss = { showPersonalSongPicker = false },
             onArtistAdded = {},
             onSongAdded = { song, artistIds -> PersonalLibraryStore.addSong(song, artistIds) },

@@ -76,7 +76,7 @@ object PersonalLibraryStore {
             playlists = current.playlists + PersonalPlaylist(
                 id = java.util.UUID.randomUUID().toString(),
                 title = name,
-                songs = songs.distinctBy { it.videoId },
+                songs = songs.distinctByVideoIdKeepingExplicit(),
                 artworkPath = artworkUrl?.takeIf { it.isNotBlank() },
             ),
         )
@@ -117,10 +117,25 @@ object PersonalLibraryStore {
         var added = false
         update { current ->
             current.copy(playlists = current.playlists.map { playlist ->
-                if (playlist.id == id && playlist.songs.none { it.videoId == song.videoId }) {
-                    added = true
-                    playlist.copy(songs = playlist.songs + song)
-                } else playlist
+                if (playlist.id != id) {
+                    playlist
+                } else {
+                    val existing = playlist.songs.firstOrNull { it.videoId == song.videoId }
+                    if (existing == null) {
+                        added = true
+                        playlist.copy(songs = playlist.songs + song)
+                    } else if (existing.isExplicit != true && song.isExplicit == true) {
+                        playlist.copy(
+                            songs = playlist.songs.map { currentSong ->
+                                if (currentSong.videoId == song.videoId) {
+                                    currentSong.copy(isExplicit = true)
+                                } else currentSong
+                            },
+                        )
+                    } else {
+                        playlist
+                    }
+                }
             })
         }
         return added
@@ -156,7 +171,12 @@ object PersonalLibraryStore {
         } else {
             val updated = current.songs.toMutableList()
             val existing = updated[existingIndex]
+            val explicit = when {
+                existing.song.isExplicit == true || song.isExplicit == true -> true
+                else -> existing.song.isExplicit ?: song.isExplicit
+            }
             updated[existingIndex] = existing.copy(
+                song = existing.song.copy(isExplicit = explicit),
                 artistBrowseIds = existing.artistBrowseIds + artistBrowseIds,
             )
             current.copy(songs = updated)
@@ -202,6 +222,7 @@ object PersonalLibraryStore {
                             put("thumbnailUrl", song.thumbnailUrl ?: JSONObject.NULL)
                             put("durationText", song.durationText ?: JSONObject.NULL)
                             put("artistId", song.artistId ?: JSONObject.NULL)
+                            put("isExplicit", song.isExplicit ?: JSONObject.NULL)
                             put("personalArtistIds", JSONArray().apply {
                                 entry.artistBrowseIds.forEach { artistId -> put(artistId) }
                             })
@@ -223,6 +244,7 @@ object PersonalLibraryStore {
                                         put("thumbnailUrl", song.thumbnailUrl ?: JSONObject.NULL)
                                         put("durationText", song.durationText ?: JSONObject.NULL)
                                         put("artistId", song.artistId ?: JSONObject.NULL)
+                                        put("isExplicit", song.isExplicit ?: JSONObject.NULL)
                                     })
                                 }
                             })
@@ -262,6 +284,7 @@ object PersonalLibraryStore {
                         thumbnailUrl = item.nullableString("thumbnailUrl"),
                         durationText = item.nullableString("durationText"),
                         artistId = item.nullableString("artistId"),
+                        isExplicit = item.nullableBoolean("isExplicit"),
                     ),
                     artistBrowseIds = item.optJSONArray("personalArtistIds")?.let { ids ->
                         (0 until ids.length()).mapNotNull { ids.optString(it).takeIf { artistId -> artistId.isNotBlank() } }.toSet()
@@ -287,6 +310,7 @@ object PersonalLibraryStore {
                             thumbnailUrl = song.nullableString("thumbnailUrl"),
                             durationText = song.nullableString("durationText"),
                             artistId = song.nullableString("artistId"),
+                            isExplicit = song.nullableBoolean("isExplicit"),
                         )
                     }
                 }.orEmpty()
@@ -298,4 +322,24 @@ object PersonalLibraryStore {
 
     private fun JSONObject.nullableString(key: String): String? =
         if (!has(key) || isNull(key)) null else optString(key).takeIf { it.isNotBlank() }
+
+    private fun JSONObject.nullableBoolean(key: String): Boolean? =
+        if (!has(key) || isNull(key)) null else optBoolean(key)
+
+    private fun List<Song>.distinctByVideoIdKeepingExplicit(): List<Song> {
+        val unique = LinkedHashMap<String, Song>()
+        for (song in this) {
+            val previous = unique[song.videoId]
+            unique[song.videoId] = if (
+                previous?.isExplicit == true && song.isExplicit != true
+            ) {
+                song.copy(isExplicit = true)
+            } else if (previous?.isExplicit != true && song.isExplicit == true) {
+                song.copy(isExplicit = true)
+            } else {
+                song
+            }
+        }
+        return unique.values.toList()
+    }
 }

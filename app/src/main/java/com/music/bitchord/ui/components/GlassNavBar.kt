@@ -15,16 +15,17 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -48,6 +49,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -56,6 +59,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.stringResource
@@ -84,33 +88,58 @@ import androidx.compose.foundation.layout.fillMaxSize
 private class MiniPlayerTrackTransition {
     val currentSong = mutableStateOf<Song?>(null)
     val outgoingSong = mutableStateOf<Song?>(null)
-    val progress = Animatable(1f)
+    val dragOffset = mutableFloatStateOf(0f)
+    val direction = mutableIntStateOf(1)
+    val draggedTrackId = mutableStateOf<String?>(null)
+    val draggedAdjacentSong = mutableStateOf<Song?>(null)
 
-    suspend fun update(song: Song?) {
+    suspend fun update(song: Song?, previousSong: Song?, nextSong: Song?) {
         if (song == null) {
             currentSong.value = null
             outgoingSong.value = null
-            progress.snapTo(1f)
+            draggedTrackId.value = null
+            draggedAdjacentSong.value = null
+            dragOffset.floatValue = 0f
             return
         }
         val previous = currentSong.value
         if (previous == null) {
             currentSong.value = song
             outgoingSong.value = null
-            progress.snapTo(1f)
             return
         }
         if (previous.videoId == song.videoId) {
             currentSong.value = song
             return
         }
+
+        val isSwipeTarget = draggedTrackId.value == previous.videoId &&
+            draggedAdjacentSong.value?.videoId == song.videoId
         outgoingSong.value = previous
+        val travelDirection = when {
+            isSwipeTarget -> direction.intValue
+            previousSong?.videoId == previous.videoId -> 1
+            nextSong?.videoId == previous.videoId -> -1
+            else -> 1
+        }
+        direction.intValue = travelDirection
+        if (!isSwipeTarget) {
+            draggedTrackId.value = previous.videoId
+            draggedAdjacentSong.value = song
+            dragOffset.floatValue = 0f
+        }
+
+        val targetOffset = if (travelDirection > 0) -1f else 1f
+        animate(
+            initialValue = dragOffset.floatValue,
+            targetValue = targetOffset,
+            animationSpec = tween(durationMillis = 190),
+        ) { value, _ -> dragOffset.floatValue = value }
+
         currentSong.value = song
-        progress.snapTo(0f)
-        progress.animateTo(
-            targetValue = 1f,
-            animationSpec = tween(durationMillis = 440, easing = FastOutSlowInEasing),
-        )
+        dragOffset.floatValue = 0f
+        draggedTrackId.value = null
+        draggedAdjacentSong.value = null
         outgoingSong.value = null
     }
 }
@@ -141,6 +170,8 @@ fun GlassNavBar(
     onTabSelected: (Int) -> Unit,
     scrollConnection: FloatingTabBarScrollConnection,
     song: Song?,
+    previousSong: Song? = null,
+    nextSong: Song? = null,
     isPlaying: Boolean,
     isLoading: Boolean,
     progressFraction: Float = 0f,
@@ -180,6 +211,8 @@ fun GlassNavBar(
     // FloatingTabBar retains its accessory factories while the tab layout is
     // stable. Keep the playback values live inside those retained factories.
     val latestSong = rememberUpdatedState(song)
+    val latestPreviousSong = rememberUpdatedState(previousSong)
+    val latestNextSong = rememberUpdatedState(nextSong)
     val latestIsPlaying = rememberUpdatedState(isPlaying)
     val latestIsLoading = rememberUpdatedState(isLoading)
     val latestProgress = rememberUpdatedState(progressFraction)
@@ -191,7 +224,7 @@ fun GlassNavBar(
     val latestControlsLocked = rememberUpdatedState(controlsLocked)
     val latestBlockedControl = rememberUpdatedState(onBlockedControl)
     val miniTrackTransition = remember { MiniPlayerTrackTransition() }
-    LaunchedEffect(song?.videoId) { miniTrackTransition.update(song) }
+    LaunchedEffect(song?.videoId) { miniTrackTransition.update(song, previousSong, nextSong) }
 
     // Search is the odd one out in the iOS 26 layout: a circle of its own beside
     // the pill rather than a quarter of it. It is the last tab in BitChord's
@@ -202,6 +235,13 @@ fun GlassNavBar(
     // the three surfaces gets its own glass modifier and so its own shape cache.
     // The theme's own glass tint, as the liquid top bar has it — no white wash.
     val glassSurface: @Composable () -> Modifier = { Modifier.liquidGlass(shape = pillShape) }
+    // The tab container gets a brighter navigation tint; the mini-player
+    // accessory deliberately keeps the original glass material.
+    val tabBarGlassSurface: @Composable () -> Modifier = {
+        Modifier
+            .liquidGlass(shape = pillShape, surfaceTint = navigationGlassSurfaceTint())
+            .border(NAVIGATION_GLASS_EDGE_WIDTH, NAVIGATION_GLASS_EDGE_COLOR, pillShape)
+    }
 
     if (showTabs) {
         FloatingTabBar(
@@ -212,13 +252,15 @@ fun GlassNavBar(
             .padding(horizontal = NAV_BAR_GUTTER)
             .padding(bottom = NAV_BAR_LIFT)
             .fillMaxWidth(),
-        tabBarContentModifier = glassSurface,
+        tabBarContentModifier = tabBarGlassSurface,
         inlineAccessory = song?.let {
             { accessoryModifier, _ ->
                 latestSong.value?.let { activeSong ->
                     GlassNowPlaying(
                         song = activeSong,
                         trackTransition = miniTrackTransition,
+                        previousSong = latestPreviousSong.value,
+                        nextSong = latestNextSong.value,
                         isInline = true,
                         isPlaying = latestIsPlaying.value,
                         isLoading = latestIsLoading.value,
@@ -243,6 +285,8 @@ fun GlassNavBar(
                     GlassNowPlaying(
                         song = activeSong,
                         trackTransition = miniTrackTransition,
+                        previousSong = latestPreviousSong.value,
+                        nextSong = latestNextSong.value,
                         isInline = false,
                         isPlaying = latestIsPlaying.value,
                         isLoading = latestIsLoading.value,
@@ -356,6 +400,8 @@ fun GlassNavBar(
         GlassNowPlaying(
             song = song,
             trackTransition = miniTrackTransition,
+            previousSong = previousSong,
+            nextSong = nextSong,
             isInline = false,
             isPlaying = isPlaying,
             isLoading = isLoading,
@@ -397,6 +443,8 @@ fun GlassNavBar(
 private fun GlassNowPlaying(
     song: Song,
     trackTransition: MiniPlayerTrackTransition,
+    previousSong: Song?,
+    nextSong: Song?,
     isInline: Boolean,
     isPlaying: Boolean,
     isLoading: Boolean,
@@ -421,15 +469,6 @@ private fun GlassNowPlaying(
         label = "accessoryPressScale",
     )
 
-    val titleStyle = MaterialTheme.typography.titleMedium.copy(
-        fontSize = ACCESSORY_TITLE_SIZE,
-        fontWeight = ACCESSORY_TITLE_WEIGHT,
-        letterSpacing = ACCESSORY_TITLE_TRACKING,
-    )
-    val artistStyle = MaterialTheme.typography.bodyMedium.copy(
-        fontSize = ACCESSORY_ARTIST_SIZE,
-        letterSpacing = ACCESSORY_ARTIST_TRACKING,
-    )
     // Liquid Glass stays neutral and theme-aware; artwork colours belong to the full player.
     val foreground = MaterialTheme.colorScheme.onSurface
     val secondaryForeground = MaterialTheme.colorScheme.onSurfaceVariant
@@ -453,6 +492,13 @@ private fun GlassNowPlaying(
             // Outside the press scale, which it lifts along with everything else.
             .miniPlayerGestures(
                 pull = pull,
+                trackDragOffset = trackTransition.dragOffset,
+                trackTransitionDirection = trackTransition.direction,
+                draggedTrackId = trackTransition.draggedTrackId,
+                draggedAdjacentSong = trackTransition.draggedAdjacentSong,
+                nextSong = nextSong,
+                previousSong = previousSong,
+                trackId = song.videoId,
                 onNext = {
                     haptics.play(Haptic.SkipNext)
                     onNext()
@@ -493,45 +539,85 @@ private fun GlassNowPlaying(
                     bottom = 4.dp,
                 ),
         ) {
-            val currentTransitionSong = trackTransition.currentSong.value
-            val displayedSong = if (currentTransitionSong == null || currentTransitionSong.videoId == song.videoId) {
-                song
-            } else {
-                currentTransitionSong
-            }
-            val outgoingSong = trackTransition.outgoingSong.value
-            val transitionProgress = trackTransition.progress
+            val displayedSong = trackTransition.currentSong.value ?: song
+            val outgoingSong = trackTransition.outgoingSong.value ?: displayedSong
+            val adjacentSong = trackTransition.draggedAdjacentSong.value
+            val dragOffset = trackTransition.dragOffset.floatValue
+            val swipeProgress = kotlin.math.abs(dragOffset).coerceIn(0f, 1f)
+            val artShowsPicture = song.isVideo && MusicOnlyPlayback.showsPicture(song.videoId)
+            val artWidth = if (artShowsPicture && !VideoThumbnails.square) {
+                ACCESSORY_ART_SIZE * (16f / 9f)
+            } else ACCESSORY_ART_SIZE
+
             Box(
-                modifier = Modifier.weight(1f).height(ACCESSORY_ART_SIZE).clipToBounds(),
+                modifier = Modifier
+                    .size(width = artWidth, height = ACCESSORY_ART_SIZE)
+                    // Only the shared viewport owns rounded clipping.
+                    .clip(RoundedCornerShape(ACCESSORY_ART_CORNER)),
             ) {
-                outgoingSong?.let { previousSong ->
-                    GlassTrackContent(
-                        displayedSong = previousSong,
-                        isInline = isInline,
-                        isCurrent = false,
+                if (adjacentSong == null) {
+                    GlassTrackArtwork(
+                        artSong = displayedSong,
+                        playingSong = song,
                         dock = dock,
-                        foreground = foreground,
-                        secondaryForeground = secondaryForeground,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                } else {
+                    GlassTrackArtwork(
+                        artSong = outgoingSong,
+                        playingSong = song,
+                        dock = dock,
                         modifier = Modifier.fillMaxSize().graphicsLayer {
-                            val progress = transitionProgress.value
-                            alpha = 1f - progress
-                            translationX = -size.width * 0.28f * progress
+                            translationX = dragOffset * size.width
+                        },
+                    )
+                    val adjacentDirection = if (trackTransition.direction.intValue > 0) 1f else -1f
+                    GlassTrackArtwork(
+                        artSong = adjacentSong,
+                        playingSong = song,
+                        dock = dock,
+                        modifier = Modifier.fillMaxSize().graphicsLayer {
+                            translationX = adjacentDirection * size.width + dragOffset * size.width
                         },
                     )
                 }
-                GlassTrackContent(
-                    displayedSong = displayedSong,
-                    isInline = isInline,
-                    isCurrent = displayedSong.videoId == song.videoId,
-                    dock = dock,
-                    foreground = foreground,
-                    secondaryForeground = secondaryForeground,
-                    modifier = Modifier.fillMaxSize().graphicsLayer {
-                        val progress = transitionProgress.value
-                        alpha = progress
-                        translationX = size.width * 0.28f * (1f - progress)
-                    },
-                )
+            }
+            Spacer(Modifier.width(if (isInline) 8.dp else 9.dp))
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(ACCESSORY_ART_SIZE)
+                    .clipToBounds(),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                if (adjacentSong == null) {
+                    GlassTrackMetadata(
+                        song = displayedSong,
+                        foreground = foreground,
+                        secondaryForeground = secondaryForeground,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                } else {
+                    val travelSign = if (trackTransition.direction.intValue > 0) -1f else 1f
+                    GlassTrackMetadata(
+                        song = outgoingSong,
+                        foreground = foreground,
+                        secondaryForeground = secondaryForeground,
+                        modifier = Modifier.fillMaxSize().graphicsLayer {
+                            translationX = travelSign * swipeProgress * size.width * 0.08f
+                            alpha = 1f - swipeProgress
+                        },
+                    )
+                    GlassTrackMetadata(
+                        song = adjacentSong,
+                        foreground = foreground,
+                        secondaryForeground = secondaryForeground,
+                        modifier = Modifier.fillMaxSize().graphicsLayer {
+                            translationX = -travelSign * (1f - swipeProgress) * size.width * 0.08f
+                            alpha = swipeProgress
+                        },
+                    )
+                }
             }
             Box(Modifier.size(glyphSlot), contentAlignment = Alignment.Center) {
                 IconButton(
@@ -640,15 +726,48 @@ private val EXPANDED_GLYPH_SIZE = 29.dp
 
 
 /**
- * Artwork and metadata move as one unit, like Mochy's mini-player carousel.
- * Transport controls remain outside this row, so they never shift on a track change.
+ * Artwork slides through its own clipped viewport; metadata crossfades separately.
+ * Transport controls remain outside both, so they never shift on a track change.
  */
 @Composable
-private fun GlassTrackContent(
-    displayedSong: Song,
-    isInline: Boolean,
-    isCurrent: Boolean,
+private fun GlassTrackArtwork(
+    artSong: Song,
+    playingSong: Song,
     dock: PlayerDock?,
+    modifier: Modifier = Modifier,
+) {
+    val isCurrent = artSong.videoId == playingSong.videoId
+    val showsPicture = isCurrent && artSong.isVideo &&
+        MusicOnlyPlayback.showsPicture(artSong.videoId)
+    Box(
+        modifier = modifier
+            .then(if (isCurrent) Modifier.playerDockArt(dock, ACCESSORY_ART_CORNER) else Modifier)
+            // A translated tile must stay square at the seam. The shared
+            // GlassNowPlaying viewport above provides the sole rounded mask.
+            .clip(RectangleShape)
+            .background(MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        AsyncImage(
+            model = rememberRemoteArtworkUrl(artSong)?.artworkAt(ROW_ART_PX),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize().clip(RectangleShape),
+        )
+        if (showsPicture) {
+            AndroidMusicVideo(
+                videoId = artSong.videoId,
+                fit = false,
+                onRenderedChanged = {},
+                modifier = Modifier.fillMaxSize().clip(RectangleShape),
+                priority = 0,
+            )
+        }
+    }
+}
+
+@Composable
+private fun GlassTrackMetadata(
+    song: Song,
     foreground: Color,
     secondaryForeground: Color,
     modifier: Modifier = Modifier,
@@ -662,45 +781,17 @@ private fun GlassTrackContent(
         fontSize = ACCESSORY_ARTIST_SIZE,
         letterSpacing = ACCESSORY_ARTIST_TRACKING,
     )
-    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
-        val showsPicture = isCurrent && displayedSong.isVideo &&
-            MusicOnlyPlayback.showsPicture(displayedSong.videoId)
-        val artWidth = if (showsPicture && !VideoThumbnails.square) {
-            ACCESSORY_ART_SIZE * (16f / 9f)
-        } else ACCESSORY_ART_SIZE
-        Box(
-            modifier = Modifier
-                .size(width = artWidth, height = ACCESSORY_ART_SIZE)
-                .then(if (isCurrent) Modifier.playerDockArt(dock, ACCESSORY_ART_CORNER) else Modifier)
-                .clip(RoundedCornerShape(ACCESSORY_ART_CORNER))
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-        ) {
-            AsyncImage(
-                model = rememberRemoteArtworkUrl(displayedSong)?.artworkAt(ROW_ART_PX),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
-            )
-            if (showsPicture) {
-                AndroidMusicVideo(
-                    videoId = displayedSong.videoId,
-                    fit = false,
-                    onRenderedChanged = {},
-                    modifier = Modifier.fillMaxSize(),
-                    priority = 0,
-                )
-            }
-        }
-        Spacer(Modifier.width(if (isInline) 8.dp else 9.dp))
-        Column(Modifier.weight(1f)) {
-            ExplicitSongTitle(
-                song = displayedSong,
-                style = titleStyle,
-                color = foreground,
-                badgeColor = secondaryForeground,
-                fadeOverflow = true,
-            )
-            FadingLine(text = displayedSong.artist, style = artistStyle, color = secondaryForeground)
-        }
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        ExplicitSongTitle(
+            song = song,
+            style = titleStyle,
+            color = foreground,
+            badgeColor = secondaryForeground,
+            fadeOverflow = true,
+        )
+        FadingLine(text = song.artist, style = artistStyle, color = secondaryForeground)
     }
 }

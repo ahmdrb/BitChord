@@ -2868,7 +2868,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         sections = sections,
                         thumbnailUrl = artwork ?: it.thumbnailUrl,
                         title = name ?: it.title,
-                        subtitle = credit ?: it.subtitle,
+                        // An artist card's subtitle can carry a separate catalogue
+                        // count (for example, "0 songs"). Do not carry that stale
+                        // card text into the detail page beside its own track count.
+                        subtitle = if (resolved == BrowseType.ARTIST) "" else credit ?: it.subtitle,
                         suggestedSongs = suggested,
                         continuation = more,
                         library = library,

@@ -1,8 +1,10 @@
 package com.music.bitchord.ui.components
 
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,18 +19,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
@@ -47,14 +45,14 @@ fun Modifier.thumbnailBorder(shape: Shape): Modifier = composed {
 }
 
 /**
- * A song title with the catalogue-standard explicit badge before it, so the
- * mark sits in the same place on every row however long the title runs.
+ * A song title which can optionally carry the catalogue-standard explicit
+ * badge. Lists and the mini-player omit it; the full player opts in.
  *
- * The badge is drawn in the secondary line's colour — the artist's — rather
- * than the title's, as Apple Music draws it; [badgeColor] is that colour. With
- * [fadeOverflow] a title too long for its line fades out at its end, as Apple's
- * players let it, rather than ending in an ellipsis, as its lists do. Either
- * way the badge keeps its place ahead of whatever of the title is shown.
+ * When shown, the badge uses the secondary line's colour — the artist's —
+ * rather than the title's, as Apple Music draws it; [badgeColor] is that
+ * colour. With [fadeOverflow] a title too long for its line fades out at its
+ * end, as Apple's players let it, rather than ending in an ellipsis, as its
+ * lists do.
  */
 @Composable
 fun ExplicitSongTitle(
@@ -64,9 +62,10 @@ fun ExplicitSongTitle(
     modifier: Modifier = Modifier,
     badgeColor: Color = color,
     fadeOverflow: Boolean = false,
+    showExplicitBadge: Boolean = false,
 ) {
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
-        if (song.isExplicit == true) {
+        if (showExplicitBadge && song.isExplicit == true) {
             ExplicitBadge(badgeColor)
             Spacer(Modifier.width(6.dp))
         }
@@ -145,45 +144,37 @@ val LINE_FADE = 36.dp
 private val FullFade = { 1f }
 
 /**
- * The explicit mark, as Apple Music draws it: a filled tile with the E cut
- * out of it, so whatever sits behind — a list row, the player's artwork —
- * shows through the letter. Used everywhere a track is marked explicit.
- *
- * A square tile with the capital centred in it, as Apple's is. The cut-out is
- * a real hole rather than the letter painted in a background colour, which is
- * why it draws into its own offscreen layer: DstOut can then only erase the
- * tile, never what's under it.
+ * The explicit mark: a small filled tile with a contrasting capital E,
+ * positioned consistently before the title on every row.
  */
 @Composable
 fun ExplicitBadge(color: Color, modifier: Modifier = Modifier) {
-    val measurer = rememberTextMeasurer()
-    // W800, the Bold cut in this app's family: a step up from the Semibold
-    // the label's Bold draws. No tracking, which sat the letter left of centre.
     val style = MaterialTheme.typography.labelSmall.copy(
         fontSize = BADGE_LETTER_SIZE,
+        lineHeight = BADGE_LETTER_SIZE,
         fontWeight = FontWeight.W800,
         letterSpacing = 0.sp,
     )
-    val letter = remember(measurer, style) { measurer.measure("E", style) }
-    val density = LocalDensity.current
-    val capPx = with(density) { style.fontSize.toPx() } * CAP_HEIGHT
-    // Square, as Apple's is, sized off the capital so it scales with the text.
-    val side = with(density) { (capPx / BADGE_CAP_SHARE).toDp() }
-    Canvas(
-        modifier
+    val foreground = if (color.luminance() > 0.5f) Color.Black else Color.White
+    val capPx = with(LocalDensity.current) { style.fontSize.toPx() } * CAP_HEIGHT
+    val side = with(LocalDensity.current) { (capPx / BADGE_CAP_SHARE).toDp() }
+
+    // Use a real Compose text node rather than drawing the glyph into a tiny
+    // Canvas. This keeps the E visible across Android and desktop renderers,
+    // and lets font shaping / density changes be handled by Text itself.
+    Box(
+        modifier = modifier
             .size(side)
-            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen },
+            .clip(RoundedCornerShape(2.dp))
+            .background(color),
+        contentAlignment = Alignment.Center,
     ) {
-        drawRoundRect(color = color, cornerRadius = CornerRadius(2.dp.toPx()))
-        drawText(
-            textLayoutResult = letter,
-            // Centred on the capital's own height rather than on its line box,
-            // whose ascent and descent are not the letter's.
-            topLeft = Offset(
-                (this.size.width - letter.size.width) / 2f,
-                (this.size.height + capPx) / 2f - letter.firstBaseline,
-            ),
-            blendMode = BlendMode.DstOut,
+        Text(
+            text = "E",
+            style = style,
+            color = foreground,
+            maxLines = 1,
+            softWrap = false,
         )
     }
 }
