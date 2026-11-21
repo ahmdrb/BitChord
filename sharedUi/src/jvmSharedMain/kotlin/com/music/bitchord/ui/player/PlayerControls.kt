@@ -396,6 +396,7 @@ internal fun PlaybackQualityLabel(
  * Stats for nerds, on the foot of the sleeve: the measured stream, and under
  * it what Automix's analysis is doing. Nothing at all while the setting is off.
  */
+@Composable
 internal fun SleeveNerdStats(
     song: Song,
     modifier: Modifier = Modifier,
@@ -1059,10 +1060,16 @@ internal fun CircleGlyph(
 }
 
 /**
- * Transport / bottom glyphs. The circular clip belongs on the touch target,
- * never on the [Icon] — clipping the icon itself shaves the corners off wide
- * glyphs like fast-forward and the queue list.
+ * The star and ⋯ discs' fill at [alpha]: under the blend, the ink at a few
+ * times that strength, since a dodge laid on this thinly is next to nothing.
  */
+private fun discFill(chrome: Boolean, alpha: Float = CIRCLE_DISC_ALPHA): Color =
+    if (chrome) {
+        VibrantChromeInk.copy(alpha = (alpha * CIRCLE_DISC_DODGE_GAIN).coerceAtMost(1f))
+    } else {
+        Color.White.copy(alpha = alpha)
+    }
+
 @Composable
 internal fun rememberAutoMixFrostHold(): () -> Boolean {
     val feed = PlayerPlatform.host.autoMixVisualState ?: return { false }
@@ -1233,6 +1240,9 @@ private fun TransportGlyph(
 /** The skip glyphs' width, and their touch box, beside the larger play button. */
 private val PLAYER_SKIP_ICON_SIZE = 53.dp
 private val PLAYER_SKIP_TOUCH_SIZE = 53.dp
+
+/** Draw-only diameter shared by expanded playback controls; hit targets stay unchanged. */
+private val PLAYER_PRESS_CIRCLE_DIAMETER = 60.dp
 
 /**
  * The skip glyphs are drawn a little flatter than they are wide, so the pair
