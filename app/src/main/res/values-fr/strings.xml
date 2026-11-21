@@ -28,6 +28,7 @@
     <string name="search">Rechercher</string>
     <string name="clear_search">Effacer la recherche</string>
     <string name="library">Bibliothèque</string>
+    <string name="radio">Radio</string>
     <string name="home">Accueil</string>
     <string name="play">Lecture</string>
     <string name="explore">Explorer</string>
@@ -95,6 +96,8 @@
     <string name="testing">Test en cours…</string>
     <string name="connected">Connecté</string>
     <string name="account_integrations">Compte et intégrations</string>
+    <string name="youtube_premium_audio">Audio YouTube Premium</string>
+    <string name="youtube_premium_audio_subtitle">J\'ai Premium : diffuser l\'Opus de meilleure qualité à ~256 kbps au lieu des 160 kbps standard</string>
     <string name="account_scrobbling">Compte et scrobbling</string>
     <string name="rich_presence">Présence enrichie</string>
     <string name="scrobbling">Scrobbling</string>
@@ -196,7 +199,7 @@
     <string name="playback">Lecture</string>
     <string name="appearance">Apparence</string>
     <string name="storage">Stockage</string>
-    <string name="your_data">Vos données</string>
+    <string name="your_data">Sauvegarde et restauration</string>
     <string name="miscellaneous">Divers</string>
     <string name="lossless_hq_audio">Audio sans perte / haute qualité</string>
     <string name="on_wifi">En Wi-Fi</string>
@@ -206,6 +209,7 @@
     <string name="crossfade">Fondu enchaîné</string>
     <string name="crossfade_subtitle">Fait fondre une piste dans la suivante</string>
     <string name="automix">Automix [BÊTA]</string>
+    <string name="automix_overview">Vue d\'ensemble d\'Automix</string>
     <string name="skip_silence">Ignorer les silences</string>
     <string name="skip_silence_subtitle">Coupe les silences de plus d\'une seconde</string>
     <string name="skip_silence_float_subtitle">Indisponible avec la sortie flottante 32 bits</string>
@@ -521,7 +525,13 @@
     <string name="lyrics_share_title">Partager les paroles</string>
     <string name="lyrics_share_description">Les lignes que vous avez choisies, mises en page sur une carte avec la pochette.</string>
     <string name="lyrics_share_story">Convertir en story</string>
-    <string name="lyrics_share_story_revert">Revenir à la carte</string>
+    <string name="lyrics_share_story_revert">Convertir en carte</string>
+    <string name="lyrics_share_canvas">Canvas</string>
+    <string name="lyrics_share_video">Vidéo</string>
+    <string name="lyrics_share_image">Image</string>
+    <string name="lyrics_share_saving">Enregistrement…</string>
+    <string name="lyrics_share_gradient">Dégradé</string>
+    <string name="lyrics_share_show_logo">Afficher le logo BitChord</string>
     <string name="listening_shape">Votre profil d\'écoute</string>
     <string name="member_since">Membre depuis</string>
     <string name="member_since_value">Membre depuis %1$s</string>
@@ -648,6 +658,14 @@
     <string name="version_cut_aligned">aligné</string>
     <string name="automix_enabled_subtitle">Chronomètre et mélange chaque transition à partir des morceaux eux-mêmes. Désactivez-le si le téléphone chauffe ou si la lecture saccade.</string>
     <string name="automix_disabled_subtitle">Chronomètre et mélange les transitions automatiquement, sans curseur. Les performances peuvent varier sur les appareils plus lents.</string>
+    <string name="automix_models_downloading">Téléchargement d\'Automix (%1$d Mo)… %2$d%%. Les morceaux s\'enchaînent en fondu normal jusqu\'à la fin.</string>
+    <string name="automix_model">Modèle Automix</string>
+    <string name="automix_model_missing">Non téléchargé. Automix le récupère quand vous l\'activez, ou téléchargez-le maintenant.</string>
+    <string name="automix_model_download">Télécharger (%1$d Mo)</string>
+    <string name="automix_model_ready">Téléchargé, occupe %1$d Mo sur cet appareil.</string>
+    <string name="automix_models_failed">Impossible de télécharger le modèle. Vérifiez votre connexion et réessayez.</string>
+    <string name="automix_model_delete_title">Supprimer le modèle Automix ?</string>
+    <string name="automix_model_delete_warning">Cela libère %1$d Mo et désactive Automix. Le réactiver téléchargera à nouveau le modèle.</string>
     <string name="advanced_automix">Automix avancé</string>
     <string name="advanced_automix_subtitle">Mixe comme un DJ : garde les temps calés, place chaque changement sur le temps et coupe entre les morceaux qui ne se mélangent pas. Aucun traitement supplémentaire.</string>
     <string name="no_lyrics_sources_enabled">Aucune. Les paroles ne seront pas récupérées.</string>
@@ -861,6 +879,8 @@
     <string name="export_compatible_downloads">Exporter les téléchargements compatibles</string>
     <string name="sync_downloaded_playlists">Garder les playlists à jour</string>
     <string name="sync_downloaded_playlists_subtitle">Vérifie deux fois par jour et télécharge les titres ajoutés à vos playlists téléchargées</string>
+    <string name="download_liked_songs">Télécharger les titres likés</string>
+    <string name="download_liked_songs_subtitle">Télécharge tes titres likés et chaque titre que tu likeras désormais</string>
     <string name="playlist_sync_ask_title">Nouveaux titres dans %1$s : %2$d</string>
     <string name="playlist_sync_ask_text">Appuyez pour télécharger</string>
     <string name="playlist_sync_done_title">Ajoutés à %1$s : %2$d</string>
@@ -1006,6 +1026,7 @@
     <string name="sort_date_added_toggle">Date d\'ajout</string>
 
     <string name="sort_default">Ordre par défaut</string>
+    <string name="sort_track_number">Numéro de piste</string>
 
     <string name="sort_library">Trier</string>
 
@@ -1279,8 +1300,6 @@
 
 
     <string name="source_needs_lossless_output">Nécessite une sortie sans perte · utilisez un appareil compatible sans perte</string>
-    <string name="source_needs_update">Cet add-on n\'est plus à jour. Il fonctionne toujours, mais demandez à son développeur de le mettre à jour en suivant la dernière documentation des add-ons BitChord.</string>
-    <string name="source_outdated">Add-on obsolète</string>
     <string name="source_needs_lossless_bt_codec">Nécessite une sortie sans perte · le Bluetooth utilise %1$s ; utilisez un appareil compatible sans perte</string>
     <string name="source_needs_lossless_bt_unknown">Nécessite une sortie sans perte · impossible de savoir quel codec Bluetooth est utilisé</string>
     <string name="source_downloads_on">Téléchargements autorisés</string>
