@@ -2557,7 +2557,8 @@ private fun BitChordApp(
     // See [rememberReplayState].
     val replayOpen = route == AppRoute.Replay || replayStory != null || showReplayShare ||
         (selectedTab == TAB_LIBRARY && detail == null && route == null)
-    val (replay, setReplayPeriod) = rememberReplayState(replayOpen)
+    val replayPageOpen = route == AppRoute.Replay || replayStory != null || showReplayShare
+    val (replay, setReplayPeriod) = rememberReplayState(replayOpen, replayPageOpen)
     val replayCards = remember(replay.summary) {
         replay.summary?.takeUnless { it.isEmpty }?.cards(context).orEmpty()
     }
@@ -4180,6 +4181,8 @@ private fun BitChordApp(
                         title = when (route) {
                             AppRoute.Spotify -> stringResource(R.string.spotify)
                             AppRoute.Downloads -> stringResource(R.string.downloads)
+                            AppRoute.DriveBackup -> stringResource(R.string.drive_backup_title)
+                            AppRoute.DriveDevices -> stringResource(R.string.drive_devices_header)
                             AppRoute.Discord -> "Discord"
                             AppRoute.History -> stringResource(R.string.history)
                             is AppRoute.LibraryShowAll -> route.shelf.title
@@ -6728,6 +6731,7 @@ private fun FrostedMenuRow(
 @Composable
 private fun SongSort.localizedLabel(): String = when (this) {
     SongSort.DEFAULT -> stringResource(R.string.sort_default)
+    SongSort.TRACK_NUMBER -> stringResource(R.string.sort_track_number)
     SongSort.TITLE_ASC -> stringResource(R.string.sort_title_ascending)
     SongSort.TITLE_DESC -> stringResource(R.string.sort_title_descending)
     SongSort.DATE_ADDED_ASC -> stringResource(R.string.sort_date_added_oldest)
