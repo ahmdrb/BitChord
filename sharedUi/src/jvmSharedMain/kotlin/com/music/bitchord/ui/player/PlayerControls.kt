@@ -917,15 +917,7 @@ internal fun PlayerActionRow(
 /** How much more of the ink [CircleGlyph]'s disc takes than its plain white — 0.45 at rest, 0.85 lit. */
 private const val CIRCLE_DISC_DODGE_GAIN = 2.5f
 
-/**
- * Translucent circular button used for the track menu and the like control.
- *
- * [active] brightens the disc rather than only the glyph: this sits on album
- * artwork of any colour, and a white icon on a white-ish sleeve has no tint
- * change left to make. The filled star carries the state as a shape too —
- * see [BitChordIcons.StarFilled].
- */
-@Composable
+/** The star and ⋯ discs' fill at rest. */
 private const val CIRCLE_DISC_ALPHA = 0.18f
 
 /**
@@ -1001,7 +993,18 @@ private fun sliderInk(): SliderInk? =
             marker = sliderChromeInk().copy(alpha = 0.75f),
         )
     } else {
+        null
+    }
 
+/**
+ * Translucent circular button used for the track menu and the like control.
+ *
+ * [active] brightens the disc rather than only the glyph: this sits on album
+ * artwork of any colour, and a white icon on a white-ish sleeve has no tint
+ * change left to make. The filled star carries the state as a shape too —
+ * see [BitChordIcons.StarFilled].
+ */
+@Composable
 internal fun CircleGlyph(
     icon: ImageVector,
     contentDescription: String,
