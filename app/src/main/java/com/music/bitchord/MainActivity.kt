@@ -4881,13 +4881,6 @@ private fun BitChordApp(
                         }
                         else -> null
                     },
-                    removeFromCollectionLabel = context.getString(
-                        if (selectedPersonalArtistId != null) {
-                            R.string.remove_from_artist
-                        } else {
-                            R.string.remove_from_playlist
-                        },
-                    ),
                     onRemoveFromCache = if (inCache) {
                         {
                             songActions = null
