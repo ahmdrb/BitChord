@@ -1535,4 +1535,7 @@
     <string name="drive_backup_row_subtitle">在你的所有裝置間備份並同步 Replay</string>
     <string name="drive_over_cellular">使用行動數據同步</string>
     <string name="drive_over_cellular_subtitle">關閉時，自動同步會等待 Wi-Fi</string>
+
+    <!-- Upstream v1.10 resources; existing fork translations above are retained. -->
+    <string name="font_footer">舊版會恢復應用程式在配合 Apple Music 之前使用的較粗、較緊湊的字型。</string>
 </resources>
