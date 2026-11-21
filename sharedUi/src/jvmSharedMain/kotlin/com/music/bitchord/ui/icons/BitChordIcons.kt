@@ -232,6 +232,38 @@ object BitChordIcons {
         )
     }
 
+    /** Radio waves around a tuning point, sized for the four-way tab bar. */
+    val TabRadio: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "bc_tab_radio",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f,
+        ).apply {
+            path(
+                stroke = stroke,
+                strokeLineWidth = STROKE,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
+            ) {
+                moveTo(6.5f, 6.5f)
+                cubicTo(3.5f, 9.5f, 3.5f, 14.5f, 6.5f, 17.5f)
+                moveTo(17.5f, 6.5f)
+                cubicTo(20.5f, 9.5f, 20.5f, 14.5f, 17.5f, 17.5f)
+                moveTo(9.3f, 9.3f)
+                cubicTo(7.8f, 10.8f, 7.8f, 13.2f, 9.3f, 14.7f)
+                moveTo(14.7f, 9.3f)
+                cubicTo(16.2f, 10.8f, 16.2f, 13.2f, 14.7f, 14.7f)
+            }
+            path(fill = stroke) {
+                moveTo(13.5f, 12f)
+                arcToRelative(1.5f, 1.5f, 0f, true, true, -3f, 0f)
+                arcToRelative(1.5f, 1.5f, 0f, true, true, 3f, 0f)
+            }
+        }.build()
+    }
+
     /** A filled glyph outline in the 512-unit em box — see [TabExplore]. */
     private fun fontGlyph(name: String, pathData: String): ImageVector =
         ImageVector.Builder(
