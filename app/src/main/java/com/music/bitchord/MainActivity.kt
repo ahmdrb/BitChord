@@ -6026,6 +6026,8 @@ private fun BitChordApp(
                 FrostedSortMenu(
                     hazeState = hazeState,
                     selected = songSort,
+                    showTrackNumber = detail?.type == BrowseType.ALBUM &&
+                        (detail.songs as? UiState.Success)?.data?.any { it.trackNumber != null } == true,
                     onSelect = { option ->
                         detail?.browseId?.let { AppSettings.setDetailSongSort(it, option) }
                         songSortMenuOpen = false
@@ -6559,6 +6561,7 @@ private fun LibrarySort.localizedLabel(): String = when (this) {
 private fun FrostedSortMenu(
     hazeState: HazeState,
     selected: SongSort,
+    showTrackNumber: Boolean,
     onSelect: (SongSort) -> Unit,
     onFlipDateDirection: () -> Unit,
     onDismiss: () -> Unit,
@@ -6600,7 +6603,10 @@ private fun FrostedSortMenu(
             }
         }
         SongSort.entries
-            .filter { it != SongSort.DATE_ADDED_ASC && it != SongSort.DATE_ADDED_DESC }
+            .filter {
+                it != SongSort.DATE_ADDED_ASC && it != SongSort.DATE_ADDED_DESC &&
+                    (it != SongSort.TRACK_NUMBER || showTrackNumber)
+            }
             .forEach { option ->
                 FrostedMenuRow(
                     label = option.localizedLabel(),
