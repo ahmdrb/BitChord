@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -31,6 +32,7 @@ import androidx.compose.material.icons.Icons
 import com.music.bitchord.ui.icons.SfIcons
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Public
@@ -55,7 +57,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
@@ -71,7 +72,6 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.music.bitchord.R
 import com.music.bitchord.data.model.PlaylistPrivacy
-import com.music.bitchord.data.model.CARD_ART_PX
 import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.UserPlaylist
@@ -94,6 +94,8 @@ import kotlinx.coroutines.launch
  * [song] is null when the flow started from the Library tab rather than from a
  * track, which is the one case where the header has no track to draw and
  * "New playlist" is the whole point of the sheet.
+ * [headerTitle] overrides the track title when the same preview represents an
+ * album; the song's artwork and artist remain the preview data.
  *
  * Playlists are ticked rather than picked: one track often belongs in more
  * than one list, and a sheet that closed on the first tap meant opening it
@@ -114,13 +116,23 @@ fun PlaylistPickerSheet(
     song: Song? = null,
     startCreating: Boolean = false,
     offline: Boolean = false,
-    /** Store playlists inside BitChord rather than in the YouTube Music account. */
+    /** Store these choices in BitChord's own library, not the YouTube Music account. */
     personal: Boolean = false,
+    headerTitle: String? = null,
+    songs: List<Song> = emptyList(),
 ) {
     var creating by remember { mutableStateOf(startCreating) }
     // By id rather than by value: the list is re-fetched under an open sheet,
     // and a refreshed row must stay ticked.
     var selected by remember { mutableStateOf(emptySet<String>()) }
+    // Find a playlist: narrows the list as it's typed. Ticks on playlists it
+    // hides are kept, so a search can't quietly drop one already chosen.
+    var query by remember { mutableStateOf("") }
+    // A keyed list holds on to the row it was showing, so narrowing or clearing
+    // the search left the list wherever that row now sits — mid-way down the
+    // full list after a clear. Each new query starts the list from its top.
+    val listState = rememberLazyListState()
+    LaunchedEffect(query) { listState.scrollToItem(0) }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -180,12 +192,20 @@ fun PlaylistPickerSheet(
                     confirmEnabled = selected.isNotEmpty(),
                     onConfirm = { closeAfter { onAdd(playlists.filter { it.playlistId in selected }) } },
                 )
-                if (song != null) {
-                    SheetTrackHeader(song)
+                if (songs.isNotEmpty()) {
+                    Text(
+                        text = stringResource(R.string.queue_selected_count, songs.size),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier.padding(horizontal = 22.dp, vertical = 16.dp),
+                    )
+                    HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
+                } else if (song != null) {
+                    SheetTrackHeader(song, title = headerTitle)
                     HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
                 }
                 SheetHeading(
-                    stringResource(if (song != null) R.string.add_to_playlist else R.string.your_playlists)
+                    stringResource(if (song != null || songs.isNotEmpty()) R.string.add_to_playlist else R.string.your_playlists)
                         .uppercase(Locale.getDefault()),
                 )
 
@@ -219,16 +239,22 @@ fun PlaylistPickerSheet(
                     )
 
                     else -> {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 6.dp),
-                            thickness = 0.5.dp,
-                            color = MaterialTheme.colorScheme.outline,
-                        )
+                        PlaylistSearchField(query = query, onQueryChange = { query = it })
+                        val shown = remember(playlists, query) { filterPlaylists(playlists, query) { it.title } }
+                        if (shown.isEmpty()) {
+                            Text(
+                                text = stringResource(R.string.no_playlists_match, query.trim()),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 22.dp, vertical = 18.dp),
+                            )
+                        }
                         LazyColumn(
+                            state = listState,
                             modifier = Modifier.weight(1f),
                             contentPadding = WindowInsets.navigationBars.asPaddingValues(),
                         ) {
-                            items(playlists, key = { it.playlistId }) { playlist ->
+                            items(shown, key = { it.playlistId }) { playlist ->
                                 val ticked = playlist.playlistId in selected
                                 PlaylistRow(
                                     playlist = playlist,
@@ -241,6 +267,55 @@ fun PlaylistPickerSheet(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+/** Find a playlist: the search box over the picker's list. */
+@Composable
+private fun PlaylistSearchField(query: String, onQueryChange: (String) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 22.dp, vertical = 8.dp)
+            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(11.dp))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.Search,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(Modifier.width(8.dp))
+        Box(Modifier.weight(1f)) {
+            if (query.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.find_a_playlist),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            BasicTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onBackground),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        if (query.isNotEmpty()) {
+            IconButton(onClick = { onQueryChange("") }, modifier = Modifier.size(24.dp)) {
+                Icon(
+                    imageVector = Icons.Rounded.Close,
+                    contentDescription = stringResource(R.string.clear),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp),
+                )
             }
         }
     }
@@ -299,13 +374,12 @@ private fun PlaylistRow(playlist: UserPlaylist, selected: Boolean, onClick: () -
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AsyncImage(
-            model = playlist.thumbnailUrl.artworkAt(CARD_ART_PX),
+            model = playlist.thumbnailUrl.artworkAt(ROW_ART_PX),
             contentDescription = null,
-            contentScale = ContentScale.Crop,
             modifier = Modifier
                 .size(44.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .thumbnailBorder(RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(7.dp))
+                .thumbnailBorder(RoundedCornerShape(7.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant),
         )
         Spacer(Modifier.width(16.dp))
