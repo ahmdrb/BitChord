@@ -22,6 +22,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionResult
 import androidx.media3.session.SessionToken
 import com.music.bitchord.data.model.ArtistRef
 import com.music.bitchord.data.model.NOTIFICATION_ART_PX
@@ -300,6 +301,64 @@ fun MediaController.setQueueDragActive(active: Boolean) {
         bundleOf(EXTRA_QUEUE_DRAG_ACTIVE to active),
     )
 }
+
+
+/** A queue-screen swipe moves this occurrence rather than adding a second copy. */
+suspend fun MediaController.moveQueueEntryToUser(index: Int, song: Song): Boolean =
+    try {
+        sendCustomCommand(
+            SessionCommand(ACTION_QUEUE_MOVE_TO_USER, Bundle.EMPTY),
+            bundleOf(
+                EXTRA_QUEUE_MOVE_INDEX to index,
+                EXTRA_QUEUE_MOVE_ENTRY to song.queueEntryId,
+                EXTRA_QUEUE_MOVE_MEDIA to song.videoId,
+            ),
+        ).await().resultCode == SessionResult.RESULT_SUCCESS
+    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+        throw cancelled
+    } catch (_: Exception) {
+        false
+    }
+
+/** Only queue-screen removals enter the service's transient Undo history. */
+suspend fun MediaController.removeQueueItemWithUndo(index: Int, song: Song): Boolean =
+    acknowledgedQueueEdit(
+        ACTION_QUEUE_REMOVE_WITH_UNDO,
+        bundleOf(
+            EXTRA_QUEUE_MOVE_INDEX to index,
+            EXTRA_QUEUE_MOVE_ENTRY to song.queueEntryId,
+            EXTRA_QUEUE_MOVE_MEDIA to song.videoId,
+        ),
+    )
+
+suspend fun MediaController.removeQueueEntriesWithUndo(entries: List<com.music.bitchord.data.model.QueueEntryIdentity>): Boolean {
+    if (entries.isEmpty()) return false
+    val args = Bundle().apply {
+        putStringArrayList(EXTRA_QUEUE_BULK_MEDIA_IDS, ArrayList(entries.map { it.mediaId }))
+        putStringArrayList(EXTRA_QUEUE_BULK_ENTRY_IDS, ArrayList(entries.map { it.queueEntryId.orEmpty() }))
+        putBooleanArray(EXTRA_QUEUE_BULK_ENTRY_ID_PRESENT, entries.map { it.queueEntryId != null }.toBooleanArray())
+        putIntArray(EXTRA_QUEUE_BULK_OCCURRENCES, entries.map { it.occurrence }.toIntArray())
+    }
+    return acknowledgedQueueEdit(ACTION_QUEUE_REMOVE_ENTRIES_WITH_UNDO, args)
+}
+
+suspend fun MediaController.clearUserQueueWithUndo(): Boolean =
+    acknowledgedQueueEdit(ACTION_QUEUE_CLEAR_WITH_UNDO, Bundle.EMPTY)
+
+suspend fun MediaController.undoQueueEdit(token: String): Boolean =
+    acknowledgedQueueEdit(ACTION_QUEUE_UNDO, bundleOf(EXTRA_QUEUE_UNDO_TOKEN to token))
+
+private suspend fun MediaController.acknowledgedQueueEdit(action: String, args: Bundle): Boolean =
+    try {
+        sendCustomCommand(SessionCommand(action, Bundle.EMPTY), args).await().resultCode ==
+            SessionResult.RESULT_SUCCESS
+    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+        throw cancelled
+    } catch (_: Exception) {
+        false
+    }
+
+
 
 /** Mirrors the controller into Compose state, polling position while playing. */
 @Composable

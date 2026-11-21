@@ -833,6 +833,12 @@ fun NowPlayingScreen(
      * for every neighbour the drag crosses. See [PartySync.beginQueueDrag].
      */
     onQueueDragActiveChange: (Boolean) -> Unit = {},
+    onQueueSongMenu: (Int, Song) -> Unit = { _, _ -> },
+    onQueueSwipeToQueue: suspend (Int, Song) -> Boolean = { _, _ -> false },
+    queueUndoNotice: @Composable (HazeState) -> Unit = {},
+    onQueueBulkAction: suspend (List<Song>, QueueBulkAction) -> Boolean = { _, _ -> false },
+    onQueueRemoveEntries: suspend (List<com.music.bitchord.data.model.QueueEntryIdentity>) -> Unit = {},
+    onQueueAddAllToPlaylist: (List<Song>) -> Unit = {},
     onClearQueue: () -> Unit,
     onOpenMenu: () -> Unit,
     onOpenAlbum: (String) -> Unit,
@@ -1043,6 +1049,10 @@ fun NowPlayingScreen(
     var queueOpen by remember {
         mutableStateOf(restoredPlayerScreen == LastPlayerScreen.QUEUE)
     }
+    val queueSelection = remember { QueueSelectionState() }
+    LaunchedEffect(queueOpen, controlsLocked) {
+        if (!queueOpen || controlsLocked) queueSelection.clear()
+    }
     var lyricsOpen by remember {
         mutableStateOf(restoredPlayerScreen == LastPlayerScreen.LYRICS)
     }
@@ -1075,6 +1085,9 @@ fun NowPlayingScreen(
         mutableStateOf(restoredPlayerScreen == LastPlayerScreen.LYRICS)
     }
     var queueControlsOpen by remember { mutableStateOf(true) }
+    LaunchedEffect(queueSelection.active) {
+        if (queueSelection.active) queueControlsOpen = false
+    }
     // Shared with Spotify's title placement below. The deck and credits must
     // read one clock: the weighted region changes size as this value moves, so
     // independently animating the title towards that moving target makes it
@@ -1208,7 +1221,9 @@ fun NowPlayingScreen(
     PlayerBackHandler(enabled = lyricsOpen, onBack = closeLyrics)
 
     // Back out of the queue to the player.
-    PlayerBackHandler(enabled = queueOpen) { queueOpen = false }
+    PlayerBackHandler(enabled = queueOpen) {
+        if (queueSelection.active) queueSelection.clear() else queueOpen = false
+    }
 
     // Registered ahead of the pipeline dialog's own handler below: the
     // pipeline is now only ever opened from the row at the bottom of this
@@ -2293,6 +2308,7 @@ fun NowPlayingScreen(
                                     // Faded with the player rather than flown with
                                     // the sleeve: the cover in the bar has none.
                                     .graphicsLayer { alpha = if (panelOpen) 0f else dockFade() },
+                                bestPart = { BestPartPill(song, position, playerHaze, onSeek, overlayOpen = { overlayOpen.value }) },
                             )
                         }
                     },
@@ -2312,6 +2328,8 @@ fun NowPlayingScreen(
                                     onOpenMenu = onOpenMenu,
                                     onOpenAlbum = onOpenAlbum,
                                     onOpenArtist = onOpenArtist,
+                                    hazeState = playerHaze,
+                                    overlayOpen = { overlayOpen.value },
                                 )
                             },
                             lyricStrip = if (syncedLyricsEnabled) {
@@ -2362,6 +2380,7 @@ fun NowPlayingScreen(
                                     onPlayPause = onPlayPause,
                                     onNext = onNext,
                                     compact = compact,
+                                     animationsActive = !panelOpen,
                                 )
                             },
                             volume = if (hideVolumeBar) {
@@ -2461,8 +2480,16 @@ fun NowPlayingScreen(
                             onRemove = onRemoveFromQueue,
                             onMove = onMoveInQueue,
                             onClear = onClearQueue,
+                            onSongMenu = onQueueSongMenu,
                             onDragActiveChange = onQueueDragActiveChange,
+                            onSwipeToQueue = onQueueSwipeToQueue,
+                            gesturesEnabled = queueOpen && !lyricsOpen && !queueDragging,
+                            undoNotice = queueUndoNotice,
+                            selection = queueSelection,
+                            onBulkAction = onQueueBulkAction,
+                            onRemoveSelected = onQueueRemoveEntries,
                             modifier = Modifier.fillMaxSize(),
+                            onAddAllToPlaylist = onQueueAddAllToPlaylist,
                         )
                     },
                 )
@@ -3678,6 +3705,7 @@ fun NowPlayingScreen(
                                         .graphicsLayer {
                                             alpha = (1f - p() * 2f) * spotifyChromeAlpha
                                         },
+                                    bestPart = { BestPartPill(song, position, playerHaze, onSeek, overlayOpen = { overlayOpen.value }) },
                                 )
                             }
                         }
@@ -3921,6 +3949,11 @@ fun NowPlayingScreen(
                             // there's no account to record it against — except on a
                             // local file or a finished download, whose star is the
                             // device's own Liked playlist and needs no account.
+
+                            GlassDiscPair(
+                                hazeState = playerHaze,
+                                overlayOpen = { overlayOpen.value },
+                            ) {
                             if (lyricsOpen) {
                                 CircleGlyph(
                                     icon = if (lyricsControlsOpen) Icons.Rounded.Fullscreen else Icons.Rounded.FullscreenExit,
@@ -3984,6 +4017,7 @@ fun NowPlayingScreen(
                                 },
                                 modifier = Modifier.menuAnchor(),
                             )
+                            }
                         }
 
                         // [lyricsOpen] asked first: a close has already hidden the
@@ -4143,10 +4177,18 @@ fun NowPlayingScreen(
                                     onRemove = onRemoveFromQueue,
                                     onMove = onMoveInQueue,
                                     onClear = onClearQueue,
+                                    onSongMenu = onQueueSongMenu,
                                     onScrollingChange = { queueScrolling = it },
+                                    onSwipeToQueue = onQueueSwipeToQueue,
+                                    gesturesEnabled = queuePanelVisible && queueOpen && !queueDragging,
+                                    undoNotice = queueUndoNotice,
+                                    selection = queueSelection,
+                                    onBulkAction = onQueueBulkAction,
+                                    onRemoveSelected = onQueueRemoveEntries,
                                     onDragActiveChange = onQueueDragActiveChange,
+                                    onAddAllToPlaylist = onQueueAddAllToPlaylist,
                                     collapsePlayerOnScroll = true,
-                                    onRevealPlayer = { queueControlsOpen = true },
+                                    onRevealPlayer = { if (!queueSelection.active) queueControlsOpen = true },
                                     onHidePlayer = { queueControlsOpen = false },
                                     modifier = Modifier.weight(1f),
                                 )
@@ -4166,7 +4208,7 @@ fun NowPlayingScreen(
                         // player back under somebody choosing lines.
                         visible = !lyricPicker.picking &&
                             (!lyricsOpen || lyricsControlsOpen) &&
-                            (!queueOpen || queueControlsOpen) &&
+                            (!queueOpen || (queueControlsOpen && !queueSelection.active)) &&
                             (!spotifyCanvasPresentation || spotifyCanvasControlsOpen || mixing),
                         reveal = playerDeckReveal,
                         // Back to the main player from lyrics or the queue with the
@@ -4289,6 +4331,10 @@ fun NowPlayingScreen(
                             onPrevious = onPrevious,
                             onPlayPause = onPlayPause,
                             onNext = onNext,
+                            animationsActive = !lyricPicker.picking &&
+                                (!lyricsOpen || lyricsControlsOpen) &&
+                                (!queueOpen || (queueControlsOpen && !queueSelection.active)) &&
+                                (!spotifyCanvasPresentation || spotifyCanvasControlsOpen || mixing),
                         )
                     }
                     if (!hideVolumeBar) {

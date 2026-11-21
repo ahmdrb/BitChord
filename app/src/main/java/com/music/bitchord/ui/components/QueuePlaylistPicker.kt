@@ -74,7 +74,7 @@ fun QueuePlaylistPicker(
                 subtitle = context.resources.getQuantityString(
                     R.plurals.song_count_plural, item.songs.size, item.songs.size,
                 ),
-                thumbnailUrl = item.artworkPath ?: item.songs.firstNotNullOfOrNull { it.thumbnailUrl },
+                thumbnailUrl = item.artworkPath ?: item.songs.firstOrNull()?.thumbnailUrl,
             )
         }
         val device = if (deviceSongs.isNotEmpty()) {

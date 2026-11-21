@@ -100,6 +100,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+
+import kotlinx.coroutines.CompletableDeferred
+import com.music.bitchord.ui.player.QueueBulkAction
+import com.music.bitchord.ui.components.QueuePlaylistPicker
+import com.music.bitchord.playback.undoQueueEdit
+import com.music.bitchord.playback.removeQueueEntriesWithUndo
+import com.music.bitchord.playback.removeQueueItemWithUndo
+import com.music.bitchord.playback.moveQueueEntryToUser
+import com.music.bitchord.playback.clearUserQueueWithUndo
+import com.music.bitchord.playback.QueueScreenUndo
+import androidx.compose.runtime.key
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
@@ -780,6 +791,9 @@ private fun BitChordApp(
     // Track actions use BitChord's own saved playlists, never the account picker.
     // Separate from [songActions] so the menu can close behind the picker.
     var personalPlaylistTarget by remember { mutableStateOf<Song?>(null) }
+    // The queue's bulk Playlist action waits for BitChord's own multi-playlist picker.
+    var queuePlaylistSongs by remember { mutableStateOf<List<Song>?>(null) }
+    var queuePlaylistCompletion by remember { mutableStateOf<CompletableDeferred<Boolean>?>(null) }
     // The account playlist form is only opened from the Library's own create action.
     var creatingPlaylist by remember { mutableStateOf(false) }
     // The same two, over the device's own playlists — for a track that is a
@@ -1161,6 +1175,7 @@ private fun BitChordApp(
     }
     val controller = rememberMediaController()
     val player = rememberPlayerState(controller)
+    val queueUndo by QueueScreenUndo.notice.collectAsStateWithLifecycle()
     // A music video's picture follows this controller's clock — see [MusicVideoEngine].
     DisposableEffect(controller) {
         MusicVideoEngine.attach(controller)
@@ -1178,7 +1193,14 @@ private fun BitChordApp(
     // bar can never disagree about whether this device may drive the music.
     val controlsLocked = partyState.controlsLocked
     var queueNotice by remember { mutableStateOf<QueueActionNotice?>(null) }
+    var queueUndoNotice by remember { mutableStateOf<QueueActionNotice?>(null) }
     var queueNoticeId by remember { mutableIntStateOf(0) }
+    LaunchedEffect(queueUndo) {
+        queueUndoNotice = queueUndo?.let { notice ->
+            queueNoticeId += 1
+            QueueActionNotice(queueNoticeId, notice.message)
+        }
+    }
     val showQueueNotice: (String) -> Unit = { message ->
         queueNoticeId += 1
         queueNotice = QueueActionNotice(queueNoticeId, message)
@@ -2485,6 +2507,44 @@ private fun BitChordApp(
     // connection needed — rather than fetched afresh at the Download quality
     // setting. See [Downloads.preferCachedCopy]. The folder's own second line
     // ("YouTube · 4.2 MB") is the cache's, not the file's, and stays behind.
+
+    // The queue's bulk actions use the same download path as the rest of the app
+    // and BitChord's PersonalLibraryStore picker, never YouTube Music account playlists.
+    val performQueueBulkAction: suspend (List<Song>, QueueBulkAction) -> Boolean = { songs, action ->
+        try {
+            when (action) {
+                QueueBulkAction.PLAYLIST -> if (queuePlaylistSongs != null) {
+                    false
+                } else {
+                    val completion = CompletableDeferred<Boolean>()
+                    queuePlaylistCompletion = completion
+                    queuePlaylistSongs = songs
+                    try {
+                        completion.await()
+                    } finally {
+                        if (queuePlaylistCompletion === completion) {
+                            queuePlaylistCompletion = null
+                            queuePlaylistSongs = null
+                        }
+                    }
+                }
+                QueueBulkAction.DOWNLOAD -> {
+                    val requested = songs.filter { it.localUri == null }.distinctBy { it.videoId }
+                    if (requested.isEmpty()) {
+                        Toast.makeText(context, R.string.already_downloaded, Toast.LENGTH_SHORT).show()
+                    } else {
+                        startDownload(requested, null)
+                    }
+                    true
+                }
+            }
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     val downloadFromCache: (List<Song>) -> Unit = { songs ->
         val cleaned = songs.map { it.copy(downloadFormat = null, localDateAddedSeconds = null) }
         Downloads.preferCachedCopy(cleaned.map { it.videoId })
@@ -2779,9 +2839,46 @@ private fun BitChordApp(
                     c.play()
                 }
             },
-            onRemoveFromQueue = { controller?.removeMediaItem(it) },
+            onRemoveFromQueue = { index ->
+                val queueSong = player.queue.getOrNull(index)
+                val c = controller
+                if (c != null && queueSong != null) {
+                    scope.launch { c.removeQueueItemWithUndo(index, queueSong) }
+                }
+            },
             onMoveInQueue = { from, to -> controller?.moveMediaItem(from, to) },
             onQueueDragActiveChange = { active -> controller?.setQueueDragActive(active) },
+            onQueueSongMenu = { _, queueSong ->
+                menuFromPlayer = true
+                songMenuOrigin = LongPressOrigin.consume()
+                songMenuAnchor = MenuAnchor.consume()
+                songActions = queueSong
+                if (!AppSettings.reduceDynamicBlur.value && !playerLiveCanvas) playerBackdrop.capture()
+            },
+            onQueueSwipeToQueue = { index, queueSong ->
+                controller?.moveQueueEntryToUser(index, queueSong) ?: false
+            },
+            onQueueBulkAction = performQueueBulkAction,
+            onQueueRemoveEntries = { entries ->
+                controller?.removeQueueEntriesWithUndo(entries)
+                Unit
+            },
+            onQueueAddAllToPlaylist = { songs ->
+                scope.launch { performQueueBulkAction(songs, QueueBulkAction.PLAYLIST) }
+            },
+            queueUndoNotice = { queueHaze ->
+                QueueActionNoticeHost(
+                    notice = queueUndoNotice,
+                    hazeState = queueHaze,
+                    modifier = Modifier.navigationBarsPadding(),
+                    actionLabel = stringResource(R.string.queue_undo_action),
+                    onAction = {
+                        val token = queueUndo?.token
+                        val c = controller
+                        if (c != null && token != null) scope.launch { c.undoQueueEdit(token) }
+                    },
+                )
+            },
             // The enriched copy, not player.song — otherwise the menu
             // hides the album and artist rows even once their browse
             // ids have been resolved.
@@ -2908,9 +3005,9 @@ private fun BitChordApp(
                 navigator.pushAll(AppRoute.Settings, AppRoute.ListenTogether)
             },
             onClearQueue = {
-                // Keep what's playing and context/autoplay; drop user-queued tracks.
+                // Keep what's playing and context/autoplay; make the removal undoable.
                 controller?.let { c ->
-                    QueueCoordinator.clearUserQueue(c)
+                    scope.launch { c.clearUserQueueWithUndo() }
                 }
             },
         )
@@ -5355,6 +5452,24 @@ private fun BitChordApp(
                 }
             }
     
+
+            queuePlaylistSongs?.let { targets ->
+                val completion = queuePlaylistCompletion
+                val finish: (Boolean) -> Unit = { completed ->
+                    completion?.complete(completed)
+                    if (queuePlaylistCompletion === completion) queuePlaylistSongs = null
+                }
+                key(completion) {
+                    QueuePlaylistPicker(
+                        songs = targets,
+                        viewModel = viewModel,
+                        onNotice = { message -> Toast.makeText(context, message, Toast.LENGTH_LONG).show() },
+                        onComplete = { finish(true) },
+                        onDismiss = { finish(false) },
+                    )
+                }
+            }
+
             // ---- Add to BitChord's own playlists ----
             // This picker is deliberately independent of YouTube Music's account
             // playlist API. Local files can additionally be filed into device playlists.
@@ -5371,8 +5486,7 @@ private fun BitChordApp(
                                 playlist.songs.size,
                                 playlist.songs.size,
                             ),
-                            thumbnailUrl = playlist.artworkPath
-                                ?: playlist.songs.firstOrNull { !it.thumbnailUrl.isNullOrBlank() }?.thumbnailUrl,
+                            thumbnailUrl = playlist.artworkPath ?: playlist.songs.firstOrNull()?.thumbnailUrl,
                         )
                     }
                     val isDeviceFile = target?.localUri != null &&
