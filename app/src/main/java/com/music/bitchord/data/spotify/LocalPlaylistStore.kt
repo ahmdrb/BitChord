@@ -83,6 +83,28 @@ object LocalPlaylistStore {
         persist(updated)
     }
 
+    /**
+     * Removes one occurrence of [song] from the app-owned imported playlist.
+     * Duplicate tracks are allowed, so only the first matching row is removed.
+     */
+    fun removeSong(playlistId: String, song: Song) {
+        val cleanId = playlistId.removePrefix("local:playlist:").removePrefix("VL")
+        var changed = false
+        val updated = _playlists.value.map { playlist ->
+            if (playlist.id != cleanId && playlist.id != playlistId && playlist.browseId != playlistId) {
+                return@map playlist
+            }
+            val index = playlist.songs.indexOfFirst { it.videoId == song.videoId }
+            if (index < 0) return@map playlist
+            changed = true
+            playlist.copy(songs = playlist.songs.toMutableList().also { it.removeAt(index) })
+        }
+        if (changed) {
+            _playlists.value = updated
+            persist(updated)
+        }
+    }
+
     fun renamePlaylist(id: String, newTitle: String) {
         val cleanId = id.removePrefix("local:playlist:").removePrefix("VL")
         val updated = _playlists.value.map {
