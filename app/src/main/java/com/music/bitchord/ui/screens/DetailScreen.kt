@@ -1307,6 +1307,13 @@ private fun DetailSearchField(
 
 internal fun List<Song>.sortedForDetail(sort: SongSort): List<Song> = when (sort) {
     SongSort.DEFAULT -> this
+    // Track tags exist only on local-file albums. Keep untagged rows stable at the end.
+    SongSort.TRACK_NUMBER -> withIndex()
+        .sortedWith(
+            compareBy<IndexedValue<Song>> { (_, song) -> song.trackNumber ?: Int.MAX_VALUE }
+                .thenBy { (position, _) -> position },
+        )
+        .map { it.value }
     SongSort.TITLE_ASC -> sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title })
     SongSort.TITLE_DESC -> sortedWith(compareByDescending(String.CASE_INSENSITIVE_ORDER) { it.title })
     // A catalogue row carries no added date, so its place in the running
