@@ -113,6 +113,8 @@ fun SourcesScreen(
     onEditSource: (SourceConfig) -> Unit,
     /** Asks the activity to open an addon's quality list — raised for the same reason as [onEditSource]. */
     onChooseSourceQuality: (SourceConfig) -> Unit,
+    /** Opens the activity-level explanation for an addon with an outdated manifest. */
+    onExplainOutdatedAddon: (SourceConfig) -> Unit,
     /**
      * Asks the activity to open the WebDAV editor — raised for the same
      * reason as [onEditSource]: the frosted alert cannot be drawn from inside
@@ -250,6 +252,8 @@ fun SourcesScreen(
                         // change, so a tap on them would open an empty editor.
                         onClick = if (config.kind.needsServer) ({ onEditSource(config) }) else null,
                         onChooseQuality = { onChooseSourceQuality(config) },
+                        needsUpdate = config.needsAddonUpdate,
+                        onExplainOutdated = { onExplainOutdatedAddon(config) },
                         // YouTube gets no switch at all — see
                         // [SourceRegistry.setEnabled] for why one would be a lie.
                         onToggle = if (config.kind == SourceKind.YOUTUBE) {
@@ -764,6 +768,9 @@ private fun SourceRow(
     health: SourceHealth?,
     onClick: (() -> Unit)?,
     onChooseQuality: () -> Unit,
+    /** The addon remains usable, but the user can open the explanation for its older manifest. */
+    needsUpdate: Boolean = false,
+    onExplainOutdated: () -> Unit = {},
     /** Null for a source that cannot be switched off, which gets a label instead. */
     onToggle: ((Boolean) -> Unit)?,
     /** On, but skipped by the ceiling the current connection is set to. */
@@ -829,6 +836,34 @@ private fun SourceRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            // A caution, not a block: the addon still works, but its developer
+            // should update it. Keep the short warning tappable and raise the
+            // full explanation to the activity, above the frosted navigation UI.
+            if (needsUpdate) {
+                Row(
+                    modifier = Modifier
+                        .clickable(
+                            onClickLabel = stringResource(R.string.source_outdated),
+                            onClick = onExplainOutdated,
+                        )
+                        .padding(top = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = SfIcons.Warning,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(14.dp),
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = stringResource(R.string.source_outdated),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        maxLines = 1,
+                    )
+                }
+            }
             // Read off the stored manifest, so it can still be set while the
             // addon is down or waiting on a lossless output. One line whatever
             // the label's length, so it adds the same height to every addon;
