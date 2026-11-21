@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">BitChord</string>
+    <string name="keep_playback_screen_on">Giữ màn hình phát luôn bật</string>
+    <string name="keep_playback_screen_on_subtitle">Ngăn màn hình tắt khi trình phát đầy đủ đang mở.</string>
+    <string name="hide_lyrics_romanization_button">Ẩn nút phiên âm lời bài hát</string>
+    <string name="hide_lyrics_translation_button">Ẩn nút dịch lời bài hát</string>
+    <string name="hide_lyrics_source_credit">Ẩn bộ chọn nhà cung cấp lời bài hát</string>
     <string name="playback_channel_name">Đang phát</string>
     <string name="download_channel_name">Tải xuống</string>
     <string name="download_channel_description">Các bài hát đang được lưu vào thư mục Nhạc của bạn</string>
@@ -1374,4 +1379,8 @@
     <string name="bit_perfect_status_inexact">%1$s · không chính xác: nguồn này không phải PCM lossless</string>
     <string name="bit_perfect_status_waiting">Đang chờ bản nhạc lossless trên đầu ra được hỗ trợ</string>
     <string name="bit_perfect_status_unavailable">Không khả dụng cho bản nhạc này (%1$s)</string>
+    <string name="automix_overview">Tổng quan Automix</string>
+    <string name="diwali_title">BitChord chúc bạn một lễ Diwali vui vẻ</string>
+    <string name="diwali_subtitle">Mong lễ hội ánh sáng này mang niềm vui đến ngôi nhà và âm nhạc đến mỗi ngày của bạn.</string>
+    <string name="diwali_cta">Cùng ăn mừng</string>
 </resources>

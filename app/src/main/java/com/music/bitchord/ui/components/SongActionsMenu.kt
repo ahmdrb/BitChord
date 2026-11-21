@@ -122,6 +122,10 @@ fun SongActionsMenu(
     onOpenArtist: (String) -> Unit,
     modifier: Modifier = Modifier,
     onRemoveFromPlaylist: (() -> Unit)? = null,
+    /** Removes a track from the open BitChord personal collection only. */
+    onRemoveFromCollection: (() -> Unit)? = null,
+    /** Context-specific label for removing from a personal playlist or artist. */
+    removeFromCollectionLabel: String = "Remove from collection",
     /**
      * Takes this track out of the song cache. Null hides the row — the caller
      * passes one only while the cache actually holds some of it.
@@ -288,18 +292,32 @@ fun SongActionsMenu(
         // player's own pair: a heart that files the track under this device's
         // Liked playlist, and the device's playlists. [likeStatus] is that
         // playlist's answer there, not YouTube's, and neither needs an account.
-        if (canRate) {
+        // Adding a song is an account/device-library action and keeps the
+        // existing availability gate. Removing from the collection currently
+        // open is different: it is always available when the owning screen
+        // supplied a callback, even when account rating is unavailable.
+        if (canRate || onRemoveFromPlaylist != null || onRemoveFromCollection != null) {
             if (startsGroup()) IosMenuSeparator()
-            ActionRow(
-                icon = SfIcons.AddToPlaylist,
-                label = stringResource(R.string.add_to_playlist),
-                accent = palette.accent,
-                onClick = onAddToPlaylist,
-            )
+            if (canRate) {
+                ActionRow(
+                    icon = SfIcons.AddToPlaylist,
+                    label = stringResource(R.string.add_to_playlist),
+                    accent = palette.accent,
+                    onClick = onAddToPlaylist,
+                )
+            }
             onRemoveFromPlaylist?.let {
                 ActionRow(
                     icon = SfIcons.RemoveFromPlaylist,
                     label = stringResource(R.string.remove_from_playlist),
+                    accent = palette.accent,
+                    onClick = it,
+                )
+            }
+            onRemoveFromCollection?.let {
+                ActionRow(
+                    icon = SfIcons.RemoveFromPlaylist,
+                    label = removeFromCollectionLabel,
                     accent = palette.accent,
                     onClick = it,
                 )

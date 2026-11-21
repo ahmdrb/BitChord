@@ -45,6 +45,9 @@ jobs:
       - name: Tests
         run: ./gradlew testDevDebugUnitTest
 
+      - name: Shared JVM tests
+        run: ./gradlew :shared:jvmTest
+
       - name: Build the dev APK
         run: ./gradlew assembleDevDebug
 

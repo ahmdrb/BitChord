@@ -252,12 +252,16 @@ fun SettingsScreen(
     val lyricsBlur by AppSettings.lyricsBlur.collectAsStateWithLifecycle()
     val animatedCanvas by AppSettings.animatedCanvas.collectAsStateWithLifecycle()
     val canvasOverCellular by AppSettings.canvasOverCellular.collectAsStateWithLifecycle()
+    val pauseSearchHistory by AppSettings.pauseSearchHistory.collectAsStateWithLifecycle()
     val signatureApiEnabled by AppSettings.signatureApiEnabled.collectAsStateWithLifecycle()
     val signatureApiUrl by AppSettings.signatureApiUrl.collectAsStateWithLifecycle()
     val fullBleedArtwork by AppSettings.fullBleedArtwork.collectAsStateWithLifecycle()
     val fullBleedDetailArtwork by AppSettings.fullBleedDetailArtwork.collectAsStateWithLifecycle()
     val playerTheme by AppSettings.playerTheme.collectAsStateWithLifecycle()
     val syncedLyrics by AppSettings.syncedLyrics.collectAsStateWithLifecycle()
+    val hideLyricsRomanizationButton by AppSettings.hideLyricsRomanizationButton.collectAsStateWithLifecycle()
+    val hideLyricsTranslationButton by AppSettings.hideLyricsTranslationButton.collectAsStateWithLifecycle()
+    val hideLyricsSourceCredit by AppSettings.hideLyricsSourceCredit.collectAsStateWithLifecycle()
     val lyricsSources by AppSettings.lyricsSources.collectAsStateWithLifecycle()
     val translationLanguage by AppSettings.translationLanguage.collectAsStateWithLifecycle()
     val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
@@ -283,6 +287,7 @@ fun SettingsScreen(
     val exportDownloads by AppSettings.exportDownloads.collectAsStateWithLifecycle()
     val syncDownloadedPlaylists by AppSettings.syncDownloadedPlaylists.collectAsStateWithLifecycle()
     val stopOnTaskRemoved by AppSettings.stopOnTaskRemoved.collectAsStateWithLifecycle()
+    val keepPlaybackScreenOn by AppSettings.keepPlaybackScreenOn.collectAsStateWithLifecycle()
     val hideVolumeBar by AppSettings.hideVolumeBar.collectAsStateWithLifecycle()
     val hideStatusBarInPlayer by AppSettings.hideStatusBarInPlayer.collectAsStateWithLifecycle()
     val hideSongStatus by AppSettings.hideSongStatus.collectAsStateWithLifecycle()
@@ -1192,6 +1197,7 @@ fun SettingsScreen(
                         title = coverCellularTitle,
                         checked = canvasOverCellular,
                         onCheckedChange = AppSettings::setCanvasOverCellular,
+                        subtitle = stringResource(R.string.animated_cover_cellular_subtitle),
                     )
                 }
                 val spotifyCanvasTitle = stringResource(R.string.integrate_spotify_canvas)
@@ -1506,6 +1512,21 @@ fun SettingsScreen(
                     onClick = onOpenReplay,
                 )
             }
+            val pauseSearchHistoryTitle = stringResource(R.string.pause_search_history)
+            row(pauseSearchHistoryTitle, "search", "history", "privacy", "recent searches") {
+                SettingsRow(
+                    icon = Icons.Rounded.History,
+                    title = pauseSearchHistoryTitle,
+                    subtitle = stringResource(R.string.pause_search_history_subtitle),
+                    trailing = {
+                        IosSwitch(
+                            checked = pauseSearchHistory,
+                            onCheckedChange = AppSettings::setPauseSearchHistory,
+                        )
+                    },
+                    onClick = { AppSettings.setPauseSearchHistory(!pauseSearchHistory) },
+                )
+            }
             val workOutGenresTitle = stringResource(R.string.work_out_genres)
             row(workOutGenresTitle, "genre", "replay") {
                 SettingsRow(
@@ -1597,6 +1618,21 @@ fun SettingsScreen(
                     onClick = { AppSettings.setStopOnTaskRemoved(!stopOnTaskRemoved) },
                 )
             }
+            val keepPlaybackScreenOnTitle = stringResource(R.string.keep_playback_screen_on)
+            row(keepPlaybackScreenOnTitle, "display", "screen timeout", "awake", "player") {
+                SettingsRow(
+                    icon = SfIcons.WebAssetOff,
+                    title = keepPlaybackScreenOnTitle,
+                    subtitle = stringResource(R.string.keep_playback_screen_on_subtitle),
+                    trailing = {
+                        IosSwitch(
+                            checked = keepPlaybackScreenOn,
+                            onCheckedChange = AppSettings::setKeepPlaybackScreenOn,
+                        )
+                    },
+                    onClick = { AppSettings.setKeepPlaybackScreenOn(!keepPlaybackScreenOn) },
+                )
+            }
             val hideVolumeBarTitle = stringResource(R.string.hide_volume_bar)
             row(hideVolumeBarTitle, "volume", "player") {
                 SettingsRow(
@@ -1655,6 +1691,48 @@ fun SettingsScreen(
                         )
                     },
                     onClick = { AppSettings.setShowQueueHistory(!showQueueHistory) },
+                )
+            }
+            val hideLyricsRomanizationTitle = stringResource(R.string.hide_lyrics_romanization_button)
+            row(hideLyricsRomanizationTitle, "lyrics", "globe", "romanization", "language") {
+                SettingsRow(
+                    icon = SfIcons.VisibilityOff,
+                    title = hideLyricsRomanizationTitle,
+                    trailing = {
+                        IosSwitch(
+                            checked = hideLyricsRomanizationButton,
+                            onCheckedChange = AppSettings::setHideLyricsRomanizationButton,
+                        )
+                    },
+                    onClick = { AppSettings.setHideLyricsRomanizationButton(!hideLyricsRomanizationButton) },
+                )
+            }
+            val hideLyricsTranslationTitle = stringResource(R.string.hide_lyrics_translation_button)
+            row(hideLyricsTranslationTitle, "lyrics", "translate", "translation") {
+                SettingsRow(
+                    icon = SfIcons.VisibilityOff,
+                    title = hideLyricsTranslationTitle,
+                    trailing = {
+                        IosSwitch(
+                            checked = hideLyricsTranslationButton,
+                            onCheckedChange = AppSettings::setHideLyricsTranslationButton,
+                        )
+                    },
+                    onClick = { AppSettings.setHideLyricsTranslationButton(!hideLyricsTranslationButton) },
+                )
+            }
+            val hideLyricsProviderPickerTitle = stringResource(R.string.hide_lyrics_source_credit)
+            row(hideLyricsProviderPickerTitle, "lyrics", "source", "credit", "attribution", "lrc.red") {
+                SettingsRow(
+                    icon = SfIcons.VisibilityOff,
+                    title = hideLyricsProviderPickerTitle,
+                    trailing = {
+                        IosSwitch(
+                            checked = hideLyricsSourceCredit,
+                            onCheckedChange = AppSettings::setHideLyricsSourceCredit,
+                        )
+                    },
+                    onClick = { AppSettings.setHideLyricsSourceCredit(!hideLyricsSourceCredit) },
                 )
             }
             val hideSongStatusTitle = stringResource(R.string.hide_song_status)
@@ -2979,7 +3057,7 @@ fun SettingsChoicePage(
                     selected = selected,
                     label = { it.localizedLabel() },
                     detail = { it.description() },
-                    footer = stringResource(R.string.font_footer),
+                    footer = null,
                 ) { font ->
                     AppSettings.setAppFont(font)
                     onChosen()

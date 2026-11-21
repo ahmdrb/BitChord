@@ -1,5 +1,10 @@
 <resources>
     <string name="app_name">BitChord</string>
+    <string name="keep_playback_screen_on">Oynatma ekranını açık tut</string>
+    <string name="keep_playback_screen_on_subtitle">Tam oynatıcı açıkken ekranın kapanmasını önler.</string>
+    <string name="hide_lyrics_romanization_button">Şarkı sözleri için Latin harflerine çevirme düğmesini gizle</string>
+    <string name="hide_lyrics_translation_button">Şarkı sözleri çeviri düğmesini gizle</string>
+    <string name="hide_lyrics_source_credit">Şarkı sözü sağlayıcısı seçicisini gizle</string>
     <string name="playback_channel_name">Şu an çalıyor</string>
     <string name="download_channel_name">İndirmeler</string>
     <string name="download_channel_description">Müzik klasörüne kaydedilen şarkılar</string>
@@ -1414,4 +1419,8 @@
     <string name="bit_perfect_status_inexact">%1$s · tam değil: bu kaynak kayıpsız PCM değil</string>
     <string name="bit_perfect_status_waiting">Desteklenen bir çıkışta kayıpsız parça bekleniyor</string>
     <string name="bit_perfect_status_unavailable">Bu parça için kullanılamıyor (%1$s)</string>
+    <string name="automix_overview">Automix özeti</string>
+    <string name="diwali_title">BitChord size mutlu bir Diwali diler</string>
+    <string name="diwali_subtitle">Işıklar bayramı evinizi neşeyle, günlerinizi müzikle doldursun.</string>
+    <string name="diwali_cta">Kutlayalım</string>
 </resources>

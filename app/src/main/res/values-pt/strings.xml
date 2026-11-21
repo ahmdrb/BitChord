@@ -1,6 +1,11 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="app_name">BitChord</string>
+    <string name="keep_playback_screen_on">Manter a tela de reprodução ligada</string>
+    <string name="keep_playback_screen_on_subtitle">Impede que a tela desligue enquanto o player completo estiver aberto.</string>
+    <string name="hide_lyrics_romanization_button">Ocultar o botão de romanização da letra</string>
+    <string name="hide_lyrics_translation_button">Ocultar o botão de tradução da letra</string>
+    <string name="hide_lyrics_source_credit">Ocultar o seletor do provedor de letras</string>
     <string name="playback_channel_name">Tocando agora</string>
     <string name="download_channel_name">Downloads</string>
     <string name="download_channel_description">Músicas sendo salvas na sua pasta de Música</string>
@@ -1462,4 +1467,8 @@
     <string name="bit_perfect_status_inexact">%1$s · não exato: esta fonte não é PCM sem perdas</string>
     <string name="bit_perfect_status_waiting">Aguardando uma faixa sem perdas em uma saída compatível</string>
     <string name="bit_perfect_status_unavailable">Indisponível para esta faixa (%1$s)</string>
+    <string name="automix_overview">Visão geral do Automix</string>
+    <string name="diwali_title">A BitChord deseja-lhe um feliz Diwali</string>
+    <string name="diwali_subtitle">Que este festival das luzes encha a sua casa de alegria e os seus dias de música.</string>
+    <string name="diwali_cta">Vamos celebrar</string>
 </resources>

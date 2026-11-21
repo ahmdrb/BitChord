@@ -472,10 +472,13 @@ internal fun TransportRow(
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     compact: Boolean = false,
+    /** A smaller footprint for the transport beneath the landscape lyrics sleeve. */
+    extraCompact: Boolean = false,
 ) {
-    val playSize = if (compact) 58.dp else 74.dp
-    val playTouch = if (compact) 76.dp else 92.dp
-    val skipSize = if (compact) 44.dp else PLAYER_SKIP_ICON_SIZE
+    val playSize = if (extraCompact) 48.dp else if (compact) 58.dp else 74.dp
+    val playTouch = if (extraCompact) 60.dp else if (compact) 76.dp else 92.dp
+    val skipSize = if (extraCompact) 36.dp else if (compact) 44.dp else PLAYER_SKIP_ICON_SIZE
+    val skipTouch = if (extraCompact) 48.dp else PLAYER_SKIP_TOUCH_SIZE
     Row(
         modifier = Modifier.fillMaxWidth(),
         // SpaceAround, not SpaceEvenly: the outer margins take half a gap, so
@@ -487,7 +490,7 @@ internal fun TransportRow(
             icon = Res.drawable.ic_player_previous,
             contentDescription = stringResource(Res.string.widget_previous),
             size = skipSize,
-            touchSize = PLAYER_SKIP_TOUCH_SIZE,
+            touchSize = skipTouch,
             heightScale = PLAYER_SKIP_HEIGHT_SCALE,
             onClick = onPrevious,
             enabled = previousEnabled,
@@ -500,7 +503,7 @@ internal fun TransportRow(
                 CircularProgressIndicator(
                     color = Color.White,
                     strokeWidth = 3.dp,
-                    modifier = Modifier.size(if (compact) 30.dp else 38.dp),
+                    modifier = Modifier.size(if (extraCompact) 24.dp else if (compact) 30.dp else 38.dp),
                 )
             }
         } else {
@@ -517,7 +520,7 @@ internal fun TransportRow(
             icon = Res.drawable.ic_player_next,
             contentDescription = stringResource(Res.string.widget_next),
             size = skipSize,
-            touchSize = PLAYER_SKIP_TOUCH_SIZE,
+            touchSize = skipTouch,
             heightScale = PLAYER_SKIP_HEIGHT_SCALE,
             onClick = onNext,
             enabled = nextEnabled,

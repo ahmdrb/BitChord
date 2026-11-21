@@ -5,10 +5,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.PointerType
-import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.pointerInput
 
 /**
@@ -23,26 +20,110 @@ import androidx.compose.ui.input.pointer.pointerInput
 private const val TAP_SLOP_FACTOR = 2.5f
 
 /**
- * Intercept a lower-half tap before a lyric row can seek; leave real drags to
- * the list.
+ * Pause automatic lyric following for the duration of a touch without
+ * consuming any pointer changes. The rows' own click handlers remain the sole
+ * owners of line taps; this only prevents an auto-scroll from moving a row out
+ * from under the finger between down and up.
+ */
+@Composable
+internal fun Modifier.holdLyricsAutoFollowWhileTouched(
+    onTouchChanged: (Boolean) -> Unit,
+): Modifier {
+    val currentOnTouchChanged = rememberUpdatedState(onTouchChanged)
+    return pointerInput(Unit) {
+        awaitEachGesture {
+            val down = awaitFirstDown(
+                requireUnconsumed = false,
+                pass = PointerEventPass.Initial,
+            )
+            currentOnTouchChanged.value(true)
+            try {
+                do {
+                    val event = awaitPointerEvent(PointerEventPass.Final)
+                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                    if (!change.pressed) break
+                } while (true)
+            } finally {
+                currentOnTouchChanged.value(false)
+            }
+        }
+    }
+}
+
+/**
+ * Relay a stationary tap to this exact lyric row when a fully expanded
+ * ModalBottomSheet consumes the Initial down during its short post-fling
+ * settle.
  *
- * Runs on [PointerEventPass.Initial], which is what makes the disambiguation
- * possible at all: this sees each event before the list does, and while the
- * finger is still inside [TAP_SLOP_FACTOR] it *consumes* the movement, so the
- * list never reaches its own slop and never takes the gesture away. Past that
- * distance the consuming stops, the deltas flow through, and what is left is an
- * ordinary scroll that began a few pixels late.
+ * This lives on the row, not at the LazyColumn root. Compose has already
+ * performed hit-testing against the row's real bounds (including transforms),
+ * so no arithmetic over LazyListItemInfo offsets can accidentally choose the
+ * line above or below it when content padding or sheet motion is involved.
+ * Ordinary taps stay with the row's clickable/combinedClickable.
+ */
+@Composable
+internal fun Modifier.relayLyricsTapWhenSheetConsumes(
+    enabled: Boolean,
+    canPick: Boolean,
+    picking: Boolean,
+    onSeek: () -> Unit,
+    onPick: () -> Unit,
+    onTogglePick: () -> Unit,
+): Modifier {
+    val currentSeek = rememberUpdatedState(onSeek)
+    val currentPick = rememberUpdatedState(onPick)
+    val currentTogglePick = rememberUpdatedState(onTogglePick)
+    return pointerInput(enabled, canPick, picking) {
+        if (!enabled) return@pointerInput
+        val tapSlop = viewConfiguration.touchSlop
+        val longPressTimeout = viewConfiguration.longPressTimeoutMillis
+        awaitEachGesture {
+            val down = awaitFirstDown(
+                requireUnconsumed = false,
+                pass = PointerEventPass.Initial,
+            )
+            val sheetConsumedDown = down.isConsumed
+            var moved = false
+            var released: androidx.compose.ui.input.pointer.PointerInputChange? = null
+            do {
+                val event = awaitPointerEvent(PointerEventPass.Final)
+                if (event.changes.size > 1) moved = true
+                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                if ((change.position - down.position).getDistance() > tapSlop) moved = true
+                if (!change.pressed) {
+                    released = change
+                    break
+                }
+            } while (true)
+
+            val up = released ?: return@awaitEachGesture
+            // The normal row action owns a down it can claim. Relay only
+            // when the sheet consumed that down or no child claimed the tap;
+            // this row's identity comes from Compose hit-testing, not offsets.
+            if (moved || (!sheetConsumedDown && up.isConsumed)) {
+                return@awaitEachGesture
+            }
+
+            val heldFor = (up.uptimeMillis - down.uptimeMillis).coerceAtLeast(0L)
+            when {
+                canPick && heldFor >= longPressTimeout -> currentPick.value()
+                picking -> currentTogglePick.value()
+                else -> currentSeek.value()
+            }
+        }
+    }
+}
+
+/**
+ * Reveal the player's controls from an otherwise unhandled tap in the lower
+ * half of the lyrics panel.
  *
- * The dead zone that costs only exists while [enabled] — that is, only while
- * the controls are away and a tap has something to do. With them on screen this
- * detector is absent entirely and the list scrolls off its own slop as usual.
- *
- * A mouse is the exception. It has no wobble to absorb and nothing to scroll by
- * dragging, and on the desktop the click on a line *is* the way to jump to it —
- * intercepted, every click in the lower half while the controls were away did
- * nothing visible, and lines only started seeking once the scrubber had been
- * used. So a mouse click goes to the line, and only a click no row claimed
- * brings the controls back.
+ * Observe at PointerEventPass.Final rather than consuming in Initial. The
+ * previous initial-pass detector treated every lower-half tap as a control
+ * reveal while controls were hidden, stealing taps from the lyric rows before
+ * their seek click could run. Listening at Final lets a row handle its own tap;
+ * only an unclaimed tap reveals the controls. Scroll gestures are observed but
+ * never delayed or consumed by this helper.
  */
 @Composable
 internal fun Modifier.revealLyricsControlsOnTap(
@@ -54,40 +135,24 @@ internal fun Modifier.revealLyricsControlsOnTap(
         if (!enabled) return@pointerInput
         val tapSlop = viewConfiguration.touchSlop * TAP_SLOP_FACTOR
         awaitEachGesture {
-            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            val down = awaitFirstDown(
+                requireUnconsumed = false,
+                pass = PointerEventPass.Final,
+            )
             if (down.position.y < size.height / 2f) return@awaitEachGesture
-            if (down.type == PointerType.Mouse) {
-                var claimed = down.isConsumed
-                do {
-                    val event = awaitPointerEvent(PointerEventPass.Final)
-                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                    claimed = claimed || change.isConsumed
-                    if (!change.pressed) {
-                        if (!claimed) currentOnReveal.value()
-                        break
-                    }
-                } while (true)
-                return@awaitEachGesture
-            }
             var dragged = false
+            var claimed = down.isConsumed
             do {
-                val event = awaitPointerEvent(PointerEventPass.Initial)
+                val event = awaitPointerEvent(PointerEventPass.Final)
                 val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                claimed = claimed || change.isConsumed
                 if ((change.position - down.position).getDistance() > tapSlop ||
                     event.changes.size > 1
                 ) {
                     dragged = true
-                } else if (change.positionChange() != Offset.Zero) {
-                    // Still a tap as far as this is concerned, so hold the list
-                    // still rather than let it read the wobble as the start of a
-                    // scroll it would then own.
-                    change.consume()
                 }
                 if (!change.pressed) {
-                    if (!dragged) {
-                        change.consume()
-                        currentOnReveal.value()
-                    }
+                    if (!dragged && !claimed) currentOnReveal.value()
                     break
                 }
             } while (true)

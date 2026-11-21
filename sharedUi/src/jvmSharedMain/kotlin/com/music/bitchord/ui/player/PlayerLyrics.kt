@@ -150,6 +150,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 
 /** Returns true if any character in [text] belongs to a BMP RTL script. */
@@ -434,29 +435,6 @@ private const val SCROLL_LEAD_MAX_MS = 500L
  */
 private val LYRIC_EASING = CubicBezierEasing(0.41f, 0f, 0.12f, 0.99f)
 private const val LYRIC_SETTLE_MS = 400
-
-/**
- * How the rows fan out as the panel moves between lines.
- *
- * They do not travel as a block. Each row after the one being scrolled to sets
- * off slightly later than the row before it, up to a few rows back, so the
- * spacing opens as the panel leaves and closes as it arrives. A block of text
- * sliding rigidly is a list being scrolled; the same lines arriving one behind
- * another is the panel handing over.
- *
- * Deliberately under half of what the renderer this came from uses. Its lines
- * carry the whole scroll themselves, so a long delay only means arriving late;
- * here the list has already moved underneath them, and the same delay reads as
- * the rows being dragged rather than following.
- */
-private const val STAGGER_STEPS = 3
-private const val STAGGER_FRACTION = 0.06f
-
-/** One handover: how far the panel is going, and how long it is taking. */
-private class ScrollRun(val id: Int, val delta: Float, val durationMs: Int) {
-    /** The last row to arrive does so this long after the panel sets off. */
-    val spanMs: Float get() = durationMs * (1f + STAGGER_FRACTION * STAGGER_STEPS)
-}
 
 /**
  * How long before a line lands the panel starts moving to it — and how long
@@ -1849,9 +1827,42 @@ internal fun LyricsPanel(
     }
     val keepScroll = remember(listState) { keepScrollInList(listState) }
     var browsingByDrag by remember { mutableStateOf(false) }
+    // A finger may land while automatic line-follow is in flight. Hold that
+    // movement until the touch ends so the row stays under the finger long
+    // enough for its click handler to seek on the first tap.
+    var touchInProgress by remember { mutableStateOf(false) }
+    // Keep the manually chosen row in place until the playhead has actually
+    // reached it. A fixed delay was too short for a far seek and let auto-follow
+    // pull the reader back to the previous verse before the seek had settled.
+    var tapSeekTargetMs by remember { mutableLongStateOf(-1L) }
+    var tapSeekRequest by remember { mutableIntStateOf(0) }
+    var tapSeekBaseline by remember { mutableStateOf<Pair<Long, Long>?>(null) }
+    LaunchedEffect(tapSeekRequest) {
+        val targetMs = tapSeekTargetMs.takeIf { it >= 0L } ?: return@LaunchedEffect
+        val request = tapSeekRequest
+        val (startingDiscontinuity, startingPosition) =
+            tapSeekBaseline ?: (playhead.discontinuity to clock.longValue)
+        withTimeoutOrNull(5_000L) {
+            snapshotFlow { playhead.discontinuity to clock.longValue }.first { (discontinuity, positionMs) ->
+                abs(positionMs - targetMs) <= 1_800L &&
+                    (discontinuity != startingDiscontinuity ||
+                        abs(startingPosition - targetMs) <= 1_800L)
+            }
+        }
+        if (tapSeekRequest == request) {
+            tapSeekTargetMs = -1L
+            tapSeekBaseline = null
+        }
+    }
+    val seekFromLineTap: (Long) -> Unit = { timeMs ->
+        tapSeekBaseline = playhead.discontinuity to clock.longValue
+        tapSeekTargetMs = timeMs
+        tapSeekRequest++
+        onSeekToLine(timeMs)
+    }
     // While picking lines, the panel must not auto-scroll — the reader needs
     // the list to stay put so they can tap the lines they want.
-    val browsing = browsingByDrag || picking
+    val browsing = browsingByDrag || picking || tapSeekTargetMs >= 0L
     val onBottomHalfTap: () -> Unit = {
         // A pick has the whole panel to itself: the controls that a tap down
         // there would pull back in are the player's transport, and it must not
@@ -1920,20 +1931,10 @@ internal fun LyricsPanel(
         }
     }
 
-    // The panel's own journey, published so each row can work out how far
-    // behind it should be running. Held as a plain value plus a frame clock
-    // rather than an animation per row: sixty rows each with their own
-    // Animatable is sixty animations to start and stop on every handover.
-    var run by remember(lines) { mutableStateOf(ScrollRun(0, 0f, LYRIC_SETTLE_MS)) }
-    val since = remember(lines) { mutableFloatStateOf(0f) }
-    LaunchedEffect(run.id) {
-        if (run.id == 0) return@LaunchedEffect
-        animate(
-            initialValue = 0f,
-            targetValue = run.spanMs,
-            animationSpec = tween(run.spanMs.toInt(), easing = LinearEasing),
-        ) { value, _ -> since.floatValue = value }
-    }
+    // Duration of the most recent lyric handover. The list itself carries
+    // the movement; rows stay anchored to it rather than adding a second
+    // vertical translation that could make the opening lines bounce.
+    var runDurationMs by remember(lines) { mutableIntStateOf(LYRIC_SETTLE_MS) }
     // Keyed to the track, not to [lines]: toggling the translation replaces
     // every line while the reader's place in the song is unchanged, and a reset
     // here would snap the panel back to the top mid-read.
@@ -1945,11 +1946,27 @@ internal fun LyricsPanel(
     // the line being read: its top on the top padding, or its middle on the
     // middle of the viewport.
     val focusOffset: (Int) -> Int = { size ->
-        if (!centered) {
-            0
-        } else {
-            val info = listState.layoutInfo
+        val info = listState.layoutInfo
+        if (centered) {
             (info.viewportStartOffset + info.viewportEndOffset) / 2 - size / 2
+        } else {
+            // On a phone, keep the current line in the upper-middle while
+            // there is plenty of song left. As the final few lines approach,
+            // ease that anchor down the screen so the preceding lyrics remain
+            // visible above the ending instead of leaving a large empty lower
+            // half. A short lyric naturally uses the same full transition.
+            val anchor = if (lines.size == 1) {
+                0.5f
+            } else {
+                val tailWindow = minOf(3, lines.lastIndex)
+                val tailProgress = (
+                    (focusLine - (lines.lastIndex - tailWindow)).toFloat() / tailWindow
+                ).coerceIn(0f, 1f)
+                0.36f + 0.34f * tailProgress
+            }
+            info.viewportStartOffset +
+                ((info.viewportEndOffset - info.viewportStartOffset) * anchor).toInt() -
+                size / 2
         }
     }
     // Nothing resets [browsing] off [controlsOpen] any more. It used to, so
@@ -1960,8 +1977,8 @@ internal fun LyricsPanel(
     // browse on their own terms.
     // A newer line replaces an unfinished automatic scroll. Only a user's
     // browsing gesture should suspend following, not our own animation.
-    LaunchedEffect(focusLine, browsing, controlsOpen, active) {
-        if (active && isSynced && !browsing &&
+    LaunchedEffect(focusLine, browsing, controlsOpen, active, touchInProgress) {
+        if (active && !touchInProgress && isSynced && !browsing &&
             focusLine >= 0 && focusLine in lines.indices
         ) {
             // Centred, the top padding is half the viewport, and it only exists
@@ -1991,7 +2008,7 @@ internal fun LyricsPanel(
                 visible != null -> {
                     val span = scrollLead(lines, clock.longValue).toInt()
                     val distance = (visible.offset - focusOffset(visible.size)).toFloat()
-                    run = ScrollRun(run.id + 1, distance, span)
+                    runDurationMs = span
                     // The same curve the rows catch up on. Two different
                     // curves and a row with no delay at all still trails the
                     // list it is sitting in, which is most of the way to
@@ -2047,11 +2064,9 @@ internal fun LyricsPanel(
             .bleedHorizontally(PLAYER_GUTTER)
             .nestedScroll(controlsOnScroll)
             .nestedScroll(keepScroll)
-            // Browsing leaves taps to each lyric row's seek action throughout
-            // the list — and picking leaves them nothing at all: the gesture
-            // below takes taps at the initial pass, so while a pick is open it
-            // would swallow every choice before the row ever saw it.
-            .revealLyricsControlsOnTap(!controlsOpen && !picking, onBottomHalfTap)
+            // Pause auto-follow without consuming the touch, then leave the
+            // actual tap to the lyric row so it seeks on the first attempt.
+            .holdLyricsAutoFollowWhileTouched { touchInProgress = it }
             .fadingEdges(),
         // Each row carries GLOW_ROOM of its own inset for the halo, so the
         // list hands that much back — otherwise the lines would sit a glow's
@@ -2089,7 +2104,7 @@ internal fun LyricsPanel(
                             text = sectionTitle.uppercase(),
                             style = MaterialTheme.typography.labelMedium.copy(
                                 letterSpacing = 1.3.sp,
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = MaterialTheme.typography.labelMedium.fontWeight ?: FontWeight.Bold,
                                 fontSize = 11.5.sp,
                             ),
                             color = Color.White.copy(alpha = 0.9f),
@@ -2183,7 +2198,7 @@ internal fun LyricsPanel(
                         // A gap is nothing to pick, so it only ever seeks — and
                         // not even that while a pick is open, where a stray tap
                         // in the silence would jump the song.
-                        .clickable(enabled = isSynced && !picking) { onSeekToLine(line.timeMs) }
+                        .clickable(enabled = isSynced && !picking) { seekFromLineTap(line.timeMs) }
                         // Matches the inset every sung line carries, so the
                         // rhythm of the list doesn't break at a break.
                         .padding(GLOW_ROOM)
@@ -2220,7 +2235,15 @@ internal fun LyricsPanel(
                                 )
                             }
                         }
-                        .semantics { contentDescription = instrumental },
+                        .semantics { contentDescription = instrumental }
+                        .relayLyricsTapWhenSheetConsumes(
+                            enabled = isSynced && !picking,
+                            canPick = false,
+                            picking = false,
+                            onSeek = { seekFromLineTap(line.timeMs) },
+                            onPick = {},
+                            onTogglePick = {},
+                        ),
                 )
                 }
             } else {
@@ -2229,14 +2252,14 @@ internal fun LyricsPanel(
                     MaterialTheme.typography.headlineLarge.copy(
                         fontSize = 34.sp,
                         lineHeight = 41.sp,
-                        fontWeight = FontWeight.ExtraBold,
+                        fontWeight = MaterialTheme.typography.headlineLarge.fontWeight ?: FontWeight.ExtraBold,
                         textAlign = if (alignEnd) TextAlign.End else TextAlign.Start,
                     )
                 } else {
                     MaterialTheme.typography.headlineMedium.copy(
                         fontSize = 30.sp,
                         lineHeight = 38.sp,
-                        fontWeight = FontWeight.ExtraBold,
+                        fontWeight = MaterialTheme.typography.headlineMedium.fontWeight ?: FontWeight.ExtraBold,
                         textAlign = if (alignEnd) TextAlign.End else TextAlign.Start,
                     )
                 }
@@ -2252,11 +2275,6 @@ internal fun LyricsPanel(
                 // brightness as it leaves rather than when the last syllable
                 // lands — the dim, the blur and the movement together.
                 val sung = offset < 0
-                // Rows behind the one being scrolled to are the ones that
-                // fan out; the ones it is moving away from arrive together.
-                val behind = if (run.delta >= 0f) index - focusLine else focusLine - index
-                val staggerDelay = behind.coerceIn(0, STAGGER_STEPS) *
-                    STAGGER_FRACTION * run.durationMs
                 val interaction = remember { MutableInteractionSource() }
                 val pressed by interaction.collectIsPressedAsState()
                 val scale by animateFloatAsState(
@@ -2296,29 +2314,10 @@ internal fun LyricsPanel(
                         scaleY = scale
                         transformOrigin = TransformOrigin(if (alignEnd) 1f else 0f, 0.5f)
                         alpha = lineAlpha
-                        // Held back against the list's own movement: the list
-                        // has already taken this row part of the way, so giving
-                        // back what it has not earned yet is what leaves it
-                        // trailing. One curve for both, so a row with no delay
-                        // sits exactly still against the list and the rows that
-                        // do have one are the only thing that moves.
-                        //
-                        // Rows with nothing to catch up on never read the clock
-                        // at all, so a handover only invalidates the handful of
-                        // layers that are actually fanning out.
-                        translationY = if (staggerDelay <= 0f) {
-                            0f
-                        } else {
-                            val elapsed = since.floatValue
-                            run.delta * (
-                                LYRIC_EASING.transform(
-                                    (elapsed / run.durationMs).coerceIn(0f, 1f),
-                                ) - LYRIC_EASING.transform(
-                                    ((elapsed - staggerDelay) / run.durationMs)
-                                        .coerceIn(0f, 1f),
-                                )
-                                )
-                        }
+                        // The list scroll is the only vertical movement. Keeping
+                        // each lyric row fixed to its list slot avoids a second
+                        // per-row translation that made some first lines bounce.
+                        translationY = 0f
                     }
                     .blur(blur, BlurredEdgeTreatment.Unbounded)
                     .clip(RoundedCornerShape(10.dp))
@@ -2353,7 +2352,7 @@ internal fun LyricsPanel(
                                     if (picking) {
                                         onTogglePick(index)
                                     } else {
-                                        onSeekToLine(line.timeMs)
+                                        seekFromLineTap(line.timeMs)
                                     }
                                 },
                             )
@@ -2366,8 +2365,16 @@ internal fun LyricsPanel(
                                 enabled = isSynced,
                                 interactionSource = interaction,
                                 indication = LocalIndication.current,
-                            ) { onSeekToLine(line.timeMs) }
+                            ) { seekFromLineTap(line.timeMs) }
                         },
+                    )
+                    .relayLyricsTapWhenSheetConsumes(
+                        enabled = picking || isSynced,
+                        canPick = canPick,
+                        picking = picking,
+                        onSeek = { seekFromLineTap(line.timeMs) },
+                        onPick = { onPickLine(index) },
+                        onTogglePick = { onTogglePick(index) },
                     )
                 // Lead and answering vocal are one row: they are one line of
                 // the song, they scale and dim together, and tapping either
@@ -2376,7 +2383,7 @@ internal fun LyricsPanel(
                 val subStyle = style.copy(
                     fontSize = SUB_LYRIC_FONT_SIZE,
                     lineHeight = SUB_LYRIC_LINE_HEIGHT,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = style.fontWeight ?: FontWeight.Medium,
                 )
                 // The answering voice is only on screen while it is being sung,
                 // the way Apple Music keeps it: it opens on its own clock, just
@@ -2414,7 +2421,7 @@ internal fun LyricsPanel(
                             wanted -> tween(BACKING_OPEN_MS, easing = LYRIC_EASING)
                             else -> tween(
                                 BACKING_CLOSE_MS,
-                                delayMillis = if (index < focusLine) run.durationMs else 0,
+                                delayMillis = if (index < focusLine) runDurationMs else 0,
                                 easing = FastOutSlowInEasing,
                             )
                         },
@@ -3069,6 +3076,7 @@ internal fun rememberLyricsTranslation(
     /** What the status line says while the lyrics are still being looked up. */
     loadingText: String,
     haptics: Haptics,
+    showSourceCredit: Boolean = true,
 ): LyricsTranslationUi {
     val reduceTranslationMotion by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
     val configuredLocale = appLanguageTag()
@@ -3260,7 +3268,7 @@ internal fun rememberLyricsTranslation(
             stringResource(Res.string.lyrics_already_in_language, translationLanguageName)
         romanizationState is LyricsTranslationUiState.SameLanguage ->
             stringResource(Res.string.lyrics_already_romanized)
-        lyricsSource != null -> stringResource(Res.string.lyrics_by, lyricsSource.label)
+        showSourceCredit && lyricsSource != null -> stringResource(Res.string.lyrics_by, lyricsSource.label)
         lyricsUnavailable -> stringResource(Res.string.no_lyrics_found)
         lyrics.isNullOrEmpty() -> loadingText
         else -> stringResource(Res.string.lyrics_saved_with_download)

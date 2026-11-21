@@ -79,6 +79,7 @@ import com.music.bitchord.data.model.UiState
 import com.music.bitchord.data.model.SearchHistoryEntity
 import com.music.bitchord.data.model.EntityType
 import com.music.bitchord.ui.components.MessageState
+import com.music.bitchord.ui.components.ExplicitSongTitle
 import com.music.bitchord.ui.components.PAGE_GUTTER
 import com.music.bitchord.ui.components.RowMoreButton
 import com.music.bitchord.ui.components.ROW_DIVIDER_INSET
@@ -539,13 +540,16 @@ private fun TopResultCard(
             )
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text(
-                    text = song.title,
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = song.title,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
                 Spacer(Modifier.height(4.dp))
                 Text(
                     text = song.artist,
@@ -775,12 +779,12 @@ private fun TypeaheadSongRow(
         }
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
-            Text(
-                text = song.title,
+            ExplicitSongTitle(
+                song = song,
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onBackground,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                badgeColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(2.dp))
             Text(
