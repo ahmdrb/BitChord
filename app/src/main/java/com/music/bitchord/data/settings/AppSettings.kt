@@ -648,6 +648,9 @@ object AppSettings {
      */
     val fullBleedDetailArtwork = MutableStateFlow(false)
 
+    /** Shows the track total duration at the end of the player scrubber. */
+    val showTotalDuration = MutableStateFlow(false)
+
     /** App-private artwork chosen for the two built-in device folders. */
     val localMusicFolderArtwork = MutableStateFlow("")
     val downloadsFolderArtwork = MutableStateFlow("")
@@ -1164,6 +1167,7 @@ object AppSettings {
         // loop. Default to enabled for existing installs that never changed
         // this opt-in; an explicit saved false remains respected.
         canvasOverCellular.value = prefs.getBoolean(KEY_CANVAS_OVER_CELLULAR, true)
+        disableSpotifyCanvas.value = prefs.getBoolean(KEY_DISABLE_SPOTIFY_CANVAS, false)
         pauseSearchHistory.value = prefs.getBoolean(KEY_PAUSE_SEARCH_HISTORY, false)
         spotifyCanvasAutoHide.value = prefs.getBoolean(KEY_SPOTIFY_CANVAS_AUTO_HIDE, true)
         prioritizeSpotifyCanvas.value = prefs.getBoolean(KEY_PRIORITIZE_SPOTIFY_CANVAS, false)
@@ -1171,6 +1175,7 @@ object AppSettings {
         signatureApiUrl.value = normalizeSignatureApiUrl(prefs.getString(KEY_SIGNATURE_API_URL, "").orEmpty())
         fullBleedArtwork.value = prefs.getBoolean(KEY_FULL_BLEED_ARTWORK, true)
         fullBleedDetailArtwork.value = prefs.getBoolean(KEY_FULL_BLEED_DETAIL_ARTWORK, false)
+        showTotalDuration.value = prefs.getBoolean(KEY_SHOW_TOTAL_DURATION, false)
         localMusicFolderArtwork.value = prefs.getString(KEY_LOCAL_MUSIC_FOLDER_ARTWORK, "").orEmpty()
         downloadsFolderArtwork.value = prefs.getString(KEY_DOWNLOADS_FOLDER_ARTWORK, "").orEmpty()
         // The old legacy mesh switch answers until a theme has been picked.
@@ -1915,6 +1920,11 @@ object AppSettings {
     fun setFullBleedDetailArtwork(value: Boolean) {
         fullBleedDetailArtwork.value = value
         prefs.edit().putBoolean(KEY_FULL_BLEED_DETAIL_ARTWORK, value).apply()
+    }
+
+    fun setShowTotalDuration(value: Boolean) {
+        showTotalDuration.value = value
+        prefs.edit().putBoolean(KEY_SHOW_TOTAL_DURATION, value).apply()
     }
 
     fun setLocalMusicFolderArtwork(path: String) {
