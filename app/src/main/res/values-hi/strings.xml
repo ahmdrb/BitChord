@@ -27,6 +27,7 @@
     <string name="search">खोजें</string>
     <string name="clear_search">खोज साफ़ करें</string>
     <string name="library">लाइब्रेरी</string>
+    <string name="radio">रेडियो</string>
     <string name="home">होम</string>
     <string name="play">चलाएं</string>
     <string name="explore">एक्सप्लोर करें</string>
@@ -94,6 +95,8 @@
     <string name="testing">जांच हो रही है…</string>
     <string name="connected">कनेक्टेड</string>
     <string name="account_integrations">खाता और एकीकरण</string>
+    <string name="youtube_premium_audio">YouTube Premium ऑडियो</string>
+    <string name="youtube_premium_audio_subtitle">मेरे पास Premium है: सामान्य 160 kbps के बजाय उच्च गुणवत्ता वाला ~256 kbps Opus स्ट्रीम करें</string>
     <string name="account_scrobbling">खाता और स्क्रॉबलिंग</string>
     <string name="rich_presence">रिच प्रेज़ेंस</string>
     <string name="scrobbling">स्क्रॉबलिंग</string>
@@ -195,7 +198,7 @@
     <string name="playback">प्लेबैक</string>
     <string name="appearance">दिखावट</string>
     <string name="storage">स्टोरेज</string>
-    <string name="your_data">आपका डेटा</string>
+    <string name="your_data">बैकअप और रीस्टोर</string>
     <string name="miscellaneous">विविध</string>
     <string name="lossless_hq_audio">लॉसलेस / HQ ऑडियो</string>
     <string name="on_wifi">Wi-Fi पर</string>
@@ -205,6 +208,7 @@
     <string name="crossfade">क्रॉसफ़ेड</string>
     <string name="crossfade_subtitle">एक ट्रैक को अगले में मिलाता है</string>
     <string name="automix">ऑटोमिक्स [BETA]</string>
+    <string name="automix_overview">ऑटोमिक्स का अवलोकन</string>
     <string name="skip_silence">खामोशी छोड़ें</string>
     <string name="skip_silence_subtitle">एक सेकंड से लंबे गैप को काटता है</string>
     <string name="skip_silence_float_subtitle">32-बिट फ़्लोट आउटपुट पर उपलब्ध नहीं</string>
@@ -519,8 +523,14 @@
     <string name="listen_most_around">आप सबसे ज़्यादा %1$s के आसपास सुनते हैं।</string>
     <string name="lyrics_share_title">गाने के शब्द साझा करें</string>
     <string name="lyrics_share_description">आपकी चुनी हुई पंक्तियाँ, कवर के साथ एक कार्ड पर।</string>
-    <string name="lyrics_share_story">स्टोरी बनाएँ</string>
-    <string name="lyrics_share_story_revert">कार्ड पर वापस जाएँ</string>
+    <string name="lyrics_share_story">स्टोरी में बदलें</string>
+    <string name="lyrics_share_story_revert">कार्ड में बदलें</string>
+    <string name="lyrics_share_canvas">कैनवस</string>
+    <string name="lyrics_share_video">वीडियो</string>
+    <string name="lyrics_share_image">इमेज</string>
+    <string name="lyrics_share_saving">सेव हो रहा है…</string>
+    <string name="lyrics_share_gradient">ग्रेडिएंट</string>
+    <string name="lyrics_share_show_logo">BitChord लोगो दिखाएँ</string>
     <string name="listening_shape">आपके सुनने का पैटर्न</string>
     <string name="member_since">सदस्य बने</string>
     <string name="member_since_value">%1$s से सदस्य</string>
@@ -647,6 +657,14 @@
     <string name="version_cut_aligned">अलाइन हो गया</string>
     <string name="automix_enabled_subtitle">ट्रैक्स से खुद हर ट्रांज़िशन का समय और मिश्रण तय करता है। फ़ोन गर्म होने या प्लेबैक अटकने पर इसे बंद कर दें।</string>
     <string name="automix_disabled_subtitle">बिना स्लाइडर के, ट्रांज़िशन का समय और मिश्रण अपने आप तय करता है। धीमे डिवाइस पर परफ़ॉर्मेंस अलग हो सकती है।</string>
+    <string name="automix_models_downloading">Automix डाउनलोड हो रहा है (%1$d MB)… %2$d%%. पूरा होने तक गाने सामान्य क्रॉसफ़ेड से बदलेंगे।</string>
+    <string name="automix_model">Automix मॉडल</string>
+    <string name="automix_model_missing">डाउनलोड नहीं हुआ। Automix चालू करने पर यह अपने आप आ जाएगा, या अभी डाउनलोड करें।</string>
+    <string name="automix_model_download">डाउनलोड करें (%1$d MB)</string>
+    <string name="automix_model_ready">डाउनलोड हो गया, इस डिवाइस पर %1$d MB ले रहा है।</string>
+    <string name="automix_models_failed">मॉडल डाउनलोड नहीं हो सका। अपना कनेक्शन जांचें और फिर से कोशिश करें।</string>
+    <string name="automix_model_delete_title">Automix मॉडल हटाएं?</string>
+    <string name="automix_model_delete_warning">इससे %1$d MB खाली होंगे और Automix बंद हो जाएगा। Automix फिर से चालू करने पर मॉडल दोबारा डाउनलोड होगा।</string>
     <string name="advanced_automix">एडवांस्ड ऑटोमिक्स</string>
     <string name="advanced_automix_subtitle">DJ की तरह मिक्स करता है: बीट्स को मिलाए रखता है, हर बदलाव बीट पर करता है और जो गाने मेल नहीं खाते उनके बीच कट करता है। कोई अतिरिक्त प्रोसेसिंग नहीं।</string>
     <string name="no_lyrics_sources_enabled">कोई नहीं। लिरिक्स नहीं लिए जाएंगे।</string>
@@ -860,6 +878,8 @@
     <string name="export_compatible_downloads">संगत डाउनलोड निर्यात करें</string>
     <string name="sync_downloaded_playlists">प्लेलिस्ट अपडेट रखें</string>
     <string name="sync_downloaded_playlists_subtitle">दिन में दो बार जाँचता है और डाउनलोड की गई प्लेलिस्ट में जोड़े गए नए गाने डाउनलोड करता है</string>
+    <string name="download_liked_songs">पसंद किए गए गाने डाउनलोड करें</string>
+    <string name="download_liked_songs_subtitle">आपके पसंद किए गए गाने और अब से पसंद किया गया हर गाना डाउनलोड करता है</string>
     <string name="playlist_sync_ask_title">%1$s में नए गाने: %2$d</string>
     <string name="playlist_sync_ask_text">डाउनलोड करने के लिए टैप करें</string>
     <string name="playlist_sync_done_title">%1$s में जोड़े गए: %2$d</string>
@@ -1005,6 +1025,7 @@
     <string name="sort_date_added_toggle">जोड़े जाने की तारीख</string>
 
     <string name="sort_default">डिफ़ॉल्ट क्रम</string>
+    <string name="sort_track_number">ट्रैक नंबर</string>
 
     <string name="sort_library">क्रमबद्ध करें</string>
 
@@ -1278,8 +1299,6 @@
 
 
     <string name="source_needs_lossless_output">लॉसलेस आउटपुट चाहिए · लॉसलेस सपोर्ट करने वाला डिवाइस इस्तेमाल करें</string>
-    <string name="source_needs_update">यह ऐडऑन पुराना है। यह अभी भी काम करता है, लेकिन इसके डेवलपर से कहें कि वे BitChord के नए ऐडऑन डॉक्स के अनुसार इसे अपडेट करें।</string>
-    <string name="source_outdated">पुराना ऐडऑन</string>
     <string name="source_needs_lossless_bt_codec">लॉसलेस आउटपुट चाहिए · Bluetooth %1$s पर है; लॉसलेस सपोर्ट करने वाला डिवाइस इस्तेमाल करें</string>
     <string name="source_needs_lossless_bt_unknown">लॉसलेस आउटपुट चाहिए · पता नहीं चल रहा कि कौन-सा Bluetooth कोडेक चल रहा है</string>
     <string name="source_downloads_on">डाउनलोड की अनुमति है</string>
