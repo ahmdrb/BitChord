@@ -54,7 +54,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.zIndex
@@ -393,23 +392,16 @@ private fun ArtworkPageBackButton(
     neutralLiquidGlassBackdrop: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    if (neutralLiquidGlassBackdrop) {
-        TopBarCircleIconButton(
-            icon = SfIcons.ArrowBack,
-            contentDescription = stringResource(R.string.back),
-            onClick = onClick,
-            modifier = modifier,
-        )
+    val shape = CircleShape
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val useLiquidGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
+    val contentColor = if (useLiquidGlass && !reduceDynamicBlur) {
+        glassContentColor()
     } else {
-        val shape = CircleShape
-        val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
-        val useLiquidGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
-        val contentColor = if (useLiquidGlass && !reduceDynamicBlur) {
-            glassContentColor()
-        } else {
-            MaterialTheme.colorScheme.onSurface
-        }
+        MaterialTheme.colorScheme.onSurface
+    }
 
+    val button: @Composable () -> Unit = {
         CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides TOP_CONTROL_SIZE) {
             IconButton(
                 onClick = onClick,
@@ -430,6 +422,11 @@ private fun ArtworkPageBackButton(
             }
         }
     }
+    if (neutralLiquidGlassBackdrop && useLiquidGlass && !reduceDynamicBlur) {
+        NeutralArtworkGlassBackdrop(content = button)
+    } else {
+        button()
+    }
 }
 
 /** One shared pill for every action at the right of a floating top bar. */
@@ -441,75 +438,42 @@ private fun ArtworkPageActions(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    if (neutralLiquidGlassBackdrop) {
-        // Playlist and Artist actions are individual controls, not one shared pill.
-        // Their fill and outline match the page's Shuffle and Plus circles.
-        Row(
-            modifier = modifier,
-            horizontalArrangement = Arrangement.spacedBy(ACTION_GAP),
-            verticalAlignment = Alignment.CenterVertically,
+    val actions: @Composable () -> Unit = {
+        ActionsRow(
+            modifier = modifier
+                .then(artworkPageSurface(
+                    shape = CircleShape,
+                    hazeState = hazeState,
+                    lightweightGlass = lightweightGlass,
+                    neutralLiquidGlassBackdrop = neutralLiquidGlassBackdrop,
+                ))
+                // Keep the right edge fixed while a new action opens room to its
+                // left. The surface itself therefore grows instead of jumping to
+                // its new width in a single frame.
+                .animateContentSize(
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessMediumLow,
+                    ),
+                )
+                // One profile target with no inset is a true circle; once another
+                // action exists, Apple's inset opens at both ends.
+                .artworkActionEdgePadding(),
         ) {
             CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides TOP_CONTROL_SIZE) {
                 content()
             }
         }
+    }
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val useLiquidGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
+    if (neutralLiquidGlassBackdrop && useLiquidGlass && !reduceDynamicBlur) {
+        NeutralArtworkGlassBackdrop(content = actions)
     } else {
-        val actions: @Composable () -> Unit = {
-            ActionsRow(
-                modifier = modifier
-                    .then(artworkPageSurface(
-                        shape = CircleShape,
-                        hazeState = hazeState,
-                        lightweightGlass = lightweightGlass,
-                        neutralLiquidGlassBackdrop = neutralLiquidGlassBackdrop,
-                    ))
-                    .animateContentSize(
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioNoBouncy,
-                            stiffness = Spring.StiffnessMediumLow,
-                        ),
-                    )
-                    .artworkActionEdgePadding(),
-            ) {
-                CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides TOP_CONTROL_SIZE) {
-                    content()
-                }
-            }
-        }
         actions()
     }
 }
 
-/**
- * A standalone top-bar circle using the exact light veil and outline of the
- * Shuffle and Plus buttons on Playlist and Artist pages.
- */
-@Composable
-fun TopBarCircleIconButton(
-    icon: ImageVector,
-    contentDescription: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides TOP_CONTROL_SIZE) {
-        IconButton(
-            onClick = onClick,
-            modifier = modifier
-                .size(TOP_CONTROL_SIZE)
-                .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.07f), CircleShape)
-                .liquidGlassRim(CircleShape)
-                .border(1.dp, Color.White.copy(alpha = 0.10f), CircleShape),
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = contentDescription,
-                tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(22.dp),
-            )
-        }
-    }
-}
 /**
  * The actions side by side, centred on the pill's height, with Apple's gap
  * between each and the one before it.
@@ -598,6 +562,12 @@ private fun artworkPageSurface(
     val useLiquidGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
 
     val surface = when {
+        // Match the Playlist/Artist detail controls to the Shuffle and Plus
+        // buttons: a light 7% veil, with only the optional directional glass rim.
+        neutralLiquidGlassBackdrop ->
+            Modifier
+                .background(Color.White.copy(alpha = 0.07f), shape)
+                .liquidGlassRim(shape)
         // The optional lightweight treatment is reserved for its explicit
         // call sites. Playlist and Artist controls use the shared top-bar
         // material regardless of whether their page has artwork.
@@ -624,6 +594,8 @@ private fun artworkPageSurface(
         .then(
             when {
                 lightweightGlass && useLiquidGlass && !neutralLiquidGlassBackdrop -> Modifier
+                neutralLiquidGlassBackdrop ->
+                    Modifier.border(1.dp, Color.White.copy(alpha = 0.10f), shape)
                 !useLiquidGlass ->
                     Modifier.border(0.5.dp, Color.White.copy(alpha = 0.10f), shape)
                 else -> Modifier.border(GLASS_EDGE_WIDTH, GLASS_EDGE_COLOR, shape)
