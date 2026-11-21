@@ -27,6 +27,7 @@
     <string name="search">Suchen</string>
     <string name="clear_search">Suche löschen</string>
     <string name="library">Bibliothek</string>
+    <string name="radio">Radio</string>
     <string name="home">Start</string>
     <string name="play">Wiedergabe</string>
     <string name="explore">Entdecken</string>
@@ -94,6 +95,8 @@
     <string name="testing">Wird getestet…</string>
     <string name="connected">Verbunden</string>
     <string name="account_integrations">Konto &amp; Integrationen</string>
+    <string name="youtube_premium_audio">YouTube Premium-Audio</string>
+    <string name="youtube_premium_audio_subtitle">Ich habe Premium: das hochwertigere Opus mit ~256 kbps statt der üblichen 160 kbps streamen</string>
     <string name="account_scrobbling">Konto &amp; Scrobbling</string>
     <string name="rich_presence">Rich Presence</string>
     <string name="scrobbling">Scrobbling</string>
@@ -195,7 +198,7 @@
     <string name="playback">Wiedergabe</string>
     <string name="appearance">Erscheinungsbild</string>
     <string name="storage">Speicher</string>
-    <string name="your_data">Deine Daten</string>
+    <string name="your_data">Sichern und Wiederherstellen</string>
     <string name="miscellaneous">Sonstiges</string>
     <string name="lossless_hq_audio">Verlustfrei / HQ-Audio</string>
     <string name="on_wifi">Bei WLAN</string>
@@ -205,6 +208,7 @@
     <string name="crossfade">Überblendung</string>
     <string name="crossfade_subtitle">Blendet einen Track in den nächsten über</string>
     <string name="automix">Automix [BETA]</string>
+    <string name="automix_overview">Automix-Übersicht</string>
     <string name="skip_silence">Stille überspringen</string>
     <string name="skip_silence_subtitle">Kürzt Pausen länger als eine Sekunde</string>
     <string name="skip_silence_float_subtitle">Bei 32-Bit-Float-Ausgabe nicht verfügbar</string>
@@ -519,8 +523,14 @@
     <string name="listen_most_around">Du hörst am meisten gegen %1$s.</string>
     <string name="lyrics_share_title">Songtext teilen</string>
     <string name="lyrics_share_description">Die Zeilen, die du ausgewählt hast, auf einer Karte mit dem Cover.</string>
-    <string name="lyrics_share_story">Als Story formatieren</string>
-    <string name="lyrics_share_story_revert">Zurück zur Karte</string>
+    <string name="lyrics_share_story">In Story umwandeln</string>
+    <string name="lyrics_share_story_revert">In Karte umwandeln</string>
+    <string name="lyrics_share_canvas">Canvas</string>
+    <string name="lyrics_share_video">Video</string>
+    <string name="lyrics_share_image">Bild</string>
+    <string name="lyrics_share_saving">Wird gespeichert…</string>
+    <string name="lyrics_share_gradient">Verlauf</string>
+    <string name="lyrics_share_show_logo">BitChord-Logo anzeigen</string>
     <string name="listening_shape">Dein Hörmuster</string>
     <string name="member_since">Mitglied seit</string>
     <string name="member_since_value">Mitglied seit %1$s</string>
@@ -647,6 +657,14 @@
     <string name="version_cut_aligned">ausgerichtet</string>
     <string name="automix_enabled_subtitle">Timing und Überblendung jedes Übergangs werden direkt aus den Titeln bestimmt. Schalte dies aus, wenn das Telefon heiß wird oder die Wiedergabe stockt.</string>
     <string name="automix_disabled_subtitle">Timing und Überblendung von Übergängen erfolgen automatisch, ohne Regler. Die Leistung kann auf langsameren Geräten variieren.</string>
+    <string name="automix_models_downloading">Automix wird heruntergeladen (%1$d MB)… %2$d%%. Bis dahin werden Titel normal überblendet.</string>
+    <string name="automix_model">Automix-Modell</string>
+    <string name="automix_model_missing">Nicht heruntergeladen. Automix lädt es beim Einschalten, oder lade es jetzt herunter.</string>
+    <string name="automix_model_download">Herunterladen (%1$d MB)</string>
+    <string name="automix_model_ready">Heruntergeladen, belegt %1$d MB auf diesem Gerät.</string>
+    <string name="automix_models_failed">Das Modell konnte nicht heruntergeladen werden. Prüfe deine Verbindung und versuche es erneut.</string>
+    <string name="automix_model_delete_title">Automix-Modell löschen?</string>
+    <string name="automix_model_delete_warning">Dadurch werden %1$d MB frei und Automix wird ausgeschaltet. Beim erneuten Einschalten wird das Modell wieder heruntergeladen.</string>
     <string name="advanced_automix">Erweiterter Automix</string>
     <string name="advanced_automix_subtitle">Mischt wie ein DJ: hält die Beats synchron, setzt jeden Übergang auf den Beat und schneidet zwischen Songs, die nicht zusammenpassen. Keine zusätzliche Verarbeitung.</string>
     <string name="no_lyrics_sources_enabled">Keine. Songtexte werden nicht abgerufen.</string>
@@ -860,6 +878,8 @@
     <string name="export_compatible_downloads">Kompatible Downloads exportieren</string>
     <string name="sync_downloaded_playlists">Playlists aktuell halten</string>
     <string name="sync_downloaded_playlists_subtitle">Prüft zweimal täglich und lädt neu hinzugefügte Songs deiner heruntergeladenen Playlists herunter</string>
+    <string name="download_liked_songs">Lieblingssongs herunterladen</string>
+    <string name="download_liked_songs_subtitle">Lädt deine „Mag ich“-Musik und jeden Song herunter, den du ab jetzt likest</string>
     <string name="playlist_sync_ask_title">Neue Songs in %1$s: %2$d</string>
     <string name="playlist_sync_ask_text">Zum Herunterladen tippen</string>
     <string name="playlist_sync_done_title">Zu %1$s hinzugefügt: %2$d</string>
@@ -1005,6 +1025,7 @@
     <string name="sort_date_added_toggle">Hinzugefügt am</string>
 
     <string name="sort_default">Standardreihenfolge</string>
+    <string name="sort_track_number">Titelnummer</string>
 
     <string name="sort_library">Sortieren</string>
 
@@ -1278,8 +1299,6 @@
 
 
     <string name="source_needs_lossless_output">Braucht eine verlustfreie Ausgabe · nutze ein Gerät, das Lossless unterstützt</string>
-    <string name="source_needs_update">Dieses Add-on ist veraltet. Es funktioniert weiterhin, aber bitte den Entwickler, es nach der aktuellen BitChord-Add-on-Dokumentation zu aktualisieren.</string>
-    <string name="source_outdated">Veraltetes Add-on</string>
     <string name="source_needs_lossless_bt_codec">Braucht eine verlustfreie Ausgabe · Bluetooth nutzt %1$s; nutze ein Gerät, das Lossless unterstützt</string>
     <string name="source_needs_lossless_bt_unknown">Braucht eine verlustfreie Ausgabe · der Bluetooth-Codec ist nicht erkennbar</string>
     <string name="source_downloads_on">Downloads erlaubt</string>
