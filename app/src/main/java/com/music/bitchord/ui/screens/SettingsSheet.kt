@@ -268,6 +268,7 @@ fun SettingsScreen(
     val playerTheme by AppSettings.playerTheme.collectAsStateWithLifecycle()
     val syncedLyrics by AppSettings.syncedLyrics.collectAsStateWithLifecycle()
     val hideLyricsPreview by AppSettings.hideLyricsPreview.collectAsStateWithLifecycle()
+    val showTotalDuration by AppSettings.showTotalDuration.collectAsStateWithLifecycle()
     val hideLyricsRomanizationButton by AppSettings.hideLyricsRomanizationButton.collectAsStateWithLifecycle()
     val hideLyricsTranslationButton by AppSettings.hideLyricsTranslationButton.collectAsStateWithLifecycle()
     val hideLyricsSourceCredit by AppSettings.hideLyricsSourceCredit.collectAsStateWithLifecycle()
@@ -2850,6 +2851,7 @@ internal fun SettingsRow(
     iconContent: (@Composable () -> Unit)? = null,
     onClick: (() -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
+    titleMaxLines: Int = 1,
 ) {
     Row(
         modifier = Modifier
