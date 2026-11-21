@@ -1,5 +1,10 @@
 <resources>
     <string name="app_name">BitChord</string>
+    <string name="keep_playback_screen_on">保持播放界面常亮</string>
+    <string name="keep_playback_screen_on_subtitle">全屏播放器打开时，防止屏幕自动熄灭。</string>
+    <string name="hide_lyrics_romanization_button">隐藏歌词罗马音按钮</string>
+    <string name="hide_lyrics_translation_button">隐藏歌词翻译按钮</string>
+    <string name="hide_lyrics_source_credit">隐藏歌词提供商选择器</string>
     <string name="playback_channel_name">正在播放</string>
     <string name="download_channel_name">下载</string>
     <string name="download_channel_description">正在保存到你的音乐文件夹的歌曲</string>
@@ -1434,4 +1439,8 @@
     <string name="bit_perfect_status_inexact">%1$s · 不精确：此音源不是无损 PCM</string>
     <string name="bit_perfect_status_waiting">正在等待受支持输出上的无损曲目</string>
     <string name="bit_perfect_status_unavailable">此曲目不可用（%1$s）</string>
+    <string name="automix_overview">Automix 概览</string>
+    <string name="diwali_title">BitChord 祝您排灯节快乐</string>
+    <string name="diwali_subtitle">愿这个光明节为您的家带来欢乐，为您的每一天带来音乐。</string>
+    <string name="diwali_cta">一起庆祝</string>
 </resources>

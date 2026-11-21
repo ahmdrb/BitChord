@@ -389,6 +389,7 @@ private fun RecentTrackRow(
         isCurrent = isCurrent,
         isPlaying = isPlaying,
         isVideo = item.isVideo,
+        isExplicit = item.isExplicit == true,
     )
 }
 
@@ -408,6 +409,8 @@ fun CompactTrackRow(
     isPlaying: Boolean = false,
     /** A music video: its thumbnail at 16:9 rather than squared off. */
     isVideo: Boolean = false,
+    /** Catalogue advisory, when this shelf item is an explicit track. */
+    isExplicit: Boolean = false,
 ) {
     Row(
         modifier = Modifier
@@ -432,13 +435,16 @@ fun CompactTrackRow(
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onBackground,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+            }
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodyMedium,
@@ -848,6 +854,9 @@ internal fun NewShelfCard(
     modifier: Modifier = Modifier.width(SHELF_CARD_WIDTH),
     /** A full-colour mark drawn in place of [icon], for a card that stands for a brand. */
     logo: DrawableResource? = null,
+    /** Optional tint for monochrome marks; null keeps the standard accent tint. */
+    iconTint: Color? = null,
+    iconSize: Dp = 34.dp,
 ) {
     Column(
         modifier = modifier.clickable(onClick = onClick),
@@ -873,8 +882,8 @@ internal fun NewShelfCard(
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(34.dp),
+                    tint = iconTint ?: MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(iconSize),
                 )
             }
         }

@@ -449,6 +449,9 @@ object AppSettings {
     /** Stop playback when the app is swiped away from the recent apps screen. */
     val stopOnTaskRemoved = MutableStateFlow(true)
 
+    /** Keep the display awake while the expanded playback screen is visible. */
+    val keepPlaybackScreenOn = MutableStateFlow(false)
+
     /** Hides the volume slider on the main player, leaving the rest of the layout to reflow. */
     val hideVolumeBar = MutableStateFlow(false)
 
@@ -543,20 +546,17 @@ object AppSettings {
     val animatedCanvas = MutableStateFlow(true)
 
     /**
-     * Whether [animatedCanvas] is allowed to actually stream on a metered
-     * connection, as distinct from the switch that turns the feature off
-     * altogether.
+     * Whether [animatedCanvas] may fetch a clip over a metered connection.
      *
-     * Off by default. A canvas clip loops for as long as its track plays,
-     * and every loop past the first re-fetches the same few seconds of video
-     * — see [CanvasCache][com.music.bitchord.data.canvas.CanvasCache] for why
-     * that costs network at all rather than being answered from a buffer —
-     * so a few-second clip behind a four-minute track on cellular is not a
-     * flat video cost, it is that cost repeated dozens of times per song.
-     * That is the shape of the reported 8GB day: still art costs nothing
-     * here and stays up regardless of this setting.
+     * Enabled by default: [CanvasCache][com.music.bitchord.data.canvas.CanvasCache]
+     * stores the clip on disk after its first fetch, so subsequent loops and
+     * replays use the cached bytes rather than downloading the same video again.
+     * The still cover remains visible if this is switched off.
      */
-    val canvasOverCellular = MutableStateFlow(false)
+    val canvasOverCellular = MutableStateFlow(true)
+
+    /** Stop adding new local YouTube and Addons searches to the on-device history. */
+    val pauseSearchHistory = MutableStateFlow(false)
 
     /** Automatically collapses the lower controls after Spotify Canvas settles. */
     val spotifyCanvasAutoHide = MutableStateFlow(true)
@@ -593,6 +593,10 @@ object AppSettings {
      */
     val fullBleedDetailArtwork = MutableStateFlow(false)
 
+    /** App-private artwork chosen for the two built-in device folders. */
+    val localMusicFolderArtwork = MutableStateFlow("")
+    val downloadsFolderArtwork = MutableStateFlow("")
+
     /**
      * What the main player stands on below the artwork.
      *
@@ -618,6 +622,13 @@ object AppSettings {
      * a switch, and [lyricsSources] narrows which of them get asked.
      */
     val syncedLyrics = MutableStateFlow(true)
+
+    /** Hides the romanization globe control on the lyrics player. */
+    val hideLyricsRomanizationButton = MutableStateFlow(false)
+    /** Hides the translation control on the lyrics player. */
+    val hideLyricsTranslationButton = MutableStateFlow(false)
+    /** Hides the lyrics-provider picker/status entry point below the lyrics. */
+    val hideLyricsSourceCredit = MutableStateFlow(false)
 
     /** The databases [syncedLyrics] may ask. Empty is the same as off. */
     val lyricsSources = MutableStateFlow(LyricsSource.offered.toSet())
@@ -1027,6 +1038,7 @@ object AppSettings {
             prefs.getInt(KEY_PERFORMANCE_REFRESH_RATE, DEFAULT_PERFORMANCE_REFRESH_RATE),
         )
         stopOnTaskRemoved.value = prefs.getBoolean(KEY_STOP_ON_TASK_REMOVED, true)
+        keepPlaybackScreenOn.value = prefs.getBoolean(KEY_KEEP_PLAYBACK_SCREEN_ON, false)
         hideVolumeBar.value = prefs.getBoolean(KEY_HIDE_VOLUME_BAR, false)
         hideStatusBarInPlayer.value = prefs.getBoolean(KEY_HIDE_STATUS_BAR_IN_PLAYER, false)
         hideSongStatus.value = prefs.getBoolean(KEY_HIDE_SONG_STATUS, false)
@@ -1055,13 +1067,19 @@ object AppSettings {
             reduceDynamicBlur.value = false
         }
         animatedCanvas.value = prefs.getBoolean(KEY_ANIMATED_CANVAS, true)
-        canvasOverCellular.value = prefs.getBoolean(KEY_CANVAS_OVER_CELLULAR, false)
+        // The clip cache means cellular pays for a clip once, not once per
+        // loop. Default to enabled for existing installs that never changed
+        // this opt-in; an explicit saved false remains respected.
+        canvasOverCellular.value = prefs.getBoolean(KEY_CANVAS_OVER_CELLULAR, true)
+        pauseSearchHistory.value = prefs.getBoolean(KEY_PAUSE_SEARCH_HISTORY, false)
         spotifyCanvasAutoHide.value = prefs.getBoolean(KEY_SPOTIFY_CANVAS_AUTO_HIDE, true)
         prioritizeSpotifyCanvas.value = prefs.getBoolean(KEY_PRIORITIZE_SPOTIFY_CANVAS, false)
         signatureApiEnabled.value = prefs.getBoolean(KEY_SIGNATURE_API_ENABLED, false)
         signatureApiUrl.value = normalizeSignatureApiUrl(prefs.getString(KEY_SIGNATURE_API_URL, "").orEmpty())
         fullBleedArtwork.value = prefs.getBoolean(KEY_FULL_BLEED_ARTWORK, true)
         fullBleedDetailArtwork.value = prefs.getBoolean(KEY_FULL_BLEED_DETAIL_ARTWORK, false)
+        localMusicFolderArtwork.value = prefs.getString(KEY_LOCAL_MUSIC_FOLDER_ARTWORK, "").orEmpty()
+        downloadsFolderArtwork.value = prefs.getString(KEY_DOWNLOADS_FOLDER_ARTWORK, "").orEmpty()
         // The old legacy mesh switch answers until a theme has been picked.
         playerTheme.value = runCatching {
             PlayerTheme.valueOf(prefs.getString(KEY_PLAYER_THEME, null).orEmpty())
@@ -1074,6 +1092,9 @@ object AppSettings {
             )
         }.getOrDefault(LastPlayerScreen.MAIN)
         syncedLyrics.value = prefs.getBoolean(KEY_SYNCED_LYRICS, true)
+        hideLyricsRomanizationButton.value = prefs.getBoolean(KEY_HIDE_LYRICS_ROMANIZATION_BUTTON, false)
+        hideLyricsTranslationButton.value = prefs.getBoolean(KEY_HIDE_LYRICS_TRANSLATION_BUTTON, false)
+        hideLyricsSourceCredit.value = prefs.getBoolean(KEY_HIDE_LYRICS_SOURCE_CREDIT, false)
         lyricsSources.value = readLyricsSources()
         lyricsSourceOrder.value = readLyricsSourceOrder()
         prioritizeSyllableSync.value = prefs.getBoolean(KEY_PRIORITIZE_SYLLABLE_SYNC, false)
@@ -1434,6 +1455,11 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_STOP_ON_TASK_REMOVED, value).apply()
     }
 
+    fun setKeepPlaybackScreenOn(value: Boolean) {
+        keepPlaybackScreenOn.value = value
+        prefs.edit().putBoolean(KEY_KEEP_PLAYBACK_SCREEN_ON, value).apply()
+    }
+
     fun setHideVolumeBar(value: Boolean) {
         hideVolumeBar.value = value
         prefs.edit().putBoolean(KEY_HIDE_VOLUME_BAR, value).apply()
@@ -1571,6 +1597,21 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_SYNCED_LYRICS, value).apply()
     }
 
+    fun setHideLyricsRomanizationButton(value: Boolean) {
+        hideLyricsRomanizationButton.value = value
+        prefs.edit().putBoolean(KEY_HIDE_LYRICS_ROMANIZATION_BUTTON, value).apply()
+    }
+
+    fun setHideLyricsTranslationButton(value: Boolean) {
+        hideLyricsTranslationButton.value = value
+        prefs.edit().putBoolean(KEY_HIDE_LYRICS_TRANSLATION_BUTTON, value).apply()
+    }
+
+    fun setHideLyricsSourceCredit(value: Boolean) {
+        hideLyricsSourceCredit.value = value
+        prefs.edit().putBoolean(KEY_HIDE_LYRICS_SOURCE_CREDIT, value).apply()
+    }
+
     fun setLyricsSources(value: Set<LyricsSource>) {
         lyricsSources.value = value
         prefs.edit()
@@ -1679,6 +1720,11 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_CANVAS_OVER_CELLULAR, value).apply()
     }
 
+    fun setPauseSearchHistory(value: Boolean) {
+        pauseSearchHistory.value = value
+        prefs.edit().putBoolean(KEY_PAUSE_SEARCH_HISTORY, value).apply()
+    }
+
     fun setSpotifyCanvasAutoHide(value: Boolean) {
         spotifyCanvasAutoHide.value = value
         prefs.edit().putBoolean(KEY_SPOTIFY_CANVAS_AUTO_HIDE, value).apply()
@@ -1709,6 +1755,16 @@ object AppSettings {
     fun setFullBleedDetailArtwork(value: Boolean) {
         fullBleedDetailArtwork.value = value
         prefs.edit().putBoolean(KEY_FULL_BLEED_DETAIL_ARTWORK, value).apply()
+    }
+
+    fun setLocalMusicFolderArtwork(path: String) {
+        localMusicFolderArtwork.value = path
+        prefs.edit().putString(KEY_LOCAL_MUSIC_FOLDER_ARTWORK, path).apply()
+    }
+
+    fun setDownloadsFolderArtwork(path: String) {
+        downloadsFolderArtwork.value = path
+        prefs.edit().putString(KEY_DOWNLOADS_FOLDER_ARTWORK, path).apply()
     }
 
     fun setPlayerTheme(value: PlayerTheme) {
@@ -2291,6 +2347,7 @@ object AppSettings {
     private const val KEY_HIGH_PERFORMANCE_MODE = "high_performance_mode"
     private const val KEY_PERFORMANCE_REFRESH_RATE = "performance_refresh_rate"
     private const val KEY_STOP_ON_TASK_REMOVED = "stop_on_task_removed"
+    private const val KEY_KEEP_PLAYBACK_SCREEN_ON = "keep_playback_screen_on"
     private const val KEY_HIDE_VOLUME_BAR = "hide_volume_bar"
     private const val KEY_HIDE_STATUS_BAR_IN_PLAYER = "hide_status_bar_in_player"
     private const val KEY_HIDE_SONG_STATUS = "hide_song_status"
@@ -2314,16 +2371,22 @@ object AppSettings {
     private const val KEY_TRANSLATION_LANGUAGE = "translation_language"
     private const val KEY_ANIMATED_CANVAS = "animated_canvas"
     private const val KEY_CANVAS_OVER_CELLULAR = "canvas_over_cellular"
+    private const val KEY_PAUSE_SEARCH_HISTORY = "pause_search_history"
     private const val KEY_SPOTIFY_CANVAS_AUTO_HIDE = "spotify_canvas_auto_hide"
     private const val KEY_PRIORITIZE_SPOTIFY_CANVAS = "prioritize_spotify_canvas"
     private const val KEY_SIGNATURE_API_ENABLED = "signature_api_enabled"
     private const val KEY_SIGNATURE_API_URL = "signature_api_url"
     private const val KEY_FULL_BLEED_ARTWORK = "full_bleed_artwork"
     private const val KEY_FULL_BLEED_DETAIL_ARTWORK = "full_bleed_detail_artwork"
+    private const val KEY_LOCAL_MUSIC_FOLDER_ARTWORK = "local_music_folder_artwork"
+    private const val KEY_DOWNLOADS_FOLDER_ARTWORK = "downloads_folder_artwork"
     private const val KEY_PLAYER_THEME = "player_theme"
     private const val KEY_LEGACY_MESH_GRADIENT = "legacy_mesh_gradient"
     private const val KEY_LAST_PLAYER_SCREEN = "last_player_screen"
     private const val KEY_SYNCED_LYRICS = "synced_lyrics"
+    private const val KEY_HIDE_LYRICS_ROMANIZATION_BUTTON = "hide_lyrics_romanization_button"
+    private const val KEY_HIDE_LYRICS_TRANSLATION_BUTTON = "hide_lyrics_translation_button"
+    private const val KEY_HIDE_LYRICS_SOURCE_CREDIT = "hide_lyrics_source_credit"
     private const val KEY_LYRICS_SOURCES = "lyrics_sources"
     private const val KEY_LYRICS_SOURCES_SEEN = "lyrics_sources_seen"
     private const val KEY_LYRICS_SOURCE_ORDER = "lyrics_source_order"

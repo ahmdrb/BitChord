@@ -1,5 +1,10 @@
 <resources>
     <string name="app_name">BitChord</string>
+    <string name="keep_playback_screen_on">Mantener la pantalla de reproducción encendida</string>
+    <string name="keep_playback_screen_on_subtitle">Evita que la pantalla se apague mientras el reproductor completo está abierto.</string>
+    <string name="hide_lyrics_romanization_button">Ocultar el botón de romanización de letras</string>
+    <string name="hide_lyrics_translation_button">Ocultar el botón de traducción de letras</string>
+    <string name="hide_lyrics_source_credit">Ocultar el selector del proveedor de letras</string>
     <string name="playback_channel_name">Reproduciendo</string>
     <string name="download_channel_name">Descargas</string>
     <string name="download_channel_description">Canciones guardadas en tu carpeta Música</string>
@@ -1398,10 +1403,9 @@
     <string name="show_listen_together_button_subtitle">Si está desactivado, el reproductor solo muestra el botón de salida de audio entre la letra y la cola</string>
     <string name="font">Fuente</string>
     <string name="font_default">Predeterminada</string>
-    <string name="font_legacy">Clásica</string>
+    <string name="font_legacy">Classic</string>
     <string name="font_default_subtitle">SF Pro Display · Pesos de Apple Music</string>
-    <string name="font_legacy_subtitle">SF Pro Display · Pesos gruesos originales</string>
-    <string name="font_footer">Clásica recupera la tipografía más gruesa y compacta que usaba la app antes de adaptarla a Apple Music.</string>
+    <string name="font_legacy_subtitle">SF Pro Display · Tall medium weights</string>
     <string name="bit_perfect_output">Salida bit-perfect</string>
     <string name="bit_perfect_bypassed_footer">La salida bit-perfect está lista, por lo que se omiten los ajustes atenuados y no se solicitan versiones Dolby Atmos. Vuelven a funcionar al desconectar el DAC o desactivar el modo.</string>
     <string name="bit_perfect_sheet_warning">Envía la pista al DAC sin cambios. Se omiten el ecualizador, la normalización de volumen, el fundido cruzado, la mezcla automática, la velocidad de reproducción y el volumen de BitChord.</string>
@@ -1429,4 +1433,8 @@
     <string name="bit_perfect_status_inexact">%1$s · no exacto: esta fuente no es PCM sin pérdida</string>
     <string name="bit_perfect_status_waiting">Esperando una pista sin pérdida en una salida compatible</string>
     <string name="bit_perfect_status_unavailable">No disponible para esta pista (%1$s)</string>
+    <string name="automix_overview">Descripción de Automix</string>
+    <string name="diwali_title">BitChord te desea un feliz Diwali</string>
+    <string name="diwali_subtitle">Que este festival de las luces llene tu hogar de alegría y tus días de música.</string>
+    <string name="diwali_cta">Vamos a celebrar</string>
 </resources>

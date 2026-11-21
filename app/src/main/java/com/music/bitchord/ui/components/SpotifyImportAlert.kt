@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -37,7 +38,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.music.bitchord.R
-import com.music.bitchord.data.model.PlaylistPrivacy
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.spotify.SpotifyImportTrack
 import com.music.bitchord.data.spotify.SpotifyImporter
@@ -62,24 +62,20 @@ private val IMPORT_LANGUAGES = listOf(
  * Paste a Spotify playlist link, match its songs on YouTube Music, keep the result.
  *
  * The same frosted card as the addon editor, rather than a Material dialog.
- * The "who can see it" row exists only for [signedIn]: it is a YouTube Music
- * setting, and a playlist kept on this device has no audience to choose.
- * Songs that matched nothing are listed once the playlist is made, instead of
- * being dropped without a word.
+ * Matched tracks are saved into BitChord's own Personal Playlists, never into
+ * the signed-in YouTube Music account. Unmatched tracks are reported at the end.
  */
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 fun SpotifyImportAlert(
     hazeState: HazeState,
-    signedIn: Boolean,
-    /** Called once the songs are matched; [privacy] is meaningful only when signed in. */
-    onImported: (title: String, privacy: PlaylistPrivacy, songs: List<Song>) -> Unit,
+    /** Called once the songs are matched for a new BitChord Personal Playlist. */
+    onImported: (title: String, songs: List<Song>, artworkUrl: String?) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var link by remember { mutableStateOf("") }
-    var privacy by remember { mutableStateOf(PlaylistPrivacy.PRIVATE) }
     var selectedLanguage by remember { mutableStateOf("No Preference") }
     var customLanguageInput by remember { mutableStateOf("") }
     var working by remember { mutableStateOf(false) }
@@ -104,12 +100,12 @@ fun SpotifyImportAlert(
         status = context.getString(R.string.spotify_import_fetching)
         scope.launch {
             try {
-                val (name, tracks) = SpotifyImporter.fetchPlaylistTracks(id)
+                val (name, artworkUrl, tracks) = SpotifyImporter.fetchPlaylistTracks(id)
                 val (songs, missed) = SpotifyImporter.resolveToSongs(tracks, effectiveLanguage) { done, total ->
                     status = context.getString(R.string.spotify_import_matching, done, total)
                 }
                 if (songs.isEmpty()) error(context.getString(R.string.spotify_import_none))
-                onImported(name, privacy, songs)
+                onImported(name, songs, artworkUrl)
                 if (missed.isEmpty()) onDismiss() else unmatched = missed
             } catch (e: CancellationException) {
                 throw e
@@ -165,10 +161,7 @@ fun SpotifyImportAlert(
                 }
             } else {
                 Text(
-                    text = status ?: stringResource(
-                        if (signedIn) R.string.spotify_import_description
-                        else R.string.spotify_import_description_local,
-                    ),
+                    text = status ?: stringResource(R.string.spotify_import_description_local),
                     modifier = Modifier.padding(top = 4.dp, bottom = 14.dp),
                     style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 17.sp),
                     color = when {
@@ -239,43 +232,6 @@ fun SpotifyImportAlert(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Done),
                     )
                 }
-                if (signedIn) {
-                    Text(
-                        text = stringResource(R.string.who_can_see_it),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 14.dp, bottom = 6.dp),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        PlaylistPrivacy.entries.forEach { option ->
-                            val selected = option == privacy
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(percent = 50))
-                                    .background(
-                                        if (selected) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.surfaceVariant,
-                                    )
-                                    .clickable(enabled = !working) { privacy = option }
-                                    .padding(vertical = 7.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(
-                                    text = option.label,
-                                    style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp),
-                                    color = if (selected) MaterialTheme.colorScheme.onPrimary
-                                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                    }
-                }
             }
         }
         AlertRule()
@@ -298,3 +254,72 @@ fun SpotifyImportAlert(
         }
     }
 }
+
+/**
+ * YouTube Music counterpart to the Spotify import surface: paste a playlist
+ * link and copy its tracks into BitChord's independent personal collection.
+ */
+@OptIn(ExperimentalHazeMaterialsApi::class)
+@Composable
+fun YouTubeMusicImportAlert(
+    hazeState: HazeState,
+    loading: Boolean,
+    onImport: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var link by remember { mutableStateOf("") }
+    AlertScaffold(hazeState = hazeState, onDismiss = { if (!loading) onDismiss() }) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 520.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 19.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = "Import YouTube Music",
+                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 17.sp, fontWeight = FontWeight.W600),
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                text = "Paste a YouTube Music playlist link. Its songs will be copied into BitChord Personal Playlists without changing your YouTube Music library.",
+                modifier = Modifier.padding(top = 4.dp, bottom = 14.dp),
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 17.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+            PillTextField(
+                value = link,
+                onValueChange = { link = it },
+                placeholder = "Paste YouTube Music playlist link",
+                enabled = !loading,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { if (link.isNotBlank() && !loading) onImport(link.trim()) }),
+            )
+            if (loading) {
+                Spacer(Modifier.height(12.dp))
+                androidx.compose.material3.CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    strokeWidth = 2.dp,
+                )
+            }
+        }
+        AlertRule()
+        AlertAction(
+            label = "Import",
+            emphasised = true,
+            onClick = { onImport(link.trim()) },
+            enabled = link.isNotBlank() && !loading,
+        )
+        AlertRule()
+        AlertAction(
+            label = stringResource(R.string.cancel),
+            emphasised = false,
+            onClick = onDismiss,
+            enabled = !loading,
+        )
+    }
+}
+

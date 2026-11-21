@@ -199,6 +199,7 @@ object OfflinePlaylists {
         localDateAddedSeconds = localDateAddedSeconds,
         localDateModifiedSeconds = localDateModifiedSeconds,
         trackNumber = trackNumber,
+        isExplicit = isExplicit,
     )
 
     private fun load(): List<OfflinePlaylist> {
@@ -251,6 +252,7 @@ object OfflinePlaylists {
         localDateAddedSeconds?.let { put("added", it) }
         localDateModifiedSeconds?.let { put("modified", it) }
         trackNumber?.let { put("track", it) }
+        put("isExplicit", isExplicit ?: JSONObject.NULL)
     }
 
     private fun songFrom(obj: JSONObject): Song? {
@@ -270,6 +272,11 @@ object OfflinePlaylists {
             localDateAddedSeconds = if (obj.has("added")) obj.getLong("added") else null,
             localDateModifiedSeconds = if (obj.has("modified")) obj.getLong("modified") else null,
             trackNumber = if (obj.has("track")) obj.getInt("track") else null,
+            isExplicit = if (obj.has("isExplicit") && !obj.isNull("isExplicit")) {
+                obj.optBoolean("isExplicit")
+            } else {
+                null
+            },
         )
     }
 }

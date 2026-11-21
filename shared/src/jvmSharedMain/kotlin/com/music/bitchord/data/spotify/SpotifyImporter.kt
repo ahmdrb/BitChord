@@ -77,7 +77,7 @@ object SpotifyImporter {
     /**
      * Fetches public Spotify playlist details from Spotify's embed endpoint.
      */
-    suspend fun fetchPlaylistTracks(playlistId: String): Pair<String, List<SpotifyImportTrack>> =
+    suspend fun fetchPlaylistTracks(playlistId: String): Triple<String, String?, List<SpotifyImportTrack>> =
         withContext(Dispatchers.IO) {
             val url = "https://open.spotify.com/embed/playlist/$playlistId"
             val request = Request.Builder()
@@ -112,6 +112,21 @@ object SpotifyImporter {
             val playlistTitle = stateData["name"]?.jsonPrimitive?.content
                 ?: stateData["title"]?.jsonPrimitive?.content
                 ?: "Imported Spotify Playlist"
+
+            val playlistArtwork = sequenceOf(
+                runCatching {
+                    stateData["coverArt"]?.jsonObject?.get("sources")?.jsonArray
+                        ?.firstOrNull()?.jsonObject?.get("url")?.jsonPrimitive?.content
+                }.getOrNull(),
+                runCatching {
+                    stateData["images"]?.jsonArray
+                        ?.firstOrNull()?.jsonObject?.get("url")?.jsonPrimitive?.content
+                }.getOrNull(),
+                runCatching {
+                    stateData["visualIdentity"]?.jsonObject?.get("image")?.jsonArray
+                        ?.firstOrNull()?.jsonObject?.get("url")?.jsonPrimitive?.content
+                }.getOrNull(),
+            ).firstOrNull { !it.isNullOrBlank() }
 
             val trackListJson = stateData["trackList"]?.jsonArray
                 ?: stateData["tracks"]?.jsonArray
@@ -152,7 +167,7 @@ object SpotifyImporter {
                 }
             }
 
-            Pair(playlistTitle, tracks)
+            Triple(playlistTitle, playlistArtwork, tracks)
         }
 
     /**

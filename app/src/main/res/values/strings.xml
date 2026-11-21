@@ -1,5 +1,10 @@
 <resources>
     <string name="app_name">BitChord</string>
+    <string name="hide_lyrics_romanization_button">Hide lyrics romanization button</string>
+    <string name="hide_lyrics_translation_button">Hide lyrics translation button</string>
+    <string name="hide_lyrics_source_credit">Hide lyrics provider picker</string>
+    <string name="keep_playback_screen_on">Keep playback screen on</string>
+    <string name="keep_playback_screen_on_subtitle">Prevent the display from sleeping while the full player is open.</string>
     <string name="playback_channel_name">Now playing</string>
     <string name="download_channel_name">Downloads</string>
     <string name="download_channel_description">Songs being saved to your Music folder</string>
@@ -209,6 +214,9 @@
     <string name="spatial_audio_subtitle">Widens stereo tracks for a more immersive feel</string>
     <string name="spatial_audio_atmos_subtitle">Paused for this track — Dolby Atmos is already spatial</string>
     <string name="animated_cover_cellular">Play animated cover over cellular</string>
+    <string name="animated_cover_cellular_subtitle" translatable="false">Each clip is downloaded once and cached; later loops use the cached copy.</string>
+    <string name="pause_search_history" translatable="false">Pause search history</string>
+    <string name="pause_search_history_subtitle" translatable="false">Stop saving new YouTube and Addons searches. Existing history stays available.</string>
     <string name="replay">Replay</string>
     <string name="replay_subtitle">Your top songs, artists, albums and genres</string>
     <string name="work_out_genres">Work out genres</string>
@@ -367,10 +375,10 @@
     <string name="theme">Theme</string>
     <string name="font">Font</string>
     <string name="font_default">Default</string>
-    <string name="font_legacy">Legacy</string>
+    <string name="font_legacy">Classic</string>
     <string name="font_default_subtitle">SF Pro Display · Apple Music weights</string>
-    <string name="font_legacy_subtitle">SF Pro Display · Original heavy weights</string>
-    <string name="font_footer">Legacy brings back the heavier, tighter type the app used before it was matched to Apple Music.</string>
+    <string name="font_legacy_subtitle">SF Pro Display · Tall medium weights</string>
+    
     <string name="reduce_animation">Reduce animation</string>
     <string name="reduce_animation_subtitle">Freezes the main player\'s gradient instead of drifting</string>
     <string name="reduce_dynamic_blur">Reduce dynamic blur</string>
@@ -1248,7 +1256,7 @@
     <string name="import_spotify_subtitle">From a playlist link</string>
     <string name="spotify_import_title">Import Spotify playlist</string>
     <string name="spotify_import_description">Paste a public playlist link. Songs are matched on YouTube Music.</string>
-    <string name="spotify_import_description_local">Paste a public playlist link. Songs are matched on YouTube Music and saved on this device.</string>
+    <string name="spotify_import_description_local">Paste a public playlist link. Matched songs are added to a BitChord Personal Playlist.</string>
     <string name="spotify_import_hint">open.spotify.com/playlist/…</string>
     <string name="spotify_import_invalid">That isn\'t a Spotify playlist link.</string>
     <string name="spotify_import_fetching">Reading the Spotify playlist…</string>

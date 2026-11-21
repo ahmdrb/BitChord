@@ -47,6 +47,7 @@ object SearchHistory {
     val addonRecent: StateFlow<List<String>> = _addonRecent.asStateFlow()
 
     fun recordAddonQuery(query: String) {
+        if (AppSettings.pauseSearchHistory.value) return
         val text = query.trim()
         if (text.isEmpty()) return
         saveAddon((listOf(text) + _addonRecent.value.filterNot { it.equals(text, ignoreCase = true) }).take(MAX_ENTRIES))
@@ -89,6 +90,7 @@ object SearchHistory {
      * Matching is by id so re-tapping an existing entity updates its timestamp.
      */
     fun record(entity: SearchHistoryEntity) {
+        if (AppSettings.pauseSearchHistory.value) return
         val deduped = _recent.value.filterNot { it.id.equals(entity.id, ignoreCase = true) }
         save((listOf(entity) + deduped).take(MAX_ENTRIES))
     }
