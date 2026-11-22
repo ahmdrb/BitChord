@@ -2751,6 +2751,12 @@ private fun BitChordApp(
             },
             onNext = { controller?.seekToNextMediaItem() },
             onPrevious = { controller?.seekToPrevious() },
+            previousRestarts = {
+                controller?.let {
+                    it.currentPosition > it.maxSeekToPreviousPosition || !it.hasPreviousMediaItem()
+                } ?: true
+            },
+            currentPlaybackSong = { controller?.currentMediaItem?.toSong() },
             onBlockedControl = showHostOnlyNotice,
             onSeekFraction = { fraction ->
                 controller?.let { player ->
@@ -2797,6 +2803,8 @@ private fun BitChordApp(
             queueIndex = player.queueIndex,
             hasPrevious = player.hasPrevious,
             hasNext = player.hasNext,
+            previousSong = player.previousSong.takeIf { player.hasPrevious },
+            nextSong = player.nextSong.takeIf { player.hasNext },
             repeatMode = player.repeatMode,
             shuffleEnabled = shuffleEnabled,
             autoplayEnabled = autoplayEnabled,
