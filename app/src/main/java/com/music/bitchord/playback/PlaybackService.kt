@@ -3500,7 +3500,7 @@ class PlaybackService : MediaLibraryService() {
         val exoPlayer = player ?: return
         crossfade?.cancelAutoMixVisual()
         exoPlayer.setMediaItems(result.mediaItems, result.startIndex, result.startPositionMs)
-        QueueShuffle.resetPlaybackOrder(exoPlayer)
+        QueueShuffle.startNewQueuePlaybackOrder(exoPlayer)
         saveBoundedContextSnapshot(exoPlayer)
         exoPlayer.prepare()
         exoPlayer.play()
@@ -9314,7 +9314,7 @@ class PlaybackService : MediaLibraryService() {
             if (locked()) return
             onAutoMixInterruptingIntent()
             super.setMediaItems(mediaItems, resetPosition)
-            (wrappedPlayer as? ExoPlayer)?.let(QueueShuffle::resetPlaybackOrder)
+            (wrappedPlayer as? ExoPlayer)?.let(QueueShuffle::startNewQueuePlaybackOrder)
         }
 
         override fun setMediaItems(
@@ -9325,7 +9325,7 @@ class PlaybackService : MediaLibraryService() {
             if (locked()) return
             onAutoMixInterruptingIntent()
             super.setMediaItems(mediaItems, startIndex, startPositionMs)
-            (wrappedPlayer as? ExoPlayer)?.let(QueueShuffle::resetPlaybackOrder)
+            (wrappedPlayer as? ExoPlayer)?.let(QueueShuffle::startNewQueuePlaybackOrder)
         }
 
         // Every other way the running order can change from outside: Play next,
