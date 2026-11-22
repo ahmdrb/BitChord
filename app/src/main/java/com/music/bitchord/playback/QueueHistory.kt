@@ -53,6 +53,9 @@ internal fun Player.removeQueueIndices(indices: List<Int>) {
  * not collection pages, and keep their existing AutoPlay behaviour.
  */
 internal fun shouldLoadAutoplayForSong(song: Song): Boolean {
+    // playRadio builds a one-off queue deliberately intended to continue as a
+    // station, even when the seed came from an artist's Videos shelf.
+    if (song.radioName != null) return true
     if (song.playbackSourceType != PlaybackSourceType.BROWSE) return true
     val sourceId = song.playbackSourceId ?: return false
     return sourceId.startsWith("local:") || sourceId.startsWith("addons:")
