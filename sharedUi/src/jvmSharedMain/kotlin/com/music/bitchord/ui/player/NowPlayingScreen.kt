@@ -933,6 +933,7 @@ fun NowPlayingScreen(
     val openListenTogetherMembers: () -> Unit = { showListenTogetherMembers = true }
 
     val syncedLyricsEnabled by PlayerSettings.syncedLyrics.collectAsStateWithLifecycle()
+    val hideLyricsPreview by PlayerSettings.hideLyricsPreview.collectAsStateWithLifecycle()
     val hideLyricsRomanizationButton by PlayerSettings.hideLyricsRomanizationButton.collectAsStateWithLifecycle()
     val hideLyricsTranslationButton by PlayerSettings.hideLyricsTranslationButton.collectAsStateWithLifecycle()
     val hideLyricsSourceCredit by PlayerSettings.hideLyricsSourceCredit.collectAsStateWithLifecycle()
@@ -2332,7 +2333,7 @@ fun NowPlayingScreen(
                                     overlayOpen = { overlayOpen.value },
                                 )
                             },
-                            lyricStrip = if (syncedLyricsEnabled) {
+                            lyricStrip = if (syncedLyricsEnabled && !hideLyricsPreview) {
                                 {
                                     CurrentLyricStrip(
                                         lines = lyricsTranslation.displayedLyrics,
@@ -4258,7 +4259,7 @@ fun NowPlayingScreen(
                             .height(lyricSlotHeight),
                         contentAlignment = Alignment.CenterStart,
                     ) {
-                    if (!lyricsOpen && syncedLyricsEnabled) {
+                    if (!lyricsOpen && syncedLyricsEnabled && !hideLyricsPreview) {
                         CurrentLyricStrip(
                             lines = lyricsTranslation.displayedLyrics,
                             trackKey = song.videoId,

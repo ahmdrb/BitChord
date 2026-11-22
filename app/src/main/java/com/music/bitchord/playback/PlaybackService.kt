@@ -3444,6 +3444,7 @@ class PlaybackService : MediaLibraryService() {
             if (window.currentCanonicalIndex != anchor) window.jumpTo(anchor)
         }
         if (edit.desiredShuffle != null) {
+            QueueShuffle.applyBoundedUserQueueShuffle(exoPlayer, edit.desiredShuffle)
             window.setShuffle(edit.desiredShuffle, shuffleSeed = Random.nextLong())
             QueueShuffle.setEnabled(edit.desiredShuffle)
             AppSettings.setShuffleEnabled(edit.desiredShuffle)
@@ -3494,6 +3495,7 @@ class PlaybackService : MediaLibraryService() {
         val exoPlayer = player ?: return
         crossfade?.cancelAutoMixVisual()
         exoPlayer.setMediaItems(result.mediaItems, result.startIndex, result.startPositionMs)
+        if (QueueShuffle.enabled.value) QueueShuffle.applyBoundedUserQueueShuffle(exoPlayer, enabled = true)
         saveBoundedContextSnapshot(exoPlayer)
         exoPlayer.prepare()
         exoPlayer.play()

@@ -531,6 +531,14 @@ internal fun BestPartPill(
     // Remembered per track: having been heard is what puts the button away.
     var heard by remember(song.videoId) { mutableStateOf(false) }
     val at = start
+    var timedOut by remember(song.videoId) { mutableStateOf(false) }
+    LaunchedEffect(song.videoId, at) {
+        timedOut = false
+        if (at != null) {
+            delay(BEST_PART_VISIBLE_MS)
+            timedOut = true
+        }
+    }
     // Read through derivedStateOf, so the pill recomposes as the playhead
     // crosses the best part, not on every tick of it.
     val ahead by remember(at, position) {
@@ -552,7 +560,7 @@ internal fun BestPartPill(
     val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val autoMixHold = rememberAutoMixFrostHold()
     AnimatedVisibility(
-        visible = at != null && ahead && !heard && !mixing,
+        visible = at != null && ahead && !heard && !timedOut && !mixing,
         // A fade either way. The room it takes opens and closes around the
         // fade, so the stats over it glide instead of jumping.
         enter = expandVertically(tween(BEST_PART_FADE_MS)) +
@@ -564,12 +572,11 @@ internal fun BestPartPill(
         val shape = CircleShape
         val label = stringResource(Res.string.best_part)
         val description = stringResource(Res.string.best_part_description)
-        val chrome = LocalPlayerChrome.current
         Box(
             modifier = Modifier
                 .padding(top = 8.dp)
                 .clip(shape)
-                .glassFrost(hazeState, flat = reduceDynamicBlur || overlayOpen() || autoMixHold())
+                .bestPartGlassFrost(hazeState, flat = reduceDynamicBlur || overlayOpen() || autoMixHold())
                 .clickable(role = Role.Button) {
                     val target = at ?: return@clickable
                     haptics.play(Haptic.Tap)
@@ -578,14 +585,8 @@ internal fun BestPartPill(
                 }
                 .semantics { contentDescription = description },
         ) {
-            // The star and ⋯ discs' own fill over the frost, so the three
-            // read as one material, then the rim over both.
-            Box(
-                Modifier
-                    .matchParentSize()
-                    .vibrantChrome(chrome)
-                    .background(discFill(chrome)),
-            )
+            // The pill is glass in its own right; unlike the circular controls
+            // it has no extra disc fill laid over the translucent frost.
             Box(Modifier.matchParentSize().glassRim(shape))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -618,11 +619,24 @@ private const val HEARD_WINDOW_MS = 20_000L
 
 private const val BEST_PART_FADE_MS = 280
 
+/** Keep the Best Part cue brief; the listener can still reach the same point manually. */
+private const val BEST_PART_VISIBLE_MS = 3_000L
+
 /** Thinner than the menu's slab, so the glass reads as glass over the artwork. */
 private const val GLASS_SLAB_ALPHA = 0.38f
 
 /** The slab alone, with no blur under it, thick enough to hold the glyph on any cover. */
 private const val GLASS_FLAT_ALPHA = 0.72f
+
+/** Best Part stays translucent even when live blur is unavailable or suspended. */
+private const val BEST_PART_GLASS_ALPHA = 0.38f
+
+private fun Modifier.bestPartGlassFrost(hazeState: HazeState?, flat: Boolean): Modifier =
+    if (flat || hazeState == null) {
+        background(MenuFrostDark.copy(alpha = BEST_PART_GLASS_ALPHA))
+    } else {
+        liveMenuFrost(hazeState, MenuFrostDark, alpha = BEST_PART_GLASS_ALPHA)
+    }
 
 /**
  * Previous, play/pause, next.
@@ -916,10 +930,10 @@ internal fun PlayerActionRow(
 }
 
 /** How much more of the ink [CircleGlyph]'s disc takes than its plain white — 0.45 at rest, 0.85 lit. */
-private const val CIRCLE_DISC_DODGE_GAIN = 2.5f
+private const val CIRCLE_DISC_DODGE_GAIN = 1.5f
 
 /** The star and ⋯ discs' fill at rest. */
-private const val CIRCLE_DISC_ALPHA = 0.18f
+private const val CIRCLE_DISC_ALPHA = 0.10f
 
 /**
  * The lyrics, output and queue glyphs, and the volume bar's speakers, dodged
@@ -1016,7 +1030,7 @@ internal fun CircleGlyph(
 ) {
     val haptics = rememberHaptics()
     val discAlpha by animateFloatAsState(
-        targetValue = if (active) 0.34f else CIRCLE_DISC_ALPHA,
+        targetValue = if (active) 0.22f else CIRCLE_DISC_ALPHA,
         label = "glyphDisc",
     )
     val chrome = LocalPlayerChrome.current

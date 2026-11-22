@@ -25,9 +25,9 @@ import java.util.UUID
  * The player's own shuffle mode is deliberately never enabled — it would
  * randomise on top of the order set here.
  *
- * User-queued tracks (USER_QUEUE) are NEVER shuffled: they reflect deliberate user
- * intent and remain pinned at the front. Context tracks (CONTEXT) and AutoPlay tracks
- * (AUTOPLAY) are shuffled among themselves.
+ * The three upcoming sections keep their priority — USER_QUEUE, CONTEXT, then
+ * AUTOPLAY — but each section is shuffled internally. Manual queue entries stay
+ * ahead of collection tracks without forcing their old order.
  *
  * The rearranging is applied in-place to the player's queue via [Player.replaceMediaItems]
  * so that currently playing playback is completely uninterrupted.
@@ -40,7 +40,11 @@ object QueueShuffle {
     val enabled: StateFlow<Boolean> = _enabled.asStateFlow()
     fun setEnabled(enabled: Boolean) {
         _enabled.value = enabled
+        if (!enabled) boundedUserQueueOriginal = emptyList()
     }
+
+    /** Original order for the USER_QUEUE block when the bounded QueueWindow owns CONTEXT. */
+    @Volatile private var boundedUserQueueOriginal: List<String> = emptyList()
 
     /** Entry IDs in their pre-shuffle order. Empty while shuffle is off. */
     @Volatile private var original: List<String> = emptyList()
@@ -160,6 +164,39 @@ object QueueShuffle {
         return false
     }
 
+    /**
+     * Shuffle only the physical USER_QUEUE block while a bounded QueueWindow
+     * owns the CONTEXT order. The selected next item is left alone when a
+     * crossfade or track ending makes it imminent.
+     */
+    internal fun applyBoundedUserQueueShuffle(player: Player, enabled: Boolean) {
+        val items = player.queueItems()
+        val current = player.currentMediaItemIndex
+        val start = current + 1
+        if (start !in items.indices || items[start].queueTier != QueueTier.USER_QUEUE) {
+            if (!enabled) boundedUserQueueOriginal = emptyList()
+            return
+        }
+        var end = start
+        while (end < items.size && items[end].queueTier == QueueTier.USER_QUEUE) end++
+        val section = items.subList(start, end)
+        val keys = section.map { it.key() }
+        if (enabled) {
+            if (boundedUserQueueOriginal.isEmpty() || boundedUserQueueOriginal.none { it in keys }) {
+                boundedUserQueueOriginal = keys
+            }
+            val protectedCount = if (isNextItemImminent(player)) 1 else 0
+            val fixed = section.take(protectedCount)
+            val movable = section.drop(protectedCount)
+            val shuffled = shuffledSection(movable.indices.toList()).map(movable::get)
+            replaceChanged(player, start, end, fixed + shuffled)
+        } else {
+            val restored = restoreOrder(keys, boundedUserQueueOriginal).map(section::get)
+            replaceChanged(player, start, end, restored)
+            boundedUserQueueOriginal = emptyList()
+        }
+    }
+
     fun toggle(player: Player) {
         val c = ctx
         if (c != null && !isCanonicalContextValid(player, c)) {
@@ -175,6 +212,7 @@ object QueueShuffle {
      */
     fun enableForNextQueue() {
         original = emptyList()
+        boundedUserQueueOriginal = emptyList()
         clearCanonicalContext()
         _enabled.value = true
         AppSettings.setShuffleEnabled(true)
@@ -187,6 +225,7 @@ object QueueShuffle {
      */
     fun disableForNextQueue() {
         original = emptyList()
+        boundedUserQueueOriginal = emptyList()
         clearCanonicalContext()
         _enabled.value = false
         AppSettings.setShuffleEnabled(false)
@@ -206,15 +245,18 @@ object QueueShuffle {
                 withQueueMetadata(s.toMediaItem(), newEntryId = entryId, newCanonicalIndex = idx)
             })
         }
+        boundedUserQueueOriginal = emptyList()
         val rest = songs.filterIndexed { i, _ -> i != startIndex }
         val userQueue = rest.filter { it.queueTier == QueueTier.USER_QUEUE }
+        val shuffledUserQueue = shuffledSection(userQueue.indices.toList()).map(userQueue::get)
         val context = rest.filter { it.queueTier == QueueTier.CONTEXT }
         val shuffledContext = if (context.size > 1) {
             val s = context.shuffled()
             if (s == context) s.drop(1) + s.first() else s
         } else context
-        val autoplay = rest.filter { it.queueTier == QueueTier.AUTOPLAY }.shuffled()
-        return listOf(songs[startIndex]) + userQueue + shuffledContext + autoplay
+        val autoplay = rest.filter { it.queueTier == QueueTier.AUTOPLAY }
+        val shuffledAutoplay = shuffledSection(autoplay.indices.toList()).map(autoplay::get)
+        return listOf(songs[startIndex]) + shuffledUserQueue + shuffledContext + shuffledAutoplay
     }
 
     /**
@@ -222,10 +264,9 @@ object QueueShuffle {
      *
      * Invariants:
      * - The currently playing occurrence and preceding history occurrences remain untouched.
-     * - Only unconsumed upcoming context tracks are shuffled among themselves.
+     * - Each upcoming tier is shuffled internally: USER_QUEUE, CONTEXT, then AUTOPLAY.
      * - History tracks are NEVER reintroduced into upcoming, preventing phantom duplicates in the context queue.
-     * - USER_QUEUE tracks are never shuffled and stay pinned at the front.
-     * - AUTOPLAY tracks sit at the tail.
+     * - Tier priority remains intact, so manual queue tracks stay ahead of collection tracks and AutoPlay.
      * - If the next item is imminent (within 5s or crossfade arming/fading), cur + 1 is preserved in place
      *   and shuffle applies from cur + 2 onward.
      */
@@ -259,13 +300,11 @@ object QueueShuffle {
         val contextIndices = upcoming.indices.filter { upcoming[it].queueTier == QueueTier.CONTEXT }
         val autoplayIndices = upcoming.indices.filter { upcoming[it].queueTier == QueueTier.AUTOPLAY }
 
-        val shuffledContext = if (contextIndices.size > 1) {
-            avoidIdentityShuffle(contextIndices, contextIndices.shuffled())
-        } else {
-            contextIndices
-        }
+        val shuffledUserQueue = shuffledSection(userQueueIndices)
+        val shuffledContext = shuffledSection(contextIndices)
+        val shuffledAutoplay = shuffledSection(autoplayIndices)
 
-        val order = userQueueIndices + shuffledContext + autoplayIndices
+        val order = shuffledUserQueue + shuffledContext + shuffledAutoplay
         val ok = reorder(player, from, order.toIntArray())
         if (ok) {
             _enabled.value = true
@@ -381,7 +420,7 @@ object QueueShuffle {
                 reorder(player, from, order.toIntArray())
             }
             original = emptyList()
-            _enabled.value = false
+            setEnabled(false)
             AppSettings.setShuffleEnabled(false)
             return
         }
@@ -427,11 +466,16 @@ object QueueShuffle {
         // Played manual user queue tracks in history (before current track)
         val historyUserQueue = items.filterIndexed { idx, it -> idx < currentIndex && it.queueTier == QueueTier.USER_QUEUE }
 
-        // Unplayed manual user queue tracks remain pinned immediately behind current track
-        val userQueue = items.drop(currentIndex + 1).filter { it.queueTier == QueueTier.USER_QUEUE }
-
-        // AutoPlay tracks remain at the tail
-        val autoplay = items.drop(currentIndex + 1).filter { it.queueTier == QueueTier.AUTOPLAY }
+        // Restore each non-canonical section to its pre-shuffle order. Tracks
+        // added while shuffle was on are retained at the end of their section.
+        val userQueue = restoreSectionOrder(
+            items.drop(currentIndex + 1).filter { it.queueTier == QueueTier.USER_QUEUE },
+            original,
+        )
+        val autoplay = restoreSectionOrder(
+            items.drop(currentIndex + 1).filter { it.queueTier == QueueTier.AUTOPLAY },
+            original,
+        )
 
         val cur = player.currentMediaItemIndex
 
@@ -461,7 +505,7 @@ object QueueShuffle {
         }
 
         original = emptyList()
-        _enabled.value = false
+        setEnabled(false)
         AppSettings.setShuffleEnabled(false)
     }
 
@@ -506,6 +550,15 @@ object QueueShuffle {
         }
         for (index in upcoming.indices) if (!placed[index]) out += index
         return out
+    }
+
+    /** Rebuild one non-canonical section in its original order, leaving newly added entries last. */
+    private fun restoreSectionOrder(section: List<MediaItem>, original: List<String>): List<MediaItem> {
+        if (section.size < 2) return section
+        val keys = section.map { it.key() }
+        val available = keys.toHashSet()
+        val originalSection = original.filter { it in available }
+        return restoreOrder(keys, originalSection).map(section::get)
     }
 
     /** [order] with sections strictly maintained: USER_QUEUE -> CONTEXT -> AUTOPLAY. */
