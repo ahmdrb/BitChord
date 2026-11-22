@@ -3873,7 +3873,14 @@ class PlaybackService : MediaLibraryService() {
         // Playlist, album and artist contexts end with their own tracks. Do not
         // append Similar Music behind them; one-off Home/Search stations and the
         // app-wide Local Music / Addons lists retain their existing behaviour.
-        if (!shouldLoadAutoplayForSong(current)) return
+        // Cancel and release any request left over from the track we just left.
+        if (!shouldLoadAutoplayForSong(current)) {
+            autoplayLoadJob?.cancel()
+            autoplayLoadJob = null
+            autoplaySeed = null
+            if (!party.inParty) dropAutoplayTracksFromQueue()
+            return
+        }
         if (AppSettings.dontRepeatSuggestions.value) sessionSongHistory += current
         // In a party the server's queue is the one being topped up, and this
         // player's copy of it lags behind by however long reconcile is held off
@@ -3896,9 +3903,11 @@ class PlaybackService : MediaLibraryService() {
             while (isActive) {
                 val activePlayer = player ?: return@launch
                 val activeParty = ListenTogether.state.value
+                val activeSong = activePlayer.currentMediaItem?.toSong() ?: return@launch
                 if (!autoplayEnabled(activeParty) ||
                     activePlayer.repeatMode == Player.REPEAT_MODE_ALL ||
-                    activePlayer.currentMediaItem?.mediaId != current.videoId ||
+                    activeSong.videoId != current.videoId ||
+                    !shouldLoadAutoplayForSong(activeSong) ||
                     (activeParty.inParty && autoplaySupplierId(activeParty) != activeParty.you?.memberId)
                 ) {
                     return@launch
@@ -3928,9 +3937,11 @@ class PlaybackService : MediaLibraryService() {
                 }
                 val latestPlayer = player ?: return@launch
                 val latestParty = ListenTogether.state.value
+                val latestSong = latestPlayer.currentMediaItem?.toSong() ?: return@launch
                 if (!autoplayEnabled(latestParty) ||
                     latestPlayer.repeatMode == Player.REPEAT_MODE_ALL ||
-                    latestPlayer.currentMediaItem?.mediaId != current.videoId ||
+                    latestSong.videoId != current.videoId ||
+                    !shouldLoadAutoplayForSong(latestSong) ||
                     (latestParty.inParty && autoplaySupplierId(latestParty) != latestParty.you?.memberId)
                 ) {
                     return@launch
