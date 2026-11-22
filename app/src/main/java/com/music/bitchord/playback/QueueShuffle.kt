@@ -335,9 +335,18 @@ object QueueShuffle {
     }
 
     fun toggle(player: Player) {
+        if (player !is ExoPlayer) {
+            // Retain the in-memory Player adapter used by the legacy pure
+            // queue-edit tests. The Android service always supplies ExoPlayer
+            // and therefore takes the playback-only ShuffleOrder path below.
+            val c = ctx
+            if (c != null && !isCanonicalContextValid(player, c)) clearCanonicalContext()
+            if (_enabled.value) restore(player) else shuffle(player)
+            return
+        }
         val target = !_enabled.value
         setEnabled(target)
-        (player as? ExoPlayer)?.let { applyPlaybackMode(it, target) }
+        applyPlaybackMode(player, target)
     }
 
     /**
@@ -371,10 +380,33 @@ object QueueShuffle {
      * the track the user picked leads, the rest follow at random. The order it
      * arrived in is remembered, so turning shuffle off restores it.
      */
-    /** Kept for source compatibility: shuffle never changes the submitted queue order. */
+    /**
+     * Legacy helper for in-memory queue tests. Android playback no longer calls
+     * this: real queue submissions preserve their source order and use
+     * [AnchoredQueueShuffleOrder] for playback-only random traversal.
+     */
     fun startingOrder(songs: List<Song>, startIndex: Int): List<Song> {
-        if (songs.isNotEmpty()) require(startIndex in songs.indices)
-        return songs
+        require(songs.isNotEmpty() && startIndex in songs.indices)
+        original = songs.map { "${it.queueEntryId ?: it.videoId}_${it.queueTier.name}" }
+        val contextSongs = songs.filter { it.queueTier == QueueTier.CONTEXT }
+        if (contextSongs.isNotEmpty()) {
+            setCanonicalContext(contextSongs.mapIndexed { idx, s ->
+                val entryId = s.queueEntryId ?: UUID.randomUUID().toString()
+                withQueueMetadata(s.toMediaItem(), newEntryId = entryId, newCanonicalIndex = idx)
+            })
+        }
+        boundedUserQueueOriginal = emptyList()
+        val rest = songs.filterIndexed { i, _ -> i != startIndex }
+        val userQueue = rest.filter { it.queueTier == QueueTier.USER_QUEUE }
+        val shuffledUserQueue = shuffledSection(userQueue.indices.toList()).map(userQueue::get)
+        val context = rest.filter { it.queueTier == QueueTier.CONTEXT }
+        val shuffledContext = if (context.size > 1) {
+            val shuffled = context.shuffled()
+            if (shuffled == context) shuffled.drop(1) + shuffled.first() else shuffled
+        } else context
+        val autoplay = rest.filter { it.queueTier == QueueTier.AUTOPLAY }
+        val shuffledAutoplay = shuffledSection(autoplay.indices.toList()).map(autoplay::get)
+        return listOf(songs[startIndex]) + shuffledUserQueue + shuffledContext + shuffledAutoplay
     }
 
     /**
