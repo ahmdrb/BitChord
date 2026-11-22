@@ -102,6 +102,11 @@ class QueueHistoryTest {
         assertTrue(shouldLoadAutoplayForSong(song(PlaybackSourceType.BROWSE, "local:all")))
         assertTrue(shouldLoadAutoplayForSong(song(PlaybackSourceType.BROWSE, "addons:search")))
         assertTrue(shouldLoadAutoplayForSong(song(PlaybackSourceType.SEARCH)))
+        assertTrue(
+            shouldLoadAutoplayForSong(
+                song(PlaybackSourceType.BROWSE, "artist-browse").copy(radioName = "Seed track"),
+            ),
+        )
     }
 
     @Test
