@@ -1254,6 +1254,7 @@ private fun BitChordApp(
         }
     }
     val shuffleEnabled by QueueShuffle.enabled.collectAsStateWithLifecycle()
+    val queueHistoryEntryIds by QueueShuffle.historyEntryIds.collectAsStateWithLifecycle()
     // For the version switch's "there is no other version" notice.
     val versionContext = LocalContext.current
     // Tracks whose other cut a switch looked for and didn't find: their menu
@@ -2807,6 +2808,7 @@ private fun BitChordApp(
             nextSong = player.nextSong.takeIf { player.hasNext },
             repeatMode = player.repeatMode,
             shuffleEnabled = shuffleEnabled,
+            queueHistoryEntryIds = queueHistoryEntryIds,
             autoplayEnabled = autoplayEnabled,
             signedIn = signedIn,
             likeStatus = likeStatusOf(song),
