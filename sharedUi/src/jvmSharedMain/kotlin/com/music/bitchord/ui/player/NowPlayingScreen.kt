@@ -88,6 +88,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.snapshotFlow
@@ -789,6 +790,9 @@ fun NowPlayingScreen(
     queueIndex: Int,
     hasPrevious: Boolean,
     hasNext: Boolean,
+    /** Actual traversal neighbours: unlike queue order, these respect shuffle. */
+    previousSong: Song?,
+    nextSong: Song?,
     repeatMode: Int,
     shuffleEnabled: Boolean,
     autoplayEnabled: Boolean,
@@ -799,6 +803,10 @@ fun NowPlayingScreen(
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
+    /** Whether Previous restarts the current track rather than changing tracks. */
+    previousRestarts: () -> Boolean,
+    /** Read from the live controller when a swipe is committed. */
+    currentPlaybackSong: () -> Song?,
     /**
      * A control the host has taken away was reached for anyway.
      *
@@ -1294,6 +1302,10 @@ fun NowPlayingScreen(
     // Horizontal fling anywhere on the player skips tracks; the artwork
     // follows the finger so the gesture has something to hold on to.
     val swipeThreshold = with(density) { 72.dp.toPx() }
+    val infoScope = rememberCoroutineScope()
+    val infoTransition = remember(infoScope) { SongInfoTransition(infoScope) }
+    SideEffect { infoTransition.observe(song) }
+    DisposableEffect(infoTransition) { onDispose { infoTransition.clear() } }
     // Where the finger has dragged the sleeve to, and the sleeve springing
     // after it. What animateFloatAsState does inside — a conflated channel of
     // targets, each chased from the current velocity — but fed straight from
@@ -1633,41 +1645,68 @@ fun NowPlayingScreen(
         }
     }
 
+    // Horizontal fling previews the actual traversal neighbour in the title and
+    // artist while the artwork follows the same gesture. Use PlayerConnection's
+    // neighbours, not queue[index +/- 1], so shuffle previews the song Next plays.
+    val startInfoDrag by rememberUpdatedState {
+        infoTransition.beginDrag(
+            song = song,
+            next = nextSong.takeIf { hasNext && !controlsLocked },
+            previous = previousSong.takeIf { hasPrevious && !controlsLocked && !previousRestarts() },
+        )
+    }
+    val releaseInfoDrag by rememberUpdatedState { total: Float ->
+        val crossed = total <= -swipeThreshold || total >= swipeThreshold
+        when {
+            controlsLocked -> {
+                infoTransition.cancelDrag()
+                if (crossed) onBlockedControl()
+            }
+            total <= -swipeThreshold -> {
+                haptics.play(Haptic.SkipNext)
+                infoTransition.finishDrag(
+                    next = true, currentSong = currentPlaybackSong, canSlide = { true }, action = onNext,
+                )
+            }
+            total >= swipeThreshold -> {
+                haptics.play(Haptic.SkipPrevious)
+                infoTransition.finishDrag(
+                    next = false, currentSong = currentPlaybackSong,
+                    canSlide = { !previousRestarts() }, action = onPrevious,
+                )
+            }
+            else -> infoTransition.cancelDrag()
+        }
+    }
     // Horizontal fling skips tracks. The portrait player hangs it on the whole
     // screen, the landscape one on the sleeve alone — the right column there is
     // full of horizontal sliders and a lyric list that should not be one stray
     // sideways drag away from changing the song.
-    val skipSwipeGesture = Modifier.pointerInput(showAudioPipeline, showCast, panelScrolling, controlsLocked) {
-        if (showAudioPipeline || showCast || panelScrolling) return@pointerInput
+    val skipSwipeGesture = Modifier.pointerInput(showAudioPipeline, showCast, panelScrolling, controlsLocked, queueOpen) {
+        if (showAudioPipeline || showCast || panelScrolling || queueOpen) return@pointerInput
         var total = 0f
+        var acceptsDrag = false
         detectHorizontalDragGestures(
-            onDragStart = { total = 0f },
-            onDragCancel = { setSwipeOffset(0f) },
+            onDragStart = {
+                total = 0f
+                acceptsDrag = startInfoDrag()
+            },
+            onDragCancel = {
+                if (!acceptsDrag) return@detectHorizontalDragGestures
+                setSwipeOffset(0f)
+                infoTransition.cancelDrag()
+            },
             onDragEnd = {
-                // The same two buzzes the transport glyphs give, so swiping the
-                // sleeve and tapping skip feel like one gesture with two
-                // spellings.
-                val crossed = total <= -swipeThreshold || total >= swipeThreshold
-                when {
-                    // Still tracks the finger and still springs back, so the
-                    // sleeve does not feel dead — it just says why it did not
-                    // move on.
-                    controlsLocked -> if (crossed) onBlockedControl()
-                    total <= -swipeThreshold -> {
-                        haptics.play(Haptic.SkipNext)
-                        onNext()
-                    }
-                    total >= swipeThreshold -> {
-                        haptics.play(Haptic.SkipPrevious)
-                        onPrevious()
-                    }
-                }
+                if (!acceptsDrag) return@detectHorizontalDragGestures
+                releaseInfoDrag(total)
                 setSwipeOffset(0f)
             },
             onHorizontalDrag = { _, delta ->
+                if (!acceptsDrag) return@detectHorizontalDragGestures
                 total += delta
-                // Damped: it's a hint, not a drag-to-position.
+                // Damped: it is a hint, not a drag-to-position.
                 setSwipeOffset(total * 0.35f)
+                infoTransition.dragBy(total)
             },
         )
     }
@@ -3877,56 +3916,40 @@ fun NowPlayingScreen(
                                 // on a list, and a label that crawls pulls the eye off
                                 // whatever is being read below it.
                                 //
-                                // Asked inside the crossfade's own content, so the
-                                // switch recomposes the two lines and not the box
-                                // round the whole sleeve — and asked of the panels
-                                // first, so a collapse a tap asked for stops the crawl
-                                // with the tap, instead of a frame into the movement.
+                                // The scroll switch lives inside the sliding text block,
+                                // so an open queue or lyrics panel stops the marquee without
+                                // moving/recomposing the rest of the sleeve.
                                 val scrolls = {
                                     !(lyricsOpen || queueOpen || queueDragging) && !collapsePastSettling
                                 }
-                                // Targeted on the words rather than the videoId: two
-                                // cuts that share a title cross-fade into the exact
-                                // same text, which is nothing at all and leaves the
-                                // marquee where it was; a cut that renames the song
-                                // ("… (Live)") dissolves into the new one instead of
-                                // snapping while the rest of the switch moves around
-                                // it.
-                                Crossfade(
-                                    targetState = song.title to song.artist,
-                                    // Round the fade and the marquee's edge masks, whose
-                                    // layers would otherwise hide the backdrop from it. The
-                                    // title is in it too and stays white: see [additiveChrome].
+                                SlidingSongInfo(
+                                    song = song,
+                                    transition = infoTransition,
                                     modifier = Modifier.additiveChrome(LocalPlayerChrome.current),
-                                    animationSpec = tween(durationMillis = 300),
-                                    label = "playerCredits",
-                                ) {
+                                ) { infoSong ->
+                                    val info = infoSong
                                     val scrolling = scrolls()
                                     val artistColor = chromeWhite(0.55f)
                                     Column {
                                         MarqueeText(
-                                            text = song.title,
+                                            text = info.title,
                                             style = MaterialTheme.typography.titleLarge.copy(
                                                 fontSize = 20.sp,
                                             ),
                                             color = Color.White,
                                             enabled = scrolling,
-                                            // Before the title, in the artist line's
-                                            // colour.
-                                            leading = if (song.isExplicit == true) {
+                                            leading = if (info.isExplicit == true) {
                                                 { ExplicitBadge(color = artistColor) }
                                             } else {
                                                 null
                                             },
                                             onOverflowChange = { titleOverflowing = it },
-                                            // Only the tracks YouTube hands us a browse id for
-                                            // lead anywhere; the rest stay plain text.
-                                            modifier = Modifier.opensPage(song.albumId, onOpenAlbum),
+                                            modifier = Modifier.opensPage(info.albumId, onOpenAlbum),
                                         )
                                         ArtistCreditsMarquee(
-                                            text = song.artist,
-                                            credits = remember(song.artist, song.artists, song.artistId) {
-                                                artistCredits(song.artist, song.artists, song.artistId)
+                                            text = info.artist,
+                                            credits = remember(info.artist, info.artists, info.artistId) {
+                                                artistCredits(info.artist, info.artists, info.artistId)
                                             },
                                             style = MaterialTheme.typography.titleLarge.copy(
                                                 fontWeight = FontWeight.W500,
@@ -3934,9 +3957,6 @@ fun NowPlayingScreen(
                                             ),
                                             color = artistColor,
                                             enabled = scrolling,
-                                            // A title that's also scrolling gets to go first —
-                                            // starting together reads as clutter, so the artist
-                                            // waits a beat before it joins in.
                                             startDelayMillis = if (titleOverflowing) MARQUEE_ARTIST_STAGGER_MS else 0L,
                                             onOpenArtist = onOpenArtist,
                                         )
