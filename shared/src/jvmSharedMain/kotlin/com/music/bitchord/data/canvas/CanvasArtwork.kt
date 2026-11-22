@@ -63,6 +63,17 @@ data class CanvasArtwork(
 
         return titleOk && artistOk && albumOk
     }
+
+    /**
+     * Whether a provider result identifies the requested track well enough to
+     * stop the repository's fallback search. [matches] deliberately tolerates
+     * absent metadata for carried artwork, but an unknown title or artist is
+     * not proof that a search result belongs to this track.
+     */
+    fun matchesIdentifiedTrack(wantTitle: String, wantArtist: String, wantAlbum: String?): Boolean {
+        if (title.isNullOrBlank() || artist.isNullOrBlank()) return false
+        return matches(wantTitle, wantArtist, wantAlbum)
+    }
 }
 
 /**

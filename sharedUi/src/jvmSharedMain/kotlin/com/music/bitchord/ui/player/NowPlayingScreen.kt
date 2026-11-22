@@ -1545,6 +1545,14 @@ fun NowPlayingScreen(
         spotifyCanvasControlsOpen = false
     }
 
+    // Turning auto-hide off means the deck should come back immediately if
+    // the previous five-second countdown has already collapsed it.
+    LaunchedEffect(spotifyCanvasPresentation, spotifyCanvasAutoHide) {
+        if (spotifyCanvasPresentation && !spotifyCanvasAutoHide) {
+            spotifyCanvasControlsOpen = true
+        }
+    }
+
     // Returning from a subview, or regaining the TextureView after backgrounding,
     // is a fresh visit, so show the deck again before any optional countdown.
     LaunchedEffect(spotifyCanvasPresentation, lyricsOpen, queueOpen) {
