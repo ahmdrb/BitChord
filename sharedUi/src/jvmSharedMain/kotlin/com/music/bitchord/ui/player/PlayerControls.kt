@@ -571,6 +571,7 @@ internal fun BestPartPill(
         val shape = CircleShape
         val label = stringResource(Res.string.best_part)
         val description = stringResource(Res.string.best_part_description)
+        val chrome = LocalPlayerChrome.current
         Box(
             modifier = Modifier
                 .padding(top = 8.dp)
@@ -584,13 +585,13 @@ internal fun BestPartPill(
                 }
                 .semantics { contentDescription = description },
         ) {
-            // A low-opacity glass veil keeps the artwork visible underneath.
-            // Do not run the surface through ColorDodge: that can turn the
-            // translucent fill into a bright, nearly opaque patch.
+            // Blend the subtle material into the artwork itself, as the
+            // original release does, instead of laying a white film over it.
             Box(
                 Modifier
                     .matchParentSize()
-                    .background(discFill()),
+                    .vibrantChrome(chrome)
+                    .background(discFill(chrome)),
             )
             Box(Modifier.matchParentSize().glassRim(shape))
             Row(
@@ -634,13 +635,13 @@ private const val BEST_PART_FADE_MS = 280
 private const val BEST_PART_VISIBLE_MS = 3_000L
 
 /** A lighter slab than the menu: enough contrast for white glyphs, with the artwork visible. */
-private const val GLASS_SLAB_ALPHA = 0.12f
+private const val GLASS_SLAB_ALPHA = 0.10f
 
 /** Keep the same translucent look when live blur is unavailable or reduced. */
-private const val GLASS_FLAT_ALPHA = 0.10f
+private const val GLASS_FLAT_ALPHA = 0.12f
 
-/** The neutral, low-opacity tint used when the live blur cannot be drawn. */
-private val GlassFrostTint = Color.White.copy(alpha = GLASS_FLAT_ALPHA)
+/** A neutral frost tint, deliberately neither charcoal nor pure white. */
+private val GlassFrostTint = Color(0xFF8C9298).copy(alpha = GLASS_FLAT_ALPHA)
 
 /**
  * Previous, play/pause, next.
@@ -933,8 +934,9 @@ internal fun PlayerActionRow(
     }
 }
 
-/** A light, low-opacity glass tint for the star, menu and expand discs. */
-private const val CIRCLE_DISC_ALPHA = 0.09f
+/** Subtle base tint for the blended star, menu and expand glass discs. */
+private const val CIRCLE_DISC_DODGE_GAIN = 2.2f
+private const val CIRCLE_DISC_ALPHA = 0.10f
 
 /**
  * The lyrics, output and queue glyphs, and the volume bar's speakers, dodged
@@ -959,12 +961,15 @@ private val BrightChromeInk = Color(0xFFAAAAAA)
 private const val SCRUBBER_LABELS_DODGED = true
 
 /**
- * The star, ⋯, expand and unexpand discs' fill. Keep it as a simple
- * low-opacity white glass tint so the artwork remains visible through it;
- * avoid the colour-dodge blend, which can make it look opaque or blown out.
+ * The star, ⋯, expand and unexpand discs' fill. Blend a restrained neutral
+ * tint into the cover so its own colours remain visible through the control.
  */
-private fun discFill(alpha: Float = CIRCLE_DISC_ALPHA): Color =
-    Color.White.copy(alpha = alpha)
+private fun discFill(chrome: Boolean, alpha: Float = CIRCLE_DISC_ALPHA): Color =
+    if (chrome) {
+        VibrantChromeInk.copy(alpha = (alpha * CIRCLE_DISC_DODGE_GAIN).coerceAtMost(1f))
+    } else {
+        Color(0xFF8C9298).copy(alpha = alpha)
+    }
 
 /** The volume bar's two speakers, drawn as the bottom row's glyphs are. */
 @Composable
@@ -1039,9 +1044,10 @@ internal fun CircleGlyph(
 ) {
     val haptics = rememberHaptics()
     val discAlpha by animateFloatAsState(
-        targetValue = if (active) 0.15f else CIRCLE_DISC_ALPHA,
+        targetValue = if (active) 0.17f else CIRCLE_DISC_ALPHA,
         label = "glyphDisc",
     )
+    val chrome = LocalPlayerChrome.current
     Box(
         modifier = modifier
             .size(34.dp)
@@ -1055,12 +1061,13 @@ internal fun CircleGlyph(
             },
         contentAlignment = Alignment.Center,
     ) {
-        // Keep the cover visible through the button instead of blending it
-        // into a solid-looking dark or over-bright disc.
+        // Blend the restrained tint with the artwork, rather than laying a
+        // white or charcoal circle on top of it.
         Box(
             Modifier
                 .matchParentSize()
-                .background(discFill(discAlpha)),
+                .vibrantChrome(chrome)
+                .background(discFill(chrome, discAlpha)),
         )
         // Outside the blend: the rim is light catching the edge, not ink.
         Box(Modifier.matchParentSize().glassRim(CircleShape))
