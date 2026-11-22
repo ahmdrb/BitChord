@@ -202,10 +202,33 @@ object QueueShuffle {
     private fun newShuffleState(player: ExoPlayer): QueueShuffleOrderState {
         val count = player.mediaItemCount
         val current = player.currentMediaItemIndex.takeIf { it in 0 until count } ?: C.INDEX_UNSET
-        val past = if (current == C.INDEX_UNSET) emptyList() else (0..current).toList()
-        val upcomingStart = if (current == C.INDEX_UNSET) 0 else current + 1
-        val upcoming = (upcomingStart until count).toList().shuffled()
-        return QueueShuffleOrderState((past + upcoming).toIntArray(), current)
+        // A newly enabled shuffle cycle draws from the whole current queue,
+        // not just rows after the current index. The selected occurrence stays
+        // first; every other occurrence is visited once in random order.
+        val remaining = (0 until count).filter { it != current }.shuffled()
+        return QueueShuffleOrderState(fullQueueTraversalOrder(count, current, remaining), current)
+    }
+
+    /**
+     * Build a playback permutation without changing the player's media-item
+     * list. The current item is anchored first and the supplied random tail
+     * must contain every other queue index exactly once.
+     */
+    internal fun fullQueueTraversalOrder(
+        itemCount: Int,
+        currentIndex: Int,
+        randomizedRemaining: List<Int>,
+    ): IntArray {
+        require(itemCount >= 0)
+        val current = currentIndex.takeIf { it in 0 until itemCount } ?: C.INDEX_UNSET
+        val eligible = (0 until itemCount).filter { it != current }
+        require(
+            randomizedRemaining.size == eligible.size &&
+                randomizedRemaining.toSet() == eligible.toSet(),
+        ) { "Shuffle traversal must include every queued index exactly once" }
+        val ordered = if (current == C.INDEX_UNSET) randomizedRemaining
+        else listOf(current) + randomizedRemaining
+        return ordered.toIntArray()
     }
 
     /** Original order for the USER_QUEUE block when the bounded QueueWindow owns CONTEXT. */
