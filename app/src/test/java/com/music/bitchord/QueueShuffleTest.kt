@@ -4,6 +4,7 @@ import androidx.media3.common.C
 import com.music.bitchord.playback.AnchoredQueueShuffleOrder
 import com.music.bitchord.playback.QueueShuffle
 import com.music.bitchord.playback.queueStartIndex
+import com.music.bitchord.playback.shuffleHistoryIndices
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
@@ -48,6 +49,28 @@ class QueueShuffleTest {
         assertEquals(0, order.getPreviousIndex(3))
         assertEquals(4, traversal.distinct().size)
         assertEquals(setOf(0, 1, 2, 3), traversal.toSet())
+    }
+
+    @Test
+    fun `played history follows the shuffled traversal rather than earlier timeline indices`() {
+        val order = intArrayOf(4, 2, 0, 3, 1)
+
+        // Timeline index 3 is current, but indices 4, 2 and 0 were traversed
+        // first. Physical rows 1 and 2 are not inferred to be history.
+        assertEquals(listOf(4, 2, 0), shuffleHistoryIndices(order, currentIndex = 3))
+        assertEquals(emptyList<Int>(), shuffleHistoryIndices(order, currentIndex = 4))
+    }
+
+    @Test
+    fun `advancing the shuffle anchor keeps the existing next-item order`() {
+        val original = intArrayOf(4, 2, 0, 3, 1)
+        val order = AnchoredQueueShuffleOrder(original, anchorIndex = 4)
+
+        assertEquals(2, order.getNextIndex(4))
+        order.advanceAnchor(2)
+
+        assertEquals(0, order.getNextIndex(2))
+        assertEquals(listOf(4), shuffleHistoryIndices(original, currentIndex = 2))
     }
 
     @Test
