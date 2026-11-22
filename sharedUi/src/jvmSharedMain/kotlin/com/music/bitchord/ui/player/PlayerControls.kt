@@ -572,7 +572,6 @@ internal fun BestPartPill(
         val shape = CircleShape
         val label = stringResource(Res.string.best_part)
         val description = stringResource(Res.string.best_part_description)
-        val chrome = LocalPlayerChrome.current
         Box(
             modifier = Modifier
                 .padding(top = 8.dp)
@@ -586,13 +585,13 @@ internal fun BestPartPill(
                 }
                 .semantics { contentDescription = description },
         ) {
-            // Match the original release: frost beneath a very light blended
-            // disc tint, with the glass rim drawn above both layers.
+            // A low-opacity glass veil keeps the artwork visible underneath.
+            // Do not run the surface through ColorDodge: that can turn the
+            // translucent fill into a bright, nearly opaque patch.
             Box(
                 Modifier
                     .matchParentSize()
-                    .vibrantChrome(chrome)
-                    .background(discFill(chrome)),
+                    .background(discFill()),
             )
             Box(Modifier.matchParentSize().glassRim(shape))
             Row(
@@ -608,7 +607,13 @@ internal fun BestPartPill(
                 Spacer(Modifier.width(6.dp))
                 Text(
                     text = label,
-                    style = MaterialTheme.typography.labelLarge,
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        shadow = Shadow(
+                            color = Color.Black.copy(alpha = 0.42f),
+                            offset = Offset(0f, 1f),
+                            blurRadius = 3f,
+                        ),
+                    ),
                     fontWeight = FontWeight.W700,
                     color = Color.White,
                     maxLines = 1,
@@ -630,10 +635,13 @@ private const val BEST_PART_FADE_MS = 280
 private const val BEST_PART_VISIBLE_MS = 3_000L
 
 /** A lighter slab than the menu: enough contrast for white glyphs, with the artwork visible. */
-private const val GLASS_SLAB_ALPHA = 0.24f
+private const val GLASS_SLAB_ALPHA = 0.12f
 
 /** Keep the same translucent look when live blur is unavailable or reduced. */
-private const val GLASS_FLAT_ALPHA = 0.46f
+private const val GLASS_FLAT_ALPHA = 0.10f
+
+/** The neutral, low-opacity tint used when the live blur cannot be drawn. */
+private val GlassFrostTint = Color.White.copy(alpha = GLASS_FLAT_ALPHA)
 
 /**
  * Previous, play/pause, next.
@@ -926,11 +934,8 @@ internal fun PlayerActionRow(
     }
 }
 
-/** How much more of the ink [CircleGlyph]'s disc takes than its plain white. */
-private const val CIRCLE_DISC_DODGE_GAIN = 2.5f
-
-/** The original release's subtle translucent disc fill. */
-private const val CIRCLE_DISC_ALPHA = 0.18f
+/** A light, low-opacity glass tint for the star, menu and expand discs. */
+private const val CIRCLE_DISC_ALPHA = 0.09f
 
 /**
  * The lyrics, output and queue glyphs, and the volume bar's speakers, dodged
@@ -955,16 +960,12 @@ private val BrightChromeInk = Color(0xFFAAAAAA)
 private const val SCRUBBER_LABELS_DODGED = true
 
 /**
- * The star, ⋯, expand and unexpand discs' fill. Under the blended chrome,
- * use a restrained grey ink so the image still shows through without turning
- * the controls into dark charcoal or pale white badges.
+ * The star, ⋯, expand and unexpand discs' fill. Keep it as a simple
+ * low-opacity white glass tint so the artwork remains visible through it;
+ * avoid the colour-dodge blend, which can make it look opaque or blown out.
  */
-private fun discFill(chrome: Boolean, alpha: Float = CIRCLE_DISC_ALPHA): Color =
-    if (chrome) {
-        VibrantChromeInk.copy(alpha = (alpha * CIRCLE_DISC_DODGE_GAIN).coerceAtMost(1f))
-    } else {
-        Color.White.copy(alpha = alpha)
-    }
+private fun discFill(alpha: Float = CIRCLE_DISC_ALPHA): Color =
+    Color.White.copy(alpha = alpha)
 
 /** The volume bar's two speakers, drawn as the bottom row's glyphs are. */
 @Composable
@@ -1039,10 +1040,9 @@ internal fun CircleGlyph(
 ) {
     val haptics = rememberHaptics()
     val discAlpha by animateFloatAsState(
-        targetValue = if (active) 0.34f else CIRCLE_DISC_ALPHA,
+        targetValue = if (active) 0.15f else CIRCLE_DISC_ALPHA,
         label = "glyphDisc",
     )
-    val chrome = LocalPlayerChrome.current
     Box(
         modifier = modifier
             .size(34.dp)
@@ -1056,12 +1056,12 @@ internal fun CircleGlyph(
             },
         contentAlignment = Alignment.Center,
     ) {
-        // The same subtly blended translucent material as the original release.
+        // Keep the cover visible through the button instead of blending it
+        // into a solid-looking dark or over-bright disc.
         Box(
             Modifier
                 .matchParentSize()
-                .vibrantChrome(chrome)
-                .background(discFill(chrome, discAlpha)),
+                .background(discFill(discAlpha)),
         )
         // Outside the blend: the rim is light catching the edge, not ink.
         Box(Modifier.matchParentSize().glassRim(CircleShape))
@@ -1091,16 +1091,16 @@ internal fun rememberAutoMixFrostHold(): () -> Boolean {
 }
 
 /**
- * Glass's body: the ⋯ menu's frost, blurring the player live under a thin
- * charcoal slab. [flat] (dynamic blur reduced, or a drawer or the ⋯ menu up
- * over it, which blur the player live themselves) and a missing [hazeState]
- * draw the slab alone, thicker, and blur nothing.
+ * Glass's body: a lightly tinted, translucent blur of the artwork beneath it.
+ * [flat] (dynamic blur reduced, or a drawer or the ⋯ menu up over it) and a
+ * missing [hazeState] keep the same nearly-clear material instead of replacing
+ * it with an opaque charcoal slab.
  */
 internal fun Modifier.glassFrost(hazeState: HazeState?, flat: Boolean): Modifier =
     if (flat || hazeState == null) {
-        background(MenuFrostDark.copy(alpha = GLASS_FLAT_ALPHA))
+        background(GlassFrostTint)
     } else {
-        liveMenuFrost(hazeState, MenuFrostDark, alpha = GLASS_SLAB_ALPHA)
+        liveMenuFrost(hazeState, GlassFrostTint, alpha = GLASS_SLAB_ALPHA)
     }
 
 /**
@@ -1149,8 +1149,8 @@ private val DiscPairShape = GenericShape { size, _ ->
 internal fun Modifier.glassRim(shape: Shape): Modifier = border(
     width = 1.dp,
     brush = Brush.verticalGradient(
-        0f to Color.White.copy(alpha = 0.42f),
-        1f to Color.White.copy(alpha = 0.14f),
+        0f to Color.White.copy(alpha = 0.28f),
+        1f to Color.White.copy(alpha = 0.10f),
     ),
     shape = shape,
 )
