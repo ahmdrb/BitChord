@@ -153,7 +153,6 @@ import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
-import com.music.bitchord.ui.components.ExplicitBadge
 import com.music.bitchord.ui.components.VideoThumbnails
 import com.music.bitchord.ui.components.menuAnchor
 import com.music.bitchord.ui.theme.HideStatusBar
@@ -1757,7 +1756,7 @@ fun NowPlayingScreen(
                     Text(
                         text = song.title,
                         style = if (landscapeLyricsArtworkExpanded) {
-                            MaterialTheme.typography.headlineSmall
+                            MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
                         } else {
                             MaterialTheme.typography.titleLarge
                         },
@@ -1766,10 +1765,6 @@ fun NowPlayingScreen(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false),
                     )
-                    if (song.isExplicit == true) {
-                        Spacer(Modifier.width(6.dp))
-                        ExplicitBadge(color = Color.White, modifier = Modifier.size(15.dp))
-                    }
                 }
                 Text(
                     text = song.artist,
@@ -3967,11 +3962,6 @@ fun NowPlayingScreen(
                                             ),
                                             color = Color.White,
                                             enabled = scrolling,
-                                            leading = if (info.isExplicit == true) {
-                                                { ExplicitBadge(color = artistColor) }
-                                            } else {
-                                                null
-                                            },
                                             onOverflowChange = { titleOverflowing = it },
                                             modifier = Modifier.opensPage(info.albumId, onOpenAlbum),
                                         )
