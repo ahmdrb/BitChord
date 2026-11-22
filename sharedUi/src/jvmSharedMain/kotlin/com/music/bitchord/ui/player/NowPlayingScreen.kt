@@ -1785,34 +1785,34 @@ fun NowPlayingScreen(
                 if (!landscapeLyricsArtworkExpanded) {
                     Spacer(Modifier.height(6.dp))
                     PlayerScrubber(
-                    shown = shown,
-                    durationMs = durationMs,
-                    loading = versionAligning || audioVersionSwitching,
-                    mixing = mixing && !scrub.scrubbing,
-                    transitionWindow = transitionWindow
-                        ?.takeIf { !scrub.scrubbing && it.end > it.start }
-                        ?.let { it.start..it.end },
-                    onScrub = onScrub,
-                    onScrubFinished = onScrubFinished,
-                ) {
-                    PlaybackQualityLabel(
-                        song = song,
-                        isLoading = isLoading,
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .padding(horizontal = 8.dp),
-                    )
-                }
-                Spacer(Modifier.height(4.dp))
-                TransportRow(
-                    isPlaying = isPlaying,
-                    isLoading = isLoading || audioVersionSwitching,
-                    previousEnabled = !controlsLocked && (hasPrevious || pastRestartPoint),
-                    nextEnabled = !controlsLocked && hasNext,
-                    onPrevious = onPrevious,
-                    onPlayPause = onPlayPause,
-                    onNext = onNext,
-                    compact = true,
+                        shown = shown,
+                        durationMs = durationMs,
+                        loading = versionAligning || audioVersionSwitching,
+                        mixing = mixing && !scrub.scrubbing,
+                        transitionWindow = transitionWindow
+                            ?.takeIf { !scrub.scrubbing && it.end > it.start }
+                            ?.let { it.start..it.end },
+                        onScrub = onScrub,
+                        onScrubFinished = onScrubFinished,
+                    ) {
+                        PlaybackQualityLabel(
+                            song = song,
+                            isLoading = isLoading,
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .padding(horizontal = 8.dp),
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    TransportRow(
+                        isPlaying = isPlaying,
+                        isLoading = isLoading || audioVersionSwitching,
+                        previousEnabled = !controlsLocked && (hasPrevious || pastRestartPoint),
+                        nextEnabled = !controlsLocked && hasNext,
+                        onPrevious = onPrevious,
+                        onPlayPause = onPlayPause,
+                        onNext = onNext,
+                        compact = true,
                         extraCompact = true,
                     )
                 }
