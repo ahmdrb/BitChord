@@ -1,8 +1,11 @@
 package com.music.bitchord.playback
 
 import android.os.Bundle
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.ShuffleOrder
 import com.music.bitchord.data.model.QueueTier
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
@@ -10,37 +13,171 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.UUID
+import java.util.WeakHashMap
 
 /**
- * Shuffle as an edit to the queue, not a playback mode.
+ * Shuffle changes playback traversal, never the queue's displayed order.
  *
- * ExoPlayer's own `shuffleModeEnabled` leaves the queue exactly as it is and
- * draws the next track from a hidden random order, so the queue panel shows
- * one running order while the player follows another — the user sees the album
- * listed in order and hears it jumping about. Toggling shuffle here rearranges
- * the queue itself and leaves playback strictly sequential: what the queue
- * shows is what plays, in that order.
- *
- * The order the queue was in beforehand is kept so the toggle can be undone.
- * The player's own shuffle mode is deliberately never enabled — it would
- * randomise on top of the order set here.
- *
- * The three upcoming sections keep their priority — USER_QUEUE, CONTEXT, then
- * AUTOPLAY — but each section is shuffled internally. Manual queue entries stay
- * ahead of collection tracks without forcing their old order.
- *
- * The rearranging is applied in-place to the player's queue via [Player.replaceMediaItems]
- * so that currently playing playback is completely uninterrupted.
+ * The player's timeline stays in the order the listener arranged it. An anchored
+ * [ShuffleOrder] supplies a random next/previous path over those same timeline
+ * entries, preserving the current track and keeping newly inserted queue items
+ * in the unplayed portion of the path.
  */
+internal class QueueShuffleOrderState(
+    var indices: IntArray,
+    var anchorIndex: Int,
+)
+
+internal class AnchoredQueueShuffleOrder(
+    private val state: QueueShuffleOrderState,
+) : ShuffleOrder {
+    internal constructor(indices: IntArray, anchorIndex: Int) :
+        this(QueueShuffleOrderState(indices.copyOf(), anchorIndex))
+
+    internal fun advanceAnchor(index: Int) {
+        state.anchorIndex = index
+    }
+
+    internal fun nextIndex(index: Int): Int {
+        val position = state.indices.indexOf(index)
+        return state.indices.getOrNull(position + 1) ?: C.INDEX_UNSET
+    }
+
+    override fun getLength(): Int = state.indices.size
+
+    override fun getNextIndex(index: Int): Int = nextIndex(index)
+
+    override fun getPreviousIndex(index: Int): Int {
+        val position = state.indices.indexOf(index)
+        return if (position > 0) state.indices[position - 1] else C.INDEX_UNSET
+    }
+
+    override fun getFirstIndex(): Int = state.indices.firstOrNull() ?: C.INDEX_UNSET
+
+    override fun getLastIndex(): Int = state.indices.lastOrNull() ?: C.INDEX_UNSET
+
+    override fun cloneAndInsert(insertionIndex: Int, insertionCount: Int): ShuffleOrder {
+        if (insertionCount <= 0) return AnchoredQueueShuffleOrder(state)
+
+        val oldAnchor = state.anchorIndex
+        val shifted = state.indices.mapTo(mutableListOf()) { index ->
+            if (index >= insertionIndex) index + insertionCount else index
+        }
+        val newAnchor = if (oldAnchor >= insertionIndex) oldAnchor + insertionCount else oldAnchor
+        val anchorPosition = if (newAnchor == C.INDEX_UNSET) -1 else shifted.indexOf(newAnchor)
+        val insertedBeforeCurrent = oldAnchor != C.INDEX_UNSET && insertionIndex <= oldAnchor
+        val minimum = if (insertedBeforeCurrent) 0 else anchorPosition + 1
+        val maximum = if (insertedBeforeCurrent) anchorPosition else shifted.size
+        val insertionAt = if (minimum <= maximum) {
+            kotlin.random.Random.nextInt(minimum, maximum + 1)
+        } else {
+            shifted.size
+        }
+        shifted.addAll(insertionAt, (insertionIndex until insertionIndex + insertionCount).toList().shuffled())
+
+        state.indices = shifted.toIntArray()
+        state.anchorIndex = newAnchor
+        return AnchoredQueueShuffleOrder(state)
+    }
+
+    override fun cloneAndRemove(indexFrom: Int, indexToExclusive: Int): ShuffleOrder {
+        val from = indexFrom.coerceAtLeast(0)
+        val to = indexToExclusive.coerceAtMost(state.indices.size)
+        if (to <= from) return AnchoredQueueShuffleOrder(state)
+
+        val removed = to - from
+        state.indices = state.indices
+            .filterNot { it in from until to }
+            .map { index -> if (index >= to) index - removed else index }
+            .toIntArray()
+        state.anchorIndex = when {
+            state.anchorIndex < from -> state.anchorIndex
+            state.anchorIndex >= to -> state.anchorIndex - removed
+            else -> C.INDEX_UNSET
+        }
+        return AnchoredQueueShuffleOrder(state)
+    }
+
+    override fun cloneAndClear(): ShuffleOrder {
+        state.indices = intArrayOf()
+        state.anchorIndex = C.INDEX_UNSET
+        return AnchoredQueueShuffleOrder(state)
+    }
+}
+
 object QueueShuffle {
 
     private val _enabled = MutableStateFlow(false)
+    private val shuffleStates = WeakHashMap<ExoPlayer, QueueShuffleOrderState>()
 
-    /** Whether the queue is currently held in shuffled order. */
+    /** Whether playback currently follows a random path through the queue. */
     val enabled: StateFlow<Boolean> = _enabled.asStateFlow()
+
     fun setEnabled(enabled: Boolean) {
         _enabled.value = enabled
         if (!enabled) boundedUserQueueOriginal = emptyList()
+    }
+
+    /** Apply or remove playback-only shuffle without changing any media-item positions. */
+    fun applyPlaybackMode(player: ExoPlayer, enabled: Boolean) {
+        if (!enabled) {
+            player.shuffleModeEnabled = false
+            player.setShuffleOrder(ShuffleOrder.UnshuffledShuffleOrder(player.mediaItemCount))
+            shuffleStates.remove(player)
+            return
+        }
+
+        val state = shuffleStates[player]
+            ?.takeIf { it.indices.size == player.mediaItemCount }
+            ?: newShuffleState(player).also { shuffleStates[player] = it }
+        val current = player.currentMediaItemIndex
+        if (current in 0 until player.mediaItemCount) state.anchorIndex = current
+        player.setShuffleOrder(AnchoredQueueShuffleOrder(state))
+        player.shuffleModeEnabled = true
+    }
+
+    /** Start a fresh random traversal after a newly selected/current queue item. */
+    fun resetPlaybackOrder(player: ExoPlayer) {
+        if (!_enabled.value) {
+            applyPlaybackMode(player, false)
+            return
+        }
+        val state = newShuffleState(player)
+        shuffleStates[player] = state
+        player.setShuffleOrder(AnchoredQueueShuffleOrder(state))
+        player.shuffleModeEnabled = true
+    }
+
+    /**
+     * Retain the current permutation when the expected shuffled item becomes current.
+     * A direct row selection or a newly restored queue starts a fresh path instead.
+     */
+    fun onMediaItemTransition(player: ExoPlayer) {
+        if (!_enabled.value || player.mediaItemCount == 0) return
+        val current = player.currentMediaItemIndex
+        if (current !in 0 until player.mediaItemCount) return
+
+        val state = shuffleStates[player]
+        if (state == null || state.indices.size != player.mediaItemCount) {
+            resetPlaybackOrder(player)
+            return
+        }
+
+        val expected = AnchoredQueueShuffleOrder(state).nextIndex(state.anchorIndex)
+        if (current == expected) {
+            state.anchorIndex = current
+        } else {
+            resetPlaybackOrder(player)
+        }
+    }
+
+    private fun newShuffleState(player: ExoPlayer): QueueShuffleOrderState {
+        val count = player.mediaItemCount
+        val current = player.currentMediaItemIndex.takeIf { it in 0 until count } ?: C.INDEX_UNSET
+        val past = if (current == C.INDEX_UNSET) emptyList() else (0..current).toList()
+        val upcomingStart = if (current == C.INDEX_UNSET) 0 else current + 1
+        val upcoming = (upcomingStart until count).toList().shuffled()
+        return QueueShuffleOrderState((past + upcoming).toIntArray(), current)
     }
 
     /** Original order for the USER_QUEUE block when the bounded QueueWindow owns CONTEXT. */
@@ -198,11 +335,9 @@ object QueueShuffle {
     }
 
     fun toggle(player: Player) {
-        val c = ctx
-        if (c != null && !isCanonicalContextValid(player, c)) {
-            clearCanonicalContext()
-        }
-        if (_enabled.value) restore(player) else shuffle(player)
+        val target = !_enabled.value
+        setEnabled(target)
+        (player as? ExoPlayer)?.let { applyPlaybackMode(it, target) }
     }
 
     /**
@@ -236,27 +371,10 @@ object QueueShuffle {
      * the track the user picked leads, the rest follow at random. The order it
      * arrived in is remembered, so turning shuffle off restores it.
      */
+    /** Kept for source compatibility: shuffle never changes the submitted queue order. */
     fun startingOrder(songs: List<Song>, startIndex: Int): List<Song> {
-        original = songs.map { "${it.queueEntryId ?: it.videoId}_${it.queueTier.name}" }
-        val contextSongs = songs.filter { it.queueTier == QueueTier.CONTEXT }
-        if (contextSongs.isNotEmpty()) {
-            setCanonicalContext(contextSongs.mapIndexed { idx, s ->
-                val entryId = s.queueEntryId ?: UUID.randomUUID().toString()
-                withQueueMetadata(s.toMediaItem(), newEntryId = entryId, newCanonicalIndex = idx)
-            })
-        }
-        boundedUserQueueOriginal = emptyList()
-        val rest = songs.filterIndexed { i, _ -> i != startIndex }
-        val userQueue = rest.filter { it.queueTier == QueueTier.USER_QUEUE }
-        val shuffledUserQueue = shuffledSection(userQueue.indices.toList()).map(userQueue::get)
-        val context = rest.filter { it.queueTier == QueueTier.CONTEXT }
-        val shuffledContext = if (context.size > 1) {
-            val s = context.shuffled()
-            if (s == context) s.drop(1) + s.first() else s
-        } else context
-        val autoplay = rest.filter { it.queueTier == QueueTier.AUTOPLAY }
-        val shuffledAutoplay = shuffledSection(autoplay.indices.toList()).map(autoplay::get)
-        return listOf(songs[startIndex]) + shuffledUserQueue + shuffledContext + shuffledAutoplay
+        if (songs.isNotEmpty()) require(startIndex in songs.indices)
+        return songs
     }
 
     /**
