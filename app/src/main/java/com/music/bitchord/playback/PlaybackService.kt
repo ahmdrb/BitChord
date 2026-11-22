@@ -1947,6 +1947,9 @@ class PlaybackService : MediaLibraryService() {
             if (stashed != null && stashed.songs.isNotEmpty()) {
                 persistedQueueStart = 0
                 exoPlayer.setMediaItems(stashed.songs.map { it.toMediaItem() }, stashed.index, stashed.positionMs)
+                // The service applied settings while the player was still empty. Anchor the
+                // shuffled traversal now that the restored current row and queue exist.
+                QueueShuffle.startNewQueuePlaybackOrder(exoPlayer)
                 true
             } else {
                 restoreLastQueue(exoPlayer)
@@ -3261,6 +3264,9 @@ class PlaybackService : MediaLibraryService() {
             } else {
                 // Never use the session wrapper's indexed seek: that is a semantic jump.
                 raw.setMediaItems(before.items, before.currentIndex, position)
+                // Queue undo restores the raw player directly, outside SessionPlayer's
+                // setMediaItems hook, so rebuild the playback-only order around its current row.
+                QueueShuffle.startNewQueuePlaybackOrder(raw)
                 raw.prepare()
                 raw.playWhenReady = !speakers.active && before.playWhenReady
                 if (speakers.active &&
@@ -7929,6 +7935,9 @@ class PlaybackService : MediaLibraryService() {
         applySpatialAudioEnabled()
         if (items.isNotEmpty()) {
             newActive.setMediaItems(items, index.coerceIn(items.indices), position)
+            // This player was configured before it had a timeline. Re-anchor shuffle
+            // after restoring the queue so Next includes every other restored entry.
+            QueueShuffle.startNewQueuePlaybackOrder(newActive)
             // By hand, because the listener is attached below this: the
             // transition `setMediaItems` fires lands before anything is
             // listening, so the ordinary setup path in [onTrackBecameCurrent]
