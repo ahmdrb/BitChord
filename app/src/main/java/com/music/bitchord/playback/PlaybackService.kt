@@ -3500,7 +3500,7 @@ class PlaybackService : MediaLibraryService() {
         val exoPlayer = player ?: return
         crossfade?.cancelAutoMixVisual()
         exoPlayer.setMediaItems(result.mediaItems, result.startIndex, result.startPositionMs)
-        QueueShuffle.applyPlaybackMode(exoPlayer, QueueShuffle.enabled.value)
+        QueueShuffle.resetPlaybackOrder(exoPlayer)
         saveBoundedContextSnapshot(exoPlayer)
         exoPlayer.prepare()
         exoPlayer.play()
