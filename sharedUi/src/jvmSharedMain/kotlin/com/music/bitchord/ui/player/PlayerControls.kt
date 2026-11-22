@@ -629,11 +629,11 @@ private const val BEST_PART_FADE_MS = 280
 /** Keep the Best Part cue brief; the listener can still reach the same point manually. */
 private const val BEST_PART_VISIBLE_MS = 3_000L
 
-/** Thinner than the menu's slab, so the glass reads as glass over the artwork. */
-private const val GLASS_SLAB_ALPHA = 0.38f
+/** A lighter slab than the menu: enough contrast for white glyphs, with the artwork visible. */
+private const val GLASS_SLAB_ALPHA = 0.24f
 
-/** The slab alone, with no blur under it, thick enough to hold the glyph on any cover. */
-private const val GLASS_FLAT_ALPHA = 0.72f
+/** Keep the same translucent look when live blur is unavailable or reduced. */
+private const val GLASS_FLAT_ALPHA = 0.46f
 
 /**
  * Previous, play/pause, next.
