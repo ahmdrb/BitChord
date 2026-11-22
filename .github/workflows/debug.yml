@@ -19,8 +19,10 @@ jobs:
         echo "LASTFM_SECRET=" >> local.properties
         echo "LISTEN_TOGETHER_SERVER=" >> local.properties
     - run: chmod +x gradlew
-    - run: ./gradlew assembleProdDebug
-    - uses: actions/upload-artifact@v4
+    - name: Build the phone Dev APK
+      run: ./gradlew :app:assembleDevDebug
+    - name: Upload the phone Dev APK
+      uses: actions/upload-artifact@v4
       with:
-        name: bitchord-debug
-        path: app/build/outputs/apk/prod/debug/*.apk
+        name: bitchord-dev-debug
+        path: app/build/outputs/apk/dev/debug/*.apk
