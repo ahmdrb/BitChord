@@ -1774,7 +1774,7 @@ fun NowPlayingScreen(
                 Text(
                     text = song.artist,
                     style = if (landscapeLyricsArtworkExpanded) {
-                        MaterialTheme.typography.titleMedium
+                        MaterialTheme.typography.titleLarge
                     } else {
                         MaterialTheme.typography.bodyLarge
                     },
