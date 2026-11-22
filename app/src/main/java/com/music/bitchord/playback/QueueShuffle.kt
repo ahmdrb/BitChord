@@ -140,7 +140,31 @@ object QueueShuffle {
         player.shuffleModeEnabled = true
     }
 
-    /** Start a fresh random traversal after a newly selected/current queue item. */
+    /**
+     * A newly submitted queue has no playback history yet. Keep its selected
+     * row current, then make every other row in that same queue eligible for
+     * the random traversal — including rows physically before the selection.
+     */
+    fun startNewQueuePlaybackOrder(player: ExoPlayer) {
+        if (!_enabled.value) {
+            applyPlaybackMode(player, false)
+            return
+        }
+        val count = player.mediaItemCount
+        if (count <= 0) {
+            applyPlaybackMode(player, true)
+            return
+        }
+        val current = player.currentMediaItemIndex.takeIf { it in 0 until count } ?: C.INDEX_UNSET
+        val rest = (0 until count).filter { it != current }.shuffled()
+        val indices = if (current == C.INDEX_UNSET) rest else listOf(current) + rest
+        val state = QueueShuffleOrderState(indices.toIntArray(), current)
+        shuffleStates[player] = state
+        player.setShuffleOrder(AnchoredQueueShuffleOrder(state))
+        player.shuffleModeEnabled = true
+    }
+
+    /** Start a fresh random traversal after a restored/selected current row, leaving earlier rows as history. */
     fun resetPlaybackOrder(player: ExoPlayer) {
         if (!_enabled.value) {
             applyPlaybackMode(player, false)
