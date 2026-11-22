@@ -132,7 +132,6 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.expandVertically
 import dev.chrisbanes.haze.HazeState
 import com.music.bitchord.ui.components.liveMenuFrost
-import com.music.bitchord.ui.components.MenuFrostDark
 import com.music.bitchord.playback.PlaybackPosition
 import androidx.compose.ui.semantics.Role
 import androidx.compose.runtime.mutableStateOf
@@ -264,8 +263,7 @@ internal fun PlayerScrubber(
                 .offset(y = -SCRUBBER_LABEL_LIFT),
         ) {
             // Dodged like the bottom row's glyphs — see [SCRUBBER_LABELS_DODGED].
-            val chrome = LocalPlayerChrome.current
-            val dodged = chrome && SCRUBBER_LABELS_DODGED
+                val dodged = chrome && SCRUBBER_LABELS_DODGED
             val timeColor = if (dodged) brightRowInk() else chromeWhite(0.55f)
             Row(
                 modifier = Modifier
@@ -586,14 +584,8 @@ internal fun BestPartPill(
                 }
                 .semantics { contentDescription = description },
         ) {
-            // Blend the subtle material into the artwork itself, as the
-            // original release does, instead of laying a white film over it.
-            Box(
-                Modifier
-                    .matchParentSize()
-                    .vibrantChrome(chrome)
-                    .background(discFill(chrome)),
-            )
+            // A light neutral tint, kept translucent so the artwork remains visible.
+            Box(Modifier.matchParentSize().background(discFill(0.06f)))
             Box(Modifier.matchParentSize().glassRim(shape))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -635,11 +627,13 @@ private const val BEST_PART_FADE_MS = 280
 /** Keep the Best Part cue brief; the listener can still reach the same point manually. */
 private const val BEST_PART_VISIBLE_MS = 3_000L
 
-/** Thinner than the menu's slab, so the glass reads as glass over the artwork. */
-private const val GLASS_SLAB_ALPHA = 0.38f
+/** Low-opacity live frost: never a charcoal slab over the cover. */
+private const val GLASS_SLAB_ALPHA = 0.12f
 
-/** The slab alone, with no blur under it, thick enough to hold the glyph on any cover. */
-private const val GLASS_FLAT_ALPHA = 0.72f
+/** Same see-through material when blur is reduced or unavailable. */
+private const val GLASS_FLAT_ALPHA = 0.12f
+
+private val PlayerGlassTint = Color(0xFF969DA3).copy(alpha = GLASS_FLAT_ALPHA)
 
 /**
  * Previous, play/pause, next.
@@ -932,11 +926,9 @@ internal fun PlayerActionRow(
     }
 }
 
-/** How much more of the ink the star and ⋯ discs take than their plain white. */
-private const val CIRCLE_DISC_DODGE_GAIN = 2.5f
-
-/** The star and ⋯ discs' fill at rest. */
-private const val CIRCLE_DISC_ALPHA = 0.18f
+/** The star, ⋯, expand and unexpand controls use the same subtle glass tint. */
+private const val CIRCLE_DISC_ALPHA = 0.08f
+private const val CIRCLE_DISC_ACTIVE_ALPHA = 0.12f
 
 /**
  * The lyrics, output and queue glyphs, and the volume bar's speakers, dodged
@@ -964,12 +956,8 @@ private const val SCRUBBER_LABELS_DODGED = true
  * The star, ⋯, expand and unexpand discs' fill. Blend a restrained neutral
  * tint into the cover so its own colours remain visible through the control.
  */
-private fun discFill(chrome: Boolean, alpha: Float = CIRCLE_DISC_ALPHA): Color =
-    if (chrome) {
-        VibrantChromeInk.copy(alpha = (alpha * CIRCLE_DISC_DODGE_GAIN).coerceAtMost(1f))
-    } else {
-        Color.White.copy(alpha = alpha)
-    }
+private fun discFill(alpha: Float = CIRCLE_DISC_ALPHA): Color =
+    Color(0xFF92999F).copy(alpha = alpha)
 
 /** The volume bar's two speakers, drawn as the bottom row's glyphs are. */
 @Composable
@@ -1044,10 +1032,9 @@ internal fun CircleGlyph(
 ) {
     val haptics = rememberHaptics()
     val discAlpha by animateFloatAsState(
-        targetValue = if (active) 0.34f else CIRCLE_DISC_ALPHA,
+        targetValue = if (active) CIRCLE_DISC_ACTIVE_ALPHA else CIRCLE_DISC_ALPHA,
         label = "glyphDisc",
     )
-    val chrome = LocalPlayerChrome.current
     Box(
         modifier = modifier
             .size(34.dp)
@@ -1061,14 +1048,9 @@ internal fun CircleGlyph(
             },
         contentAlignment = Alignment.Center,
     ) {
-        // Blend the restrained tint with the artwork, rather than laying a
-        // white or charcoal circle on top of it.
-        Box(
-            Modifier
-                .matchParentSize()
-                .vibrantChrome(chrome)
-                .background(discFill(chrome, discAlpha)),
-        )
+        // Keep the disc as a low-opacity neutral glass tint. Applying the
+        // chrome blend to a whole fill made it appear solid on some GPUs.
+        Box(Modifier.matchParentSize().background(discFill(discAlpha)))
         // Outside the blend: the rim is light catching the edge, not ink.
         Box(Modifier.matchParentSize().glassRim(CircleShape))
         Crossfade(
@@ -1104,9 +1086,9 @@ internal fun rememberAutoMixFrostHold(): () -> Boolean {
  */
 internal fun Modifier.glassFrost(hazeState: HazeState?, flat: Boolean): Modifier =
     if (flat || hazeState == null) {
-        background(MenuFrostDark.copy(alpha = GLASS_FLAT_ALPHA))
+        background(PlayerGlassTint)
     } else {
-        liveMenuFrost(hazeState, MenuFrostDark, alpha = GLASS_SLAB_ALPHA)
+        liveMenuFrost(hazeState, PlayerGlassTint, alpha = GLASS_SLAB_ALPHA)
     }
 
 /**
