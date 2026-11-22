@@ -51,6 +51,31 @@ class QueueShuffleTest {
     }
 
     @Test
+    fun `enabling shuffle mid-queue can visit every queued song without reordering the displayed list`() {
+        val visibleQueue = listOf("one", "two", "three", "four", "five")
+        val traversalIndices = QueueShuffle.fullQueueTraversalOrder(
+            itemCount = visibleQueue.size,
+            currentIndex = 3,
+            randomizedRemaining = listOf(0, 4, 1, 2),
+        )
+        val order = AnchoredQueueShuffleOrder(traversalIndices, anchorIndex = 3)
+
+        val traversal = buildList {
+            var index = 3
+            add(visibleQueue[index])
+            while (true) {
+                index = order.getNextIndex(index)
+                if (index == C.INDEX_UNSET) break
+                add(visibleQueue[index])
+            }
+        }
+
+        assertEquals(listOf("four", "one", "five", "two", "three"), traversal)
+        assertEquals(listOf("one", "two", "three", "four", "five"), visibleQueue)
+        assertEquals(visibleQueue.indices.toSet(), traversalIndices.toSet())
+    }
+
+    @Test
     fun `playback shuffle returns unset for indices outside its queue`() {
         val order = AnchoredQueueShuffleOrder(indices = intArrayOf(0, 2, 1), anchorIndex = 0)
 
