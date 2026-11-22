@@ -1769,7 +1769,7 @@ fun NowPlayingScreen(
                 Text(
                     text = song.artist,
                     style = if (landscapeLyricsArtworkExpanded) {
-                        MaterialTheme.typography.titleLarge
+                        MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Normal)
                     } else {
                         MaterialTheme.typography.bodyLarge
                     },
