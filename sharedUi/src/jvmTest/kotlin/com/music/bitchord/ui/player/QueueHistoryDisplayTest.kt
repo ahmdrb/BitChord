@@ -11,10 +11,10 @@ class QueueHistoryDisplayTest {
         Song(videoId = id, title = id, artist = "Artist", thumbnailUrl = null, queueTier = tier)
 
     @Test
-    fun `history is visible by default and can still be hidden by preference`() {
+    fun `history visibility follows the user preference without changing upcoming sections`() {
         val queue = listOf(song("old"), song("current"), song("manual", QueueTier.USER_QUEUE),
             song("album"), song("radio", QueueTier.AUTOPLAY))
-        val visible = splitQueue(queue, 1)
+        val visible = splitQueue(queue, 1, showHistory = true)
         val hidden = splitQueue(queue, 1, showHistory = false)
 
         assertEquals(listOf(0), visible.history.map { it.timelineIndex })
