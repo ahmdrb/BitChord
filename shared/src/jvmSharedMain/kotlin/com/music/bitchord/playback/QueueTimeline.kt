@@ -113,8 +113,11 @@ object QueueTimeline {
         tappedSong: Song,
         source: QueueSource,
     ): List<Song> =
-        listOf(tappedSong.from(source).asQueueEntry(QueueTier.CONTEXT)) +
-            upcomingUserQueue(currentTimeline, currentIndex)
+        listOf(
+            tappedSong.copy(radioName = tappedSong.radioName ?: tappedSong.title)
+                .from(source)
+                .asQueueEntry(QueueTier.CONTEXT),
+        ) + upcomingUserQueue(currentTimeline, currentIndex)
 
     /**
      * Constructs a single-song playback timeline for Listen Together mode:
