@@ -132,6 +132,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.expandVertically
 import dev.chrisbanes.haze.HazeState
 import com.music.bitchord.ui.components.liveMenuFrost
+import com.music.bitchord.ui.components.MenuFrostDark
 import com.music.bitchord.playback.PlaybackPosition
 import androidx.compose.ui.semantics.Role
 import androidx.compose.runtime.mutableStateOf
@@ -634,14 +635,11 @@ private const val BEST_PART_FADE_MS = 280
 /** Keep the Best Part cue brief; the listener can still reach the same point manually. */
 private const val BEST_PART_VISIBLE_MS = 3_000L
 
-/** A lighter slab than the menu: enough contrast for white glyphs, with the artwork visible. */
-private const val GLASS_SLAB_ALPHA = 0.10f
+/** Thinner than the menu's slab, so the glass reads as glass over the artwork. */
+private const val GLASS_SLAB_ALPHA = 0.38f
 
-/** Keep the same translucent look when live blur is unavailable or reduced. */
-private const val GLASS_FLAT_ALPHA = 0.12f
-
-/** A neutral frost tint, deliberately neither charcoal nor pure white. */
-private val GlassFrostTint = Color(0xFF8C9298).copy(alpha = GLASS_FLAT_ALPHA)
+/** The slab alone, with no blur under it, thick enough to hold the glyph on any cover. */
+private const val GLASS_FLAT_ALPHA = 0.72f
 
 /**
  * Previous, play/pause, next.
@@ -934,9 +932,11 @@ internal fun PlayerActionRow(
     }
 }
 
-/** Subtle base tint for the blended star, menu and expand glass discs. */
-private const val CIRCLE_DISC_DODGE_GAIN = 2.2f
-private const val CIRCLE_DISC_ALPHA = 0.10f
+/** How much more of the ink the star and ⋯ discs take than their plain white. */
+private const val CIRCLE_DISC_DODGE_GAIN = 2.5f
+
+/** The star and ⋯ discs' fill at rest. */
+private const val CIRCLE_DISC_ALPHA = 0.18f
 
 /**
  * The lyrics, output and queue glyphs, and the volume bar's speakers, dodged
@@ -968,7 +968,7 @@ private fun discFill(chrome: Boolean, alpha: Float = CIRCLE_DISC_ALPHA): Color =
     if (chrome) {
         VibrantChromeInk.copy(alpha = (alpha * CIRCLE_DISC_DODGE_GAIN).coerceAtMost(1f))
     } else {
-        Color(0xFF8C9298).copy(alpha = alpha)
+        Color.White.copy(alpha = alpha)
     }
 
 /** The volume bar's two speakers, drawn as the bottom row's glyphs are. */
@@ -1044,7 +1044,7 @@ internal fun CircleGlyph(
 ) {
     val haptics = rememberHaptics()
     val discAlpha by animateFloatAsState(
-        targetValue = if (active) 0.17f else CIRCLE_DISC_ALPHA,
+        targetValue = if (active) 0.34f else CIRCLE_DISC_ALPHA,
         label = "glyphDisc",
     )
     val chrome = LocalPlayerChrome.current
@@ -1104,9 +1104,9 @@ internal fun rememberAutoMixFrostHold(): () -> Boolean {
  */
 internal fun Modifier.glassFrost(hazeState: HazeState?, flat: Boolean): Modifier =
     if (flat || hazeState == null) {
-        background(GlassFrostTint)
+        background(MenuFrostDark.copy(alpha = GLASS_FLAT_ALPHA))
     } else {
-        liveMenuFrost(hazeState, GlassFrostTint, alpha = GLASS_SLAB_ALPHA)
+        liveMenuFrost(hazeState, MenuFrostDark, alpha = GLASS_SLAB_ALPHA)
     }
 
 /**
