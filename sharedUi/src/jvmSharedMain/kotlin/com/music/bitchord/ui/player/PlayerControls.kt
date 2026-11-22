@@ -572,11 +572,12 @@ internal fun BestPartPill(
         val shape = CircleShape
         val label = stringResource(Res.string.best_part)
         val description = stringResource(Res.string.best_part_description)
+        val chrome = LocalPlayerChrome.current
         Box(
             modifier = Modifier
                 .padding(top = 8.dp)
                 .clip(shape)
-                .bestPartGlassFrost(hazeState, flat = reduceDynamicBlur || overlayOpen() || autoMixHold())
+                .glassFrost(hazeState, flat = reduceDynamicBlur || overlayOpen() || autoMixHold())
                 .clickable(role = Role.Button) {
                     val target = at ?: return@clickable
                     haptics.play(Haptic.Tap)
@@ -585,8 +586,14 @@ internal fun BestPartPill(
                 }
                 .semantics { contentDescription = description },
         ) {
-            // The pill is glass in its own right; unlike the circular controls
-            // it has no extra disc fill laid over the translucent frost.
+            // Match the original release: frost beneath a very light blended
+            // disc tint, with the glass rim drawn above both layers.
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .vibrantChrome(chrome)
+                    .background(discFill(chrome)),
+            )
             Box(Modifier.matchParentSize().glassRim(shape))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -627,16 +634,6 @@ private const val GLASS_SLAB_ALPHA = 0.38f
 
 /** The slab alone, with no blur under it, thick enough to hold the glyph on any cover. */
 private const val GLASS_FLAT_ALPHA = 0.72f
-
-/** A light, see-through glass tint; never the opaque charcoal used by menus. */
-private const val BEST_PART_GLASS_ALPHA = 0.16f
-
-private fun Modifier.bestPartGlassFrost(hazeState: HazeState?, flat: Boolean): Modifier =
-    if (flat || hazeState == null) {
-        background(Color.White.copy(alpha = BEST_PART_GLASS_ALPHA))
-    } else {
-        liveMenuFrost(hazeState, Color.White, alpha = BEST_PART_GLASS_ALPHA)
-    }
 
 /**
  * Previous, play/pause, next.
@@ -929,8 +926,11 @@ internal fun PlayerActionRow(
     }
 }
 
-/** Subtle translucent white fill for the star and ⋯ circles. */
-private const val CIRCLE_DISC_ALPHA = 0.14f
+/** How much more of the ink [CircleGlyph]'s disc takes than its plain white. */
+private const val CIRCLE_DISC_DODGE_GAIN = 2.5f
+
+/** The original release's subtle translucent disc fill. */
+private const val CIRCLE_DISC_ALPHA = 0.18f
 
 /**
  * The lyrics, output and queue glyphs, and the volume bar's speakers, dodged
@@ -953,6 +953,18 @@ private val BrightChromeInk = Color(0xFFAAAAAA)
  * glyphs are, rather than added in white. False puts them back.
  */
 private const val SCRUBBER_LABELS_DODGED = true
+
+/**
+ * The star, ⋯, expand and unexpand discs' fill. Under the blended chrome,
+ * use a restrained grey ink so the image still shows through without turning
+ * the controls into dark charcoal or pale white badges.
+ */
+private fun discFill(chrome: Boolean, alpha: Float = CIRCLE_DISC_ALPHA): Color =
+    if (chrome) {
+        VibrantChromeInk.copy(alpha = (alpha * CIRCLE_DISC_DODGE_GAIN).coerceAtMost(1f))
+    } else {
+        Color.White.copy(alpha = alpha)
+    }
 
 /** The volume bar's two speakers, drawn as the bottom row's glyphs are. */
 @Composable
@@ -1027,9 +1039,10 @@ internal fun CircleGlyph(
 ) {
     val haptics = rememberHaptics()
     val discAlpha by animateFloatAsState(
-        targetValue = if (active) 0.22f else CIRCLE_DISC_ALPHA,
+        targetValue = if (active) 0.34f else CIRCLE_DISC_ALPHA,
         label = "glyphDisc",
     )
+    val chrome = LocalPlayerChrome.current
     Box(
         modifier = modifier
             .size(34.dp)
@@ -1043,8 +1056,13 @@ internal fun CircleGlyph(
             },
         contentAlignment = Alignment.Center,
     ) {
-        // A light translucent disc lets the artwork remain visible through it.
-        Box(Modifier.matchParentSize().background(Color.White.copy(alpha = discAlpha)))
+        // The same subtly blended translucent material as the original release.
+        Box(
+            Modifier
+                .matchParentSize()
+                .vibrantChrome(chrome)
+                .background(discFill(chrome, discAlpha)),
+        )
         // Outside the blend: the rim is light catching the edge, not ink.
         Box(Modifier.matchParentSize().glassRim(CircleShape))
         Crossfade(
