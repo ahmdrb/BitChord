@@ -4079,9 +4079,11 @@ private fun BitChordApp(
                                                     },
                                                     onShuffle = {
                                                         if (artistSongs.isNotEmpty()) {
+                                                            // Keep the app-managed artist order visible; randomize only playback traversal.
+                                                            QueueShuffle.enableForNextQueue()
                                                             playFrom(
-                                                                artistSongs.shuffled(),
-                                                                0,
+                                                                artistSongs,
+                                                                artistSongs.indices.random(),
                                                                 QueueSource(artist.title, PlaybackSourceType.BROWSE, "personal-artist:$artistId"),
                                                             )
                                                         }
@@ -4138,9 +4140,11 @@ private fun BitChordApp(
                                                     },
                                                     onShuffle = {
                                                         if (playlist.songs.isNotEmpty()) {
+                                                            // Keep the local playlist's displayed order; randomize only playback traversal.
+                                                            QueueShuffle.enableForNextQueue()
                                                             playFrom(
-                                                                playlist.songs.shuffled(),
-                                                                0,
+                                                                playlist.songs,
+                                                                playlist.songs.indices.random(),
                                                                 QueueSource(playlist.title, PlaybackSourceType.BROWSE, "personal-playlist:${playlist.id}"),
                                                             )
                                                         }
