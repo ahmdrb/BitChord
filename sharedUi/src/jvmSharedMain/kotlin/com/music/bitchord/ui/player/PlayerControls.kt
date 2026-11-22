@@ -570,7 +570,6 @@ internal fun BestPartPill(
         val shape = CircleShape
         val label = stringResource(Res.string.best_part)
         val description = stringResource(Res.string.best_part_description)
-        val chrome = LocalPlayerChrome.current
         Box(
             modifier = Modifier
                 .padding(top = 8.dp)
@@ -952,10 +951,7 @@ private val BrightChromeInk = Color(0xFFAAAAAA)
  */
 private const val SCRUBBER_LABELS_DODGED = true
 
-/**
- * The star, ⋯, expand and unexpand discs' fill. Blend a restrained neutral
- * tint into the cover so its own colours remain visible through the control.
- */
+/** Low-opacity neutral tint shared by the star, menu and expand glass discs. */
 private fun discFill(alpha: Float = CIRCLE_DISC_ALPHA): Color =
     Color(0xFF92999F).copy(alpha = alpha)
 
