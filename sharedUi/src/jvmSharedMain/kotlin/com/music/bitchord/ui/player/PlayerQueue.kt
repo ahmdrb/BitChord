@@ -229,7 +229,7 @@ internal class QueueTracks(
 internal fun splitQueue(
     queue: List<Song>,
     currentIndex: Int,
-    showHistory: Boolean = true,
+    showHistory: Boolean = false,
     shuffleEnabled: Boolean = false,
     /** Queue-entry IDs already traversed by the service's active shuffle path. */
     queueHistoryEntryIds: List<String> = emptyList(),
