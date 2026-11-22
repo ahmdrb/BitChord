@@ -114,15 +114,17 @@ object LrcLib {
                 continue
             }
 
-            val match = STAMP.find(line) ?: continue
-            val (minutes, seconds, fraction) = match.destructured
-            // Two digits mean centiseconds, three mean milliseconds.
-            val fractionMs = when (fraction.length) {
-                2 -> fraction.toLong() * 10
-                3 -> fraction.toLong()
-                else -> 0L
-            }
-            var body = line.substring(match.range.last + 1)
+            // A repeated chorus may compress several start times onto one
+            // line, e.g. [00:12.00][00:45.00]Chorus. Keep every stamp but
+            // share the same lyric words, voice and alignment metadata.
+            val stamps = generateSequence(STAMP.find(line)) { previous ->
+                STAMP.find(line, previous.range.last + 1)?.takeIf {
+                    line.substring(previous.range.last + 1, it.range.first).isBlank()
+                }
+            }.toList()
+            if (stamps.isEmpty()) continue
+
+            var body = line.substring(stamps.last().range.last + 1)
             // Detect the RTL marker that was written by [toEnhancedLrc].
             val (marked, alignment) = stripAlignmentMarker(body)
             body = marked
@@ -131,17 +133,26 @@ object LrcLib {
             val singer = voice?.let { "v" + it.groupValues[1] }
             if (voice != null) body = body.removeRange(voice.range)
 
-            leads += Lead(
-                timeMs = minutes.toLong() * 60_000 + seconds.toLong() * 1_000 + fractionMs,
-                // Stripped rather than rebuilt from the runs below: the spacing
-                // and punctuation between two words belong to the line, and
-                // re-joining the words with single spaces would quietly rewrite
-                // a line that never had them.
-                text = body.replace(WORD_STAMP, "").trim(),
-                words = parseWordRuns(body),
-                alignment = alignment,
-                singer = singer,
-            )
+            stamps.forEach { match ->
+                val (minutes, seconds, fraction) = match.destructured
+                // Two digits mean centiseconds, three mean milliseconds.
+                val fractionMs = when (fraction.length) {
+                    2 -> fraction.toLong() * 10
+                    3 -> fraction.toLong()
+                    else -> 0L
+                }
+                leads += Lead(
+                    timeMs = minutes.toLong() * 60_000 + seconds.toLong() * 1_000 + fractionMs,
+                    // Stripped rather than rebuilt from the runs below: the spacing
+                    // and punctuation between two words belong to the line, and
+                    // re-joining the words with single spaces would quietly rewrite
+                    // a line that never had them.
+                    text = body.replace(WORD_STAMP, "").trim(),
+                    words = parseWordRuns(body),
+                    alignment = alignment,
+                    singer = singer,
+                )
+            }
         }
         leads.sortBy { it.timeMs }
         backs.sortBy { it.timeMs }

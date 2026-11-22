@@ -131,7 +131,7 @@ class QueueShuffleTierTest {
     }
 
     @Test
-    fun `startingOrder preserves USER_QUEUE items at front and shuffles context`() {
+    fun `startingOrder shuffles USER_QUEUE items while keeping their tier ahead of context`() {
         val selected = testSong("selected", tier = QueueTier.CONTEXT)
         val u1 = testSong("u1", tier = QueueTier.USER_QUEUE)
         val u2 = testSong("u2", tier = QueueTier.USER_QUEUE)
@@ -144,8 +144,8 @@ class QueueShuffleTierTest {
         val result = QueueShuffle.startingOrder(input, startIndex = 0)
 
         assertEquals("selected", result[0].videoId)
-        assertEquals("u1", result[1].videoId)
-        assertEquals("u2", result[2].videoId)
+        assertEquals(setOf("u1", "u2"), result.subList(1, 3).map { it.videoId }.toSet())
+        assertNotEquals(listOf("u1", "u2"), result.subList(1, 3).map { it.videoId })
 
         // Context items are between indices 3 and 5 inclusive
         val resultContextIds = result.subList(3, 6).map { it.videoId }.toSet()
@@ -481,6 +481,17 @@ class QueueShuffleTierTest {
     }
 
     @Test
+    fun `header play button builds the next queue in order with shuffle left on`() {
+        QueueShuffle.enableForNextQueue() // shuffle left on from the last queue
+
+        QueueShuffle.disableForNextQueue()
+
+        // playSongs reads this flag for the queue it is about to build (PlayerConnection).
+        assertFalse(QueueShuffle.enabled.value)
+        assertTrue(QueueShuffle.canonicalContext.isEmpty())
+    }
+
+    @Test
     fun `header shuffle button flow establishes canonical context and restores strictly forward on shuffle OFF`() {
         val songs = (1..6).map { testSong("track-$it", QueueTier.CONTEXT, "entry-$it") }
         // Simulate tapping header Shuffle button:
@@ -784,8 +795,11 @@ class QueueShuffleTierTest {
         val upcomingShuffled = state.items.drop(state.currentIndex + 1)
         val uqCount = userSongs.size
         val autoCount = autoSongs.size
-        // All USER_QUEUE items are at the beginning of upcoming
+        val originalUserIds = userSongs.map { it.videoId }
+        val shuffledUserIds = upcomingShuffled.take(uqCount).map { it.mediaId }
+        // All USER_QUEUE items remain at the beginning, but no longer retain their linear order.
         assertTrue(upcomingShuffled.take(uqCount).all { it.queueTier == QueueTier.USER_QUEUE })
+        assertNotEquals(originalUserIds, shuffledUserIds)
         // All AUTOPLAY items are at the end of upcoming
         assertTrue(upcomingShuffled.takeLast(autoCount).all { it.queueTier == QueueTier.AUTOPLAY })
 
@@ -801,7 +815,25 @@ class QueueShuffleTierTest {
         // In upcoming after restore: USER_QUEUE pinned behind current, then CONTEXT, then AUTOPLAY
         val upcomingRestored = state.items.drop(state.currentIndex + 1)
         assertTrue(upcomingRestored.take(uqCount).all { it.queueTier == QueueTier.USER_QUEUE })
+        assertEquals(originalUserIds, upcomingRestored.take(uqCount).map { it.mediaId })
         assertTrue(upcomingRestored.takeLast(autoCount).all { it.queueTier == QueueTier.AUTOPLAY })
+    }
+
+    @Test
+    fun `bounded queue shuffle randomizes and restores the manual USER_QUEUE block`() {
+        val current = testSong("current", QueueTier.CONTEXT, "current-entry").toMediaItem()
+        val users = (1..4).map { testSong("user-$it", QueueTier.USER_QUEUE, "user-entry-$it").toMediaItem() }
+        val context = testSong("context", QueueTier.CONTEXT, "context-entry").toMediaItem()
+        val state = MockPlayerState(mutableListOf(current, *users.toTypedArray(), context), currentIndex = 0)
+        val original = users.map { it.mediaId }
+
+        QueueShuffle.applyBoundedUserQueueShuffle(state.player, enabled = true)
+        val shuffled = state.items.drop(1).take(users.size).map { it.mediaId }
+        assertEquals(original.toSet(), shuffled.toSet())
+        assertNotEquals(original, shuffled)
+
+        QueueShuffle.applyBoundedUserQueueShuffle(state.player, enabled = false)
+        assertEquals(original, state.items.drop(1).take(users.size).map { it.mediaId })
     }
 
     @Test

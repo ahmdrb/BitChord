@@ -1,8 +1,11 @@
 package com.music.bitchord.playback
 
 import android.os.Bundle
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.ShuffleOrder
 import com.music.bitchord.data.model.QueueTier
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
@@ -10,37 +13,226 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.UUID
+import java.util.WeakHashMap
 
 /**
- * Shuffle as an edit to the queue, not a playback mode.
+ * Shuffle changes playback traversal, never the queue's displayed order.
  *
- * ExoPlayer's own `shuffleModeEnabled` leaves the queue exactly as it is and
- * draws the next track from a hidden random order, so the queue panel shows
- * one running order while the player follows another — the user sees the album
- * listed in order and hears it jumping about. Toggling shuffle here rearranges
- * the queue itself and leaves playback strictly sequential: what the queue
- * shows is what plays, in that order.
- *
- * The order the queue was in beforehand is kept so the toggle can be undone.
- * The player's own shuffle mode is deliberately never enabled — it would
- * randomise on top of the order set here.
- *
- * User-queued tracks (USER_QUEUE) are NEVER shuffled: they reflect deliberate user
- * intent and remain pinned at the front. Context tracks (CONTEXT) and AutoPlay tracks
- * (AUTOPLAY) are shuffled among themselves.
- *
- * The rearranging is applied in-place to the player's queue via [Player.replaceMediaItems]
- * so that currently playing playback is completely uninterrupted.
+ * The player's timeline stays in the order the listener arranged it. An anchored
+ * [ShuffleOrder] supplies a random next/previous path over those same timeline
+ * entries, preserving the current track and keeping newly inserted queue items
+ * in the unplayed portion of the path.
  */
+internal class QueueShuffleOrderState(
+    var indices: IntArray,
+    var anchorIndex: Int,
+)
+
+internal class AnchoredQueueShuffleOrder(
+    private val state: QueueShuffleOrderState,
+) : ShuffleOrder {
+    internal constructor(indices: IntArray, anchorIndex: Int) :
+        this(QueueShuffleOrderState(indices.copyOf(), anchorIndex))
+
+    internal fun advanceAnchor(index: Int) {
+        state.anchorIndex = index
+    }
+
+    internal fun nextIndex(index: Int): Int {
+        val position = state.indices.indexOf(index)
+        return if (position >= 0) {
+            state.indices.getOrNull(position + 1) ?: C.INDEX_UNSET
+        } else {
+            C.INDEX_UNSET
+        }
+    }
+
+    override fun getLength(): Int = state.indices.size
+
+    override fun getNextIndex(index: Int): Int = nextIndex(index)
+
+    override fun getPreviousIndex(index: Int): Int {
+        val position = state.indices.indexOf(index)
+        return if (position > 0) state.indices[position - 1] else C.INDEX_UNSET
+    }
+
+    override fun getFirstIndex(): Int = state.indices.firstOrNull() ?: C.INDEX_UNSET
+
+    override fun getLastIndex(): Int = state.indices.lastOrNull() ?: C.INDEX_UNSET
+
+    override fun cloneAndInsert(insertionIndex: Int, insertionCount: Int): ShuffleOrder {
+        if (insertionCount <= 0) return AnchoredQueueShuffleOrder(state)
+
+        val oldAnchor = state.anchorIndex
+        val shifted = state.indices.mapTo(mutableListOf()) { index ->
+            if (index >= insertionIndex) index + insertionCount else index
+        }
+        val newAnchor = if (oldAnchor >= insertionIndex) oldAnchor + insertionCount else oldAnchor
+        val anchorPosition = if (newAnchor == C.INDEX_UNSET) -1 else shifted.indexOf(newAnchor)
+        val insertedBeforeCurrent = oldAnchor != C.INDEX_UNSET && insertionIndex <= oldAnchor
+        val minimum = if (insertedBeforeCurrent) 0 else anchorPosition + 1
+        val maximum = if (insertedBeforeCurrent) anchorPosition else shifted.size
+        val insertionAt = if (minimum <= maximum) {
+            kotlin.random.Random.nextInt(minimum, maximum + 1)
+        } else {
+            shifted.size
+        }
+        shifted.addAll(insertionAt, (insertionIndex until insertionIndex + insertionCount).toList().shuffled())
+
+        state.indices = shifted.toIntArray()
+        state.anchorIndex = newAnchor
+        return AnchoredQueueShuffleOrder(state)
+    }
+
+    override fun cloneAndRemove(indexFrom: Int, indexToExclusive: Int): ShuffleOrder {
+        val from = indexFrom.coerceAtLeast(0)
+        val to = indexToExclusive.coerceAtMost(state.indices.size)
+        if (to <= from) return AnchoredQueueShuffleOrder(state)
+
+        val removed = to - from
+        state.indices = state.indices
+            .filterNot { it in from until to }
+            .map { index -> if (index >= to) index - removed else index }
+            .toIntArray()
+        state.anchorIndex = when {
+            state.anchorIndex < from -> state.anchorIndex
+            state.anchorIndex >= to -> state.anchorIndex - removed
+            else -> C.INDEX_UNSET
+        }
+        return AnchoredQueueShuffleOrder(state)
+    }
+
+    override fun cloneAndClear(): ShuffleOrder {
+        state.indices = intArrayOf()
+        state.anchorIndex = C.INDEX_UNSET
+        return AnchoredQueueShuffleOrder(state)
+    }
+}
+
 object QueueShuffle {
 
     private val _enabled = MutableStateFlow(false)
+    private val shuffleStates = WeakHashMap<ExoPlayer, QueueShuffleOrderState>()
 
-    /** Whether the queue is currently held in shuffled order. */
+    /** Whether playback currently follows a random path through the queue. */
     val enabled: StateFlow<Boolean> = _enabled.asStateFlow()
+
     fun setEnabled(enabled: Boolean) {
         _enabled.value = enabled
+        if (!enabled) boundedUserQueueOriginal = emptyList()
     }
+
+    /** Apply or remove playback-only shuffle without changing any media-item positions. */
+    fun applyPlaybackMode(player: ExoPlayer, enabled: Boolean) {
+        if (!enabled) {
+            player.shuffleModeEnabled = false
+            player.setShuffleOrder(ShuffleOrder.UnshuffledShuffleOrder(player.mediaItemCount))
+            shuffleStates.remove(player)
+            return
+        }
+
+        val state = shuffleStates[player]
+            ?.takeIf { it.indices.size == player.mediaItemCount }
+            ?: newShuffleState(player).also { shuffleStates[player] = it }
+        val current = player.currentMediaItemIndex
+        if (current in 0 until player.mediaItemCount) state.anchorIndex = current
+        player.setShuffleOrder(AnchoredQueueShuffleOrder(state))
+        player.shuffleModeEnabled = true
+    }
+
+    /**
+     * A newly submitted queue has no playback history yet. Keep its selected
+     * row current, then make every other row in that same queue eligible for
+     * the random traversal — including rows physically before the selection.
+     */
+    fun startNewQueuePlaybackOrder(player: ExoPlayer) {
+        if (!_enabled.value) {
+            applyPlaybackMode(player, false)
+            return
+        }
+        val count = player.mediaItemCount
+        if (count <= 0) {
+            applyPlaybackMode(player, true)
+            return
+        }
+        val current = player.currentMediaItemIndex.takeIf { it in 0 until count } ?: C.INDEX_UNSET
+        val rest = (0 until count).filter { it != current }.shuffled()
+        val indices = if (current == C.INDEX_UNSET) rest else listOf(current) + rest
+        val state = QueueShuffleOrderState(indices.toIntArray(), current)
+        shuffleStates[player] = state
+        player.setShuffleOrder(AnchoredQueueShuffleOrder(state))
+        player.shuffleModeEnabled = true
+    }
+
+    /** Start a fresh random traversal after a restored/selected current row, leaving earlier rows as history. */
+    fun resetPlaybackOrder(player: ExoPlayer) {
+        if (!_enabled.value) {
+            applyPlaybackMode(player, false)
+            return
+        }
+        val state = newShuffleState(player)
+        shuffleStates[player] = state
+        player.setShuffleOrder(AnchoredQueueShuffleOrder(state))
+        player.shuffleModeEnabled = true
+    }
+
+    /**
+     * Retain the current permutation when the expected shuffled item becomes current.
+     * A direct row selection or a newly restored queue starts a fresh path instead.
+     */
+    fun onMediaItemTransition(player: ExoPlayer) {
+        if (!_enabled.value || player.mediaItemCount == 0) return
+        val current = player.currentMediaItemIndex
+        if (current !in 0 until player.mediaItemCount) return
+
+        val state = shuffleStates[player]
+        if (state == null || state.indices.size != player.mediaItemCount) {
+            resetPlaybackOrder(player)
+            return
+        }
+
+        val expected = AnchoredQueueShuffleOrder(state).nextIndex(state.anchorIndex)
+        if (current == expected) {
+            state.anchorIndex = current
+        } else {
+            resetPlaybackOrder(player)
+        }
+    }
+
+    private fun newShuffleState(player: ExoPlayer): QueueShuffleOrderState {
+        val count = player.mediaItemCount
+        val current = player.currentMediaItemIndex.takeIf { it in 0 until count } ?: C.INDEX_UNSET
+        // A newly enabled shuffle cycle draws from the whole current queue,
+        // not just rows after the current index. The selected occurrence stays
+        // first; every other occurrence is visited once in random order.
+        val remaining = (0 until count).filter { it != current }.shuffled()
+        return QueueShuffleOrderState(fullQueueTraversalOrder(count, current, remaining), current)
+    }
+
+    /**
+     * Build a playback permutation without changing the player's media-item
+     * list. The current item is anchored first and the supplied random tail
+     * must contain every other queue index exactly once.
+     */
+    internal fun fullQueueTraversalOrder(
+        itemCount: Int,
+        currentIndex: Int,
+        randomizedRemaining: List<Int>,
+    ): IntArray {
+        require(itemCount >= 0)
+        val current = currentIndex.takeIf { it in 0 until itemCount } ?: C.INDEX_UNSET
+        val eligible = (0 until itemCount).filter { it != current }
+        require(
+            randomizedRemaining.size == eligible.size &&
+                randomizedRemaining.toSet() == eligible.toSet(),
+        ) { "Shuffle traversal must include every queued index exactly once" }
+        val ordered = if (current == C.INDEX_UNSET) randomizedRemaining
+        else listOf(current) + randomizedRemaining
+        return ordered.toIntArray()
+    }
+
+    /** Original order for the USER_QUEUE block when the bounded QueueWindow owns CONTEXT. */
+    @Volatile private var boundedUserQueueOriginal: List<String> = emptyList()
 
     /** Entry IDs in their pre-shuffle order. Empty while shuffle is off. */
     @Volatile private var original: List<String> = emptyList()
@@ -160,12 +352,53 @@ object QueueShuffle {
         return false
     }
 
-    fun toggle(player: Player) {
-        val c = ctx
-        if (c != null && !isCanonicalContextValid(player, c)) {
-            clearCanonicalContext()
+    /**
+     * Shuffle only the physical USER_QUEUE block while a bounded QueueWindow
+     * owns the CONTEXT order. The selected next item is left alone when a
+     * crossfade or track ending makes it imminent.
+     */
+    internal fun applyBoundedUserQueueShuffle(player: Player, enabled: Boolean) {
+        val items = player.queueItems()
+        val current = player.currentMediaItemIndex
+        val start = current + 1
+        if (start !in items.indices || items[start].queueTier != QueueTier.USER_QUEUE) {
+            if (!enabled) boundedUserQueueOriginal = emptyList()
+            return
         }
-        if (_enabled.value) restore(player) else shuffle(player)
+        var end = start
+        while (end < items.size && items[end].queueTier == QueueTier.USER_QUEUE) end++
+        val section = items.subList(start, end)
+        val keys = section.map { it.key() }
+        if (enabled) {
+            if (boundedUserQueueOriginal.isEmpty() || boundedUserQueueOriginal.none { it in keys }) {
+                boundedUserQueueOriginal = keys
+            }
+            val protectedCount = if (isNextItemImminent(player)) 1 else 0
+            val fixed = section.take(protectedCount)
+            val movable = section.drop(protectedCount)
+            val shuffled = shuffledSection(movable.indices.toList()).map(movable::get)
+            replaceChanged(player, start, end, fixed + shuffled)
+        } else {
+            val restored = restoreOrder(keys, boundedUserQueueOriginal).map(section::get)
+            replaceChanged(player, start, end, restored)
+            boundedUserQueueOriginal = emptyList()
+        }
+    }
+
+    fun toggle(player: Player) {
+        if (player !is ExoPlayer) {
+            // Retain the in-memory Player adapter used by the legacy pure
+            // queue-edit tests. The Android service always supplies ExoPlayer
+            // and therefore takes the playback-only ShuffleOrder path below.
+            val c = ctx
+            if (c != null && !isCanonicalContextValid(player, c)) clearCanonicalContext()
+            if (_enabled.value) restore(player) else shuffle(player)
+            return
+        }
+        val target = !_enabled.value
+        setEnabled(target)
+        AppSettings.setShuffleEnabled(target)
+        applyPlaybackMode(player, target)
     }
 
     /**
@@ -175,9 +408,23 @@ object QueueShuffle {
      */
     fun enableForNextQueue() {
         original = emptyList()
+        boundedUserQueueOriginal = emptyList()
         clearCanonicalContext()
         _enabled.value = true
         AppSettings.setShuffleEnabled(true)
+    }
+
+    /**
+     * [enableForNextQueue]'s counterpart, for the Play button beside it: an
+     * album or playlist played from the top plays in its own order, whatever
+     * shuffle was left on from the last queue (#1148).
+     */
+    fun disableForNextQueue() {
+        original = emptyList()
+        boundedUserQueueOriginal = emptyList()
+        clearCanonicalContext()
+        _enabled.value = false
+        AppSettings.setShuffleEnabled(false)
     }
 
     /**
@@ -185,7 +432,13 @@ object QueueShuffle {
      * the track the user picked leads, the rest follow at random. The order it
      * arrived in is remembered, so turning shuffle off restores it.
      */
+    /**
+     * Legacy helper for in-memory queue tests. Android playback no longer calls
+     * this: real queue submissions preserve their source order and use
+     * [AnchoredQueueShuffleOrder] for playback-only random traversal.
+     */
     fun startingOrder(songs: List<Song>, startIndex: Int): List<Song> {
+        require(songs.isNotEmpty() && startIndex in songs.indices)
         original = songs.map { "${it.queueEntryId ?: it.videoId}_${it.queueTier.name}" }
         val contextSongs = songs.filter { it.queueTier == QueueTier.CONTEXT }
         if (contextSongs.isNotEmpty()) {
@@ -194,15 +447,18 @@ object QueueShuffle {
                 withQueueMetadata(s.toMediaItem(), newEntryId = entryId, newCanonicalIndex = idx)
             })
         }
+        boundedUserQueueOriginal = emptyList()
         val rest = songs.filterIndexed { i, _ -> i != startIndex }
         val userQueue = rest.filter { it.queueTier == QueueTier.USER_QUEUE }
+        val shuffledUserQueue = shuffledSection(userQueue.indices.toList()).map(userQueue::get)
         val context = rest.filter { it.queueTier == QueueTier.CONTEXT }
         val shuffledContext = if (context.size > 1) {
-            val s = context.shuffled()
-            if (s == context) s.drop(1) + s.first() else s
+            val shuffled = context.shuffled()
+            if (shuffled == context) shuffled.drop(1) + shuffled.first() else shuffled
         } else context
-        val autoplay = rest.filter { it.queueTier == QueueTier.AUTOPLAY }.shuffled()
-        return listOf(songs[startIndex]) + userQueue + shuffledContext + autoplay
+        val autoplay = rest.filter { it.queueTier == QueueTier.AUTOPLAY }
+        val shuffledAutoplay = shuffledSection(autoplay.indices.toList()).map(autoplay::get)
+        return listOf(songs[startIndex]) + shuffledUserQueue + shuffledContext + shuffledAutoplay
     }
 
     /**
@@ -210,10 +466,9 @@ object QueueShuffle {
      *
      * Invariants:
      * - The currently playing occurrence and preceding history occurrences remain untouched.
-     * - Only unconsumed upcoming context tracks are shuffled among themselves.
+     * - Each upcoming tier is shuffled internally: USER_QUEUE, CONTEXT, then AUTOPLAY.
      * - History tracks are NEVER reintroduced into upcoming, preventing phantom duplicates in the context queue.
-     * - USER_QUEUE tracks are never shuffled and stay pinned at the front.
-     * - AUTOPLAY tracks sit at the tail.
+     * - Tier priority remains intact, so manual queue tracks stay ahead of collection tracks and AutoPlay.
      * - If the next item is imminent (within 5s or crossfade arming/fading), cur + 1 is preserved in place
      *   and shuffle applies from cur + 2 onward.
      */
@@ -247,13 +502,11 @@ object QueueShuffle {
         val contextIndices = upcoming.indices.filter { upcoming[it].queueTier == QueueTier.CONTEXT }
         val autoplayIndices = upcoming.indices.filter { upcoming[it].queueTier == QueueTier.AUTOPLAY }
 
-        val shuffledContext = if (contextIndices.size > 1) {
-            avoidIdentityShuffle(contextIndices, contextIndices.shuffled())
-        } else {
-            contextIndices
-        }
+        val shuffledUserQueue = shuffledSection(userQueueIndices)
+        val shuffledContext = shuffledSection(contextIndices)
+        val shuffledAutoplay = shuffledSection(autoplayIndices)
 
-        val order = userQueueIndices + shuffledContext + autoplayIndices
+        val order = shuffledUserQueue + shuffledContext + shuffledAutoplay
         val ok = reorder(player, from, order.toIntArray())
         if (ok) {
             _enabled.value = true
@@ -369,7 +622,7 @@ object QueueShuffle {
                 reorder(player, from, order.toIntArray())
             }
             original = emptyList()
-            _enabled.value = false
+            setEnabled(false)
             AppSettings.setShuffleEnabled(false)
             return
         }
@@ -415,11 +668,16 @@ object QueueShuffle {
         // Played manual user queue tracks in history (before current track)
         val historyUserQueue = items.filterIndexed { idx, it -> idx < currentIndex && it.queueTier == QueueTier.USER_QUEUE }
 
-        // Unplayed manual user queue tracks remain pinned immediately behind current track
-        val userQueue = items.drop(currentIndex + 1).filter { it.queueTier == QueueTier.USER_QUEUE }
-
-        // AutoPlay tracks remain at the tail
-        val autoplay = items.drop(currentIndex + 1).filter { it.queueTier == QueueTier.AUTOPLAY }
+        // Restore each non-canonical section to its pre-shuffle order. Tracks
+        // added while shuffle was on are retained at the end of their section.
+        val userQueue = restoreSectionOrder(
+            items.drop(currentIndex + 1).filter { it.queueTier == QueueTier.USER_QUEUE },
+            original,
+        )
+        val autoplay = restoreSectionOrder(
+            items.drop(currentIndex + 1).filter { it.queueTier == QueueTier.AUTOPLAY },
+            original,
+        )
 
         val cur = player.currentMediaItemIndex
 
@@ -449,7 +707,7 @@ object QueueShuffle {
         }
 
         original = emptyList()
-        _enabled.value = false
+        setEnabled(false)
         AppSettings.setShuffleEnabled(false)
     }
 
@@ -494,6 +752,15 @@ object QueueShuffle {
         }
         for (index in upcoming.indices) if (!placed[index]) out += index
         return out
+    }
+
+    /** Rebuild one non-canonical section in its original order, leaving newly added entries last. */
+    private fun restoreSectionOrder(section: List<MediaItem>, original: List<String>): List<MediaItem> {
+        if (section.size < 2) return section
+        val keys = section.map { it.key() }
+        val available = keys.toHashSet()
+        val originalSection = original.filter { it in available }
+        return restoreOrder(keys, originalSection).map(section::get)
     }
 
     /** [order] with sections strictly maintained: USER_QUEUE -> CONTEXT -> AUTOPLAY. */

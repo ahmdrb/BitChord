@@ -73,6 +73,11 @@ android {
     // InnerTubeX's AAR requires compiling against 37; targetSdk (runtime behaviour) stays 36.
     compileSdk = 37
 
+    // Automix model assets remain in source for desktop but are downloaded on first use on Android.
+    androidResources {
+        ignoreAssetsPattern = "!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~:!*.onnx"
+    }
+
     defaultConfig {
         applicationId = "com.music.bitchord"
         // 26 keeps reach wide; real-time blur (RenderEffect) kicks in on API 31+,
@@ -216,6 +221,12 @@ android {
             excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
             // The three BouncyCastle jars (bcprov, bcutil, bcpkix) ship one licence between them.
             pickFirsts += setOf("META-INF/LICENSE.md", "META-INF/LICENSE.txt", "META-INF/NOTICE.md")
+            // Unused BouncyCastle Picnic signature tables and certificate reviewer messages.
+            excludes += setOf(
+                "org/bouncycastle/pqc/**",
+                "org/bouncycastle/x509/CertPathReviewerMessages*.properties",
+                "org/bouncycastle/pkix/CertPathReviewerMessages*.properties",
+            )
         }
     }
     buildFeatures {
@@ -311,6 +322,9 @@ dependencies {
     implementation("androidx.media3:media3-session:1.11.0")
     implementation("androidx.media3:media3-common:1.11.0")
     implementation("androidx.media3:media3-datasource-okhttp:1.11.0")
+    // Animated lyrics video export uses Media3's Transformer and effect pipeline.
+    implementation("androidx.media3:media3-transformer:1.11.0")
+    implementation("androidx.media3:media3-effect:1.11.0")
     // Audio is progressive, but Apple serves its motion artwork as HLS — this
     // is what lets the animated sleeve play it. See CanvasArtworkPlayer.
     implementation("androidx.media3:media3-exoplayer-hls:1.11.0")
@@ -414,10 +428,9 @@ dependencies {
     implementation("com.hierynomus:smbj:0.15.0")
 
     // ---- Automix: on-device beat/downbeat model (Beat This!, MIT-licensed) ----
-    // The full android artifact, not onnxruntime-mobile: mobile only loads .ort
-    // files, which would put an offline conversion step between the model and
-    // the app for a saving that does not matter in a self-distributed APK.
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.28.0")
+    // Upstream's operator-pruned ONNX Runtime keeps the same Java/JNI API while
+    // packaging only the operators used by Automix's two models.
+    implementation(files("libs/onnxruntime-android-1.28.0-automix.aar"))
 
     // ---- Casting: Google Cast sender + the route discovery it sits on ----
     // The framework and the router only. media3-cast is left out on purpose:
@@ -431,6 +444,8 @@ dependencies {
     // See com.music.bitchord.wear.WearBridge. Rides on the Play services base
     // the Cast framework already brings, so it adds very little.
     implementation("com.google.android.gms:play-services-wearable:20.0.1")
+    // Google account authorization for the fork's Drive backup and restore.
+    implementation("com.google.android.gms:play-services-auth:21.3.0")
     // Opens the watch app after an update, so its install prompt is on screen.
     implementation("androidx.wear:wear-remote-interactions:1.1.0")
 

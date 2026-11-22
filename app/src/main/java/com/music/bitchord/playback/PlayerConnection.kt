@@ -22,6 +22,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionResult
 import androidx.media3.session.SessionToken
 import com.music.bitchord.data.model.ArtistRef
 import com.music.bitchord.data.model.NOTIFICATION_ART_PX
@@ -300,6 +301,64 @@ fun MediaController.setQueueDragActive(active: Boolean) {
         bundleOf(EXTRA_QUEUE_DRAG_ACTIVE to active),
     )
 }
+
+
+/** A queue-screen swipe moves this occurrence rather than adding a second copy. */
+suspend fun MediaController.moveQueueEntryToUser(index: Int, song: Song): Boolean =
+    try {
+        sendCustomCommand(
+            SessionCommand(ACTION_QUEUE_MOVE_TO_USER, Bundle.EMPTY),
+            bundleOf(
+                EXTRA_QUEUE_MOVE_INDEX to index,
+                EXTRA_QUEUE_MOVE_ENTRY to song.queueEntryId,
+                EXTRA_QUEUE_MOVE_MEDIA to song.videoId,
+            ),
+        ).await().resultCode == SessionResult.RESULT_SUCCESS
+    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+        throw cancelled
+    } catch (_: Exception) {
+        false
+    }
+
+/** Only queue-screen removals enter the service's transient Undo history. */
+suspend fun MediaController.removeQueueItemWithUndo(index: Int, song: Song): Boolean =
+    acknowledgedQueueEdit(
+        ACTION_QUEUE_REMOVE_WITH_UNDO,
+        bundleOf(
+            EXTRA_QUEUE_MOVE_INDEX to index,
+            EXTRA_QUEUE_MOVE_ENTRY to song.queueEntryId,
+            EXTRA_QUEUE_MOVE_MEDIA to song.videoId,
+        ),
+    )
+
+suspend fun MediaController.removeQueueEntriesWithUndo(entries: List<com.music.bitchord.data.model.QueueEntryIdentity>): Boolean {
+    if (entries.isEmpty()) return false
+    val args = Bundle().apply {
+        putStringArrayList(EXTRA_QUEUE_BULK_MEDIA_IDS, ArrayList(entries.map { it.mediaId }))
+        putStringArrayList(EXTRA_QUEUE_BULK_ENTRY_IDS, ArrayList(entries.map { it.queueEntryId.orEmpty() }))
+        putBooleanArray(EXTRA_QUEUE_BULK_ENTRY_ID_PRESENT, entries.map { it.queueEntryId != null }.toBooleanArray())
+        putIntArray(EXTRA_QUEUE_BULK_OCCURRENCES, entries.map { it.occurrence }.toIntArray())
+    }
+    return acknowledgedQueueEdit(ACTION_QUEUE_REMOVE_ENTRIES_WITH_UNDO, args)
+}
+
+suspend fun MediaController.clearUserQueueWithUndo(): Boolean =
+    acknowledgedQueueEdit(ACTION_QUEUE_CLEAR_WITH_UNDO, Bundle.EMPTY)
+
+suspend fun MediaController.undoQueueEdit(token: String): Boolean =
+    acknowledgedQueueEdit(ACTION_QUEUE_UNDO, bundleOf(EXTRA_QUEUE_UNDO_TOKEN to token))
+
+private suspend fun MediaController.acknowledgedQueueEdit(action: String, args: Bundle): Boolean =
+    try {
+        sendCustomCommand(SessionCommand(action, Bundle.EMPTY), args).await().resultCode ==
+            SessionResult.RESULT_SUCCESS
+    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+        throw cancelled
+    } catch (_: Exception) {
+        false
+    }
+
+
 
 /** Mirrors the controller into Compose state, polling position while playing. */
 @Composable
@@ -876,10 +935,9 @@ suspend fun MediaController.playSongs(songs: List<Song>, startIndex: Int) {
         SessionCommand(ACTION_CLEAR_BOUNDED_CONTEXT, Bundle.EMPTY),
         Bundle.EMPTY,
     ).await()
-    // A queue started while shuffle is on goes in shuffled rather than being
-    // played out of order — see [QueueShuffle]. The track the user picked still
-    // leads, so it ends up at the top instead of at [startIndex].
-    val shuffled = QueueShuffle.enabled.value
+    // Keep the supplied queue and its selected start position exactly as shown.
+    // When Shuffle is enabled, PlaybackService supplies a separate random
+    // ShuffleOrder; it never rearranges these media items.
     val items = withContext(Dispatchers.Default) {
         val songsWithIds = songs.map { song ->
             if (song.queueEntryId == null) song.copy(queueEntryId = java.util.UUID.randomUUID().toString()) else song
@@ -887,12 +945,7 @@ suspend fun MediaController.playSongs(songs: List<Song>, startIndex: Int) {
         val contextEntries = songsWithIds.filter { it.queueTier == QueueTier.CONTEXT }
         val canonicalIndexMap = contextEntries.mapIndexed { idx, s -> s.queueEntryId!! to idx }.toMap()
 
-        val queue = if (shuffled) {
-            QueueShuffle.startingOrder(songsWithIds, startIndex.coerceIn(songsWithIds.indices))
-        } else {
-            songsWithIds
-        }
-        val mediaItems = queue.map { song ->
+        val mediaItems = songsWithIds.map { song ->
             val item = song.toMediaItem()
             val cIndex = if (song.queueTier == QueueTier.CONTEXT) {
                 canonicalIndexMap[song.queueEntryId]
@@ -907,14 +960,11 @@ suspend fun MediaController.playSongs(songs: List<Song>, startIndex: Int) {
 
         mediaItems
     }
-    setMediaItems(items, queueStartIndex(startIndex, items.size, shuffled), 0L)
+    setMediaItems(items, queueStartIndex(startIndex, items.size, QueueShuffle.enabled.value), 0L)
     prepare()
     play()
 }
 
-/**
- * The selected track is moved to the head when a new queue is shuffled, so
- * playback must begin there rather than at its index in the unshuffled list.
- */
+/** Shuffle changes playback traversal only; the selected song keeps its list position. */
 internal fun queueStartIndex(requestedIndex: Int, itemCount: Int, shuffled: Boolean): Int =
-    if (shuffled) 0 else requestedIndex.coerceIn(0, itemCount - 1)
+    requestedIndex.coerceIn(0, itemCount - 1)
