@@ -230,6 +230,7 @@ internal fun PlayerScrubber(
     centerLabel: @Composable BoxScope.() -> Unit = {},
 ) {
     val shown = shown()
+    val chrome = LocalPlayerChrome.current
     val showTotalDuration by PlayerSettings.showTotalDuration.collectAsStateWithLifecycle()
     val totalDuration = durationMs.takeIf { it > 0L }
     // Held as a State and read only inside the bar's draw: the blend republishes
@@ -263,7 +264,7 @@ internal fun PlayerScrubber(
                 .offset(y = -SCRUBBER_LABEL_LIFT),
         ) {
             // Dodged like the bottom row's glyphs — see [SCRUBBER_LABELS_DODGED].
-                val dodged = chrome && SCRUBBER_LABELS_DODGED
+            val dodged = chrome && SCRUBBER_LABELS_DODGED
             val timeColor = if (dodged) brightRowInk() else chromeWhite(0.55f)
             Row(
                 modifier = Modifier
