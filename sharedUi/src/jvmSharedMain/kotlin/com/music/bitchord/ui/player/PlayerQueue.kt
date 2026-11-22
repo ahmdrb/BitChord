@@ -226,7 +226,12 @@ internal class QueueTracks(
     }
 }
 
-internal fun splitQueue(queue: List<Song>, currentIndex: Int, showHistory: Boolean = false): QueueTracks {
+internal fun splitQueue(
+    queue: List<Song>,
+    currentIndex: Int,
+    showHistory: Boolean = false,
+    shuffleEnabled: Boolean = false,
+): QueueTracks {
     if (currentIndex !in queue.indices) return QueueTracks.EMPTY
     // Keyed by the entry's own id, so a row keeps its identity through a reorder.
     // Entries without one (a party's tracks, a queue restored from before ids
@@ -259,14 +264,28 @@ internal fun splitQueue(queue: List<Song>, currentIndex: Int, showHistory: Boole
     val user = ArrayList<QueueTrack>()
     val context = ArrayList<QueueTrack>()
     val autoplay = ArrayList<QueueTrack>()
-    for (index in currentIndex + 1 until queue.size) {
+    // With playback-only shuffle, the Media3 timeline remains in the user's
+    // original queue order while currentIndex jumps to a randomly selected row.
+    // An index before currentIndex is therefore NOT necessarily playback history.
+    // Keep every other entry in its original timeline order and let the separate
+    // Now Playing slot identify the current occurrence.
+    val visibleUpcomingIndices = if (shuffleEnabled) {
+        queue.indices.filter { it != currentIndex }
+    } else {
+        (currentIndex + 1 until queue.size).toList()
+    }
+    for (index in visibleUpcomingIndices) {
         when (queue[index].queueTier) {
             QueueTier.USER_QUEUE -> user += track(index, "user")
             QueueTier.CONTEXT -> context += track(index, "context")
             QueueTier.AUTOPLAY -> autoplay += track(index, "autoplay")
         }
     }
-    val history = if (showHistory) (0 until currentIndex).map { track(it, "history") } else emptyList()
+    // Timeline position no longer tells us what has played when shuffle is on.
+    // Don't mislabel earlier physical rows as history or remove them from Up Next.
+    val history = if (showHistory && !shuffleEnabled) {
+        (0 until currentIndex).map { track(it, "history") }
+    } else emptyList()
     return QueueTracks(track(currentIndex, "np"), user, context, autoplay, history)
 }
 
@@ -341,6 +360,8 @@ internal fun InlineQueue(
     queue: List<Song>,
     currentIndex: Int,
     autoplayEnabled: Boolean,
+    /** The queue's presentation order stays physical while playback traverses randomly. */
+    shuffleEnabled: Boolean = false,
     /**
      * Read-only: the party's running order is the host's while this is set, so
      * the queue is here to be looked at and scrolled, not worked.
@@ -388,7 +409,9 @@ internal fun InlineQueue(
     val showHistory by PlayerSettings.showQueueHistory.collectAsStateWithLifecycle()
     val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
     val swipeToPlayNext by AppUi.host.swipeToPlayNext.collectAsStateWithLifecycle()
-    val tracks = remember(queue, currentIndex, showHistory) { splitQueue(queue, currentIndex, showHistory) }
+    val tracks = remember(queue, currentIndex, showHistory, shuffleEnabled) {
+        splitQueue(queue, currentIndex, showHistory, shuffleEnabled)
+    }
     // A host that hands in no selection gets no Select button; this one just stays inactive.
     val selectionState = selection ?: remember { QueueSelectionState() }
     val canAddAll = onAddAllToPlaylist != null
