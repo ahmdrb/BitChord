@@ -62,7 +62,6 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import coil3.request.ImageRequest
-import com.music.bitchord.ui.components.ExplicitBadge
 import com.music.bitchord.ui.components.menuAnchor
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.icons.BitChordIcons
@@ -455,10 +454,6 @@ internal fun LandscapeCredits(
                         onOverflowChange = { titleOverflowing = it },
                         modifier = Modifier.weight(1f).opensPage(song.albumId, onOpenAlbum),
                     )
-                    if (song.isExplicit == true) {
-                        Spacer(Modifier.width(6.dp))
-                        ExplicitBadge(artistColor)
-                    }
                 }
                 Spacer(Modifier.height(2.dp))
                 ArtistCreditsMarquee(
