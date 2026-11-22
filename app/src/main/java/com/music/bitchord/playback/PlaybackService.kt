@@ -3409,7 +3409,7 @@ class PlaybackService : MediaLibraryService() {
         crossfade?.cancelAutoMixVisual()
         val window = boundedContextWindow
         if (window != null && !ListenTogether.state.value.inParty) {
-            val target = !(boundedEditState.desiredShuffle ?: window.isShuffleEnabled)
+            val target = !(boundedEditState.desiredShuffle ?: QueueShuffle.enabled.value)
             boundedEditState = BoundedQueueEdits.requestShuffle(
                 boundedEditState,
                 desiredShuffle = target,
@@ -3444,11 +3444,16 @@ class PlaybackService : MediaLibraryService() {
             if (window.currentCanonicalIndex != anchor) window.jumpTo(anchor)
         }
         if (edit.desiredShuffle != null) {
-            QueueShuffle.applyBoundedUserQueueShuffle(exoPlayer, edit.desiredShuffle)
-            window.setShuffle(edit.desiredShuffle, shuffleSeed = Random.nextLong())
+            // Older persisted QueueWindows may still contain a physically shuffled
+            // projection. Return that projection to canonical source order once;
+            // all new shuffling is handled by ExoPlayer's traversal order only.
+            if (window.isShuffleEnabled) {
+                window.setShuffle(false)
+                replaceBoundedUpcoming(exoPlayer, window)
+            }
             QueueShuffle.setEnabled(edit.desiredShuffle)
             AppSettings.setShuffleEnabled(edit.desiredShuffle)
-            replaceBoundedUpcoming(exoPlayer, window)
+            QueueShuffle.applyPlaybackMode(exoPlayer, edit.desiredShuffle)
         }
         if (edit.refresh) replaceBoundedUpcoming(exoPlayer, window)
         if (edit.topUp) {
@@ -3495,7 +3500,7 @@ class PlaybackService : MediaLibraryService() {
         val exoPlayer = player ?: return
         crossfade?.cancelAutoMixVisual()
         exoPlayer.setMediaItems(result.mediaItems, result.startIndex, result.startPositionMs)
-        if (QueueShuffle.enabled.value) QueueShuffle.applyBoundedUserQueueShuffle(exoPlayer, enabled = true)
+        QueueShuffle.applyPlaybackMode(exoPlayer, QueueShuffle.enabled.value)
         saveBoundedContextSnapshot(exoPlayer)
         exoPlayer.prepare()
         exoPlayer.play()
@@ -3538,10 +3543,12 @@ class PlaybackService : MediaLibraryService() {
         val selectedIndex = registered.songs.indexOfFirst { it.contextEntryKey() == selectedKey }
             .takeIf { it >= 0 } ?: 0
         val shuffle = request.shuffle
-        // A fresh seed per start: the default one is fixed, which gave the
-        // same album the same "shuffled" order every time it was played.
+        QueueShuffle.setEnabled(shuffle)
+        AppSettings.setShuffleEnabled(shuffle)
+        // QueueWindow owns the visible canonical collection order. The player
+        // supplies a separate random traversal when shuffle is enabled.
         val window = QueueWindow(registered.songs.size, shuffleSeed = Random.nextLong())
-            .startAt(selectedIndex, shuffle)
+            .startAt(selectedIndex, shuffle = false)
 
         boundedContinuationJob?.cancel()
         boundedContextWindow = window
@@ -4355,6 +4362,7 @@ class PlaybackService : MediaLibraryService() {
         alreadyAudible: Boolean = false,
     ) {
         val exoPlayer = player ?: return
+        QueueShuffle.onMediaItemTransition(exoPlayer)
         syncBoundedContextCursor(exoPlayer, mediaItem)
         if (boundedContextWindow != null && !ListenTogether.state.value.inParty) {
             saveBoundedContextSnapshot(exoPlayer)
@@ -7672,20 +7680,11 @@ class PlaybackService : MediaLibraryService() {
     private fun applySettings(player: ExoPlayer) {
         player.skipSilenceEnabled = AppSettings.skipSilence.value
         player.setPlaybackSpeed(AppSettings.playbackSpeed.value)
-        // Restore persisted shuffle and repeat states on startup. Assign both
-        // values: Android can destroy and recreate the service while retaining
-        // this process, so QueueShuffle's process-wide object may still hold
-        // the previous service instance's value. Only assigning `true` made a
-        // stale enabled state consume the first tap meant to enable Shuffle.
+        // Restore the app's shuffle state on both active and standby players.
+        // Queue order remains untouched; the player traverses its timeline
+        // through an anchored random order when this setting is enabled.
         QueueShuffle.setEnabled(AppSettings.shuffleEnabled.value)
-        // ExoPlayer's own shuffle stays off: the app shuffles by reordering the
-        // queue, and this mode would play that queue in a hidden random order.
-        player.shuffleModeEnabled = false
-        // The session reports the app's shuffle to controllers (see
-        // SessionPlayer.getShuffleModeEnabled), and a controller predicting
-        // Next walks the timeline's shuffle order. Unshuffled, that order is
-        // the queue itself, which is what the app's shuffle plays.
-        player.setShuffleOrder(ShuffleOrder.UnshuffledShuffleOrder(player.mediaItemCount))
+        QueueShuffle.applyPlaybackMode(player, AppSettings.shuffleEnabled.value)
         player.repeatMode = AppSettings.repeatMode.value
     }
 
@@ -9306,6 +9305,7 @@ class PlaybackService : MediaLibraryService() {
             if (locked()) return
             onAutoMixInterruptingIntent()
             super.setMediaItems(mediaItems, resetPosition)
+            (wrappedPlayer as? ExoPlayer)?.let(QueueShuffle::resetPlaybackOrder)
         }
 
         override fun setMediaItems(
@@ -9316,6 +9316,7 @@ class PlaybackService : MediaLibraryService() {
             if (locked()) return
             onAutoMixInterruptingIntent()
             super.setMediaItems(mediaItems, startIndex, startPositionMs)
+            (wrappedPlayer as? ExoPlayer)?.let(QueueShuffle::resetPlaybackOrder)
         }
 
         // Every other way the running order can change from outside: Play next,
@@ -9400,6 +9401,7 @@ class PlaybackService : MediaLibraryService() {
             }
             if (mediaItemIndex <= wrappedPlayer.currentMediaItemIndex) {
                 wrappedPlayer.seekTo(mediaItemIndex, positionMs)
+                (wrappedPlayer as? ExoPlayer)?.let(QueueShuffle::resetPlaybackOrder)
                 return
             }
             // A direct choice of a later queue row bypasses items between
@@ -9416,6 +9418,7 @@ class PlaybackService : MediaLibraryService() {
                 positionMs = positionMs,
                 play = false,
             )
+            (wrappedPlayer as? ExoPlayer)?.let(QueueShuffle::resetPlaybackOrder)
         }
 
         /**
