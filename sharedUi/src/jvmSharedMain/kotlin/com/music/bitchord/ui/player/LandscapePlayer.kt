@@ -447,19 +447,19 @@ internal fun LandscapeCredits(
             Column {
                 var titleOverflowing by remember { mutableStateOf(false) }
                 val artistColor = chromeWhite(0.55f)
-                MarqueeText(
-                    text = song.title,
-                    style = MaterialTheme.typography.titleLarge,
-                    color = Color.White,
-                    onOverflowChange = { titleOverflowing = it },
-                    // Before the title, in the artist line's colour.
-                    leading = if (song.isExplicit == true) {
-                        { ExplicitBadge(artistColor) }
-                    } else {
-                        null
-                    },
-                    modifier = Modifier.opensPage(song.albumId, onOpenAlbum),
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    MarqueeText(
+                        text = song.title,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = Color.White,
+                        onOverflowChange = { titleOverflowing = it },
+                        modifier = Modifier.weight(1f).opensPage(song.albumId, onOpenAlbum),
+                    )
+                    if (song.isExplicit == true) {
+                        Spacer(Modifier.width(6.dp))
+                        ExplicitBadge(artistColor)
+                    }
+                }
                 Spacer(Modifier.height(2.dp))
                 ArtistCreditsMarquee(
                     text = song.artist,
