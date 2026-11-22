@@ -350,6 +350,7 @@ object QueueShuffle {
         }
         val target = !_enabled.value
         setEnabled(target)
+        AppSettings.setShuffleEnabled(target)
         applyPlaybackMode(player, target)
     }
 
