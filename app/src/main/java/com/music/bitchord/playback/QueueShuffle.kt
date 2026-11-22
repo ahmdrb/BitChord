@@ -40,7 +40,11 @@ internal class AnchoredQueueShuffleOrder(
 
     internal fun nextIndex(index: Int): Int {
         val position = state.indices.indexOf(index)
-        return state.indices.getOrNull(position + 1) ?: C.INDEX_UNSET
+        return if (position >= 0) {
+            state.indices.getOrNull(position + 1) ?: C.INDEX_UNSET
+        } else {
+            C.INDEX_UNSET
+        }
     }
 
     override fun getLength(): Int = state.indices.size
