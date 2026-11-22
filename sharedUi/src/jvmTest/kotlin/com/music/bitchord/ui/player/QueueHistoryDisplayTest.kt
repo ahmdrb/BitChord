@@ -87,4 +87,20 @@ class QueueHistoryDisplayTest {
         assertTrue(splitQueue(listOf(song("current")), 0).rows.isEmpty())
         assertTrue(splitQueue(emptyList(), 0).rows.isEmpty())
     }
+    @Test
+    fun `shuffle keeps every non-current row in original timeline order after a backwards jump`() {
+        val queue = listOf(song("a"), song("b"), song("c"), song("d"), song("e"))
+
+        val currentAtThree = splitQueue(queue, 3, showHistory = true, shuffleEnabled = true)
+        assertEquals(listOf(0, 1, 2, 4), currentAtThree.context.map { it.timelineIndex })
+        assertTrue(currentAtThree.history.isEmpty())
+
+        // A shuffle transition can select an item at an earlier physical index.
+        // That does not mean the rows before it were played or should disappear.
+        val currentAtOne = splitQueue(queue, 1, showHistory = true, shuffleEnabled = true)
+        assertEquals(listOf(0, 2, 3, 4), currentAtOne.context.map { it.timelineIndex })
+        assertTrue(currentAtOne.history.isEmpty())
+        assertEquals("b", currentAtOne.nowPlaying?.song?.videoId)
+    }
+
 }
