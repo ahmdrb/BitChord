@@ -6897,6 +6897,8 @@ class PlaybackService : MediaLibraryService() {
         val last = LastPlayed.load() ?: return false
         persistedQueueStart = 0
         player.setMediaItems(last.songs.map { it.toMediaItem() }, last.index, last.positionMs)
+        QueueShuffle.setEnabled(AppSettings.shuffleEnabled.value)
+        QueueShuffle.resetPlaybackOrder(player)
         return true
     }
 
@@ -6922,6 +6924,10 @@ class PlaybackService : MediaLibraryService() {
         val restoredWindow = runCatching { QueueWindow.restore(projected.window) }.getOrNull()
             ?: return false
         if (restoredWindow.canonicalSize != projected.context.songs.size) return false
+        // Older persisted windows used to shuffle by physically reordering
+        // the visible queue. New builds keep the canonical list order and
+        // apply random traversal separately on the player.
+        if (restoredWindow.isShuffleEnabled) restoredWindow.setShuffle(false)
         val restoredCurrent = restoredWindow.currentCanonicalIndex ?: return false
         if (projected.currentIndex !in projected.entries.indices) return false
 
@@ -6965,12 +6971,15 @@ class PlaybackService : MediaLibraryService() {
                 startIndex = restoredCurrent,
                 source = persisted.source,
                 continuationToken = restoredContext.continuationToken,
-                shuffle = restoredWindow.isShuffleEnabled,
+                shuffle = AppSettings.shuffleEnabled.value,
             ),
         )
         boundedEditState = BoundedQueueEdits.invalidateContext(boundedEditState)
         persistedQueueStart = 0
         exoPlayer.setMediaItems(items, projected.currentIndex, projected.positionMs)
+        replaceBoundedUpcoming(exoPlayer, restoredWindow)
+        QueueShuffle.setEnabled(AppSettings.shuffleEnabled.value)
+        QueueShuffle.resetPlaybackOrder(exoPlayer)
         startBoundedContinuationLoading(contextToken)
         return true
     }
