@@ -585,7 +585,7 @@ internal fun BestPartPill(
                 .semantics { contentDescription = description },
         ) {
             // A light neutral tint, kept translucent so the artwork remains visible.
-            Box(Modifier.matchParentSize().background(discFill(0.06f)))
+            Box(Modifier.matchParentSize().background(discFill(0.025f)))
             Box(Modifier.matchParentSize().glassRim(shape))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -628,10 +628,10 @@ private const val BEST_PART_FADE_MS = 280
 private const val BEST_PART_VISIBLE_MS = 3_000L
 
 /** Low-opacity live frost: never a charcoal slab over the cover. */
-private const val GLASS_SLAB_ALPHA = 0.12f
+private const val GLASS_SLAB_ALPHA = 0.08f
 
 /** Same see-through material when blur is reduced or unavailable. */
-private const val GLASS_FLAT_ALPHA = 0.12f
+private const val GLASS_FLAT_ALPHA = 0.08f
 
 private val PlayerGlassTint = Color(0xFF969DA3).copy(alpha = GLASS_FLAT_ALPHA)
 
@@ -927,8 +927,8 @@ internal fun PlayerActionRow(
 }
 
 /** The star, ⋯, expand and unexpand controls use the same subtle glass tint. */
-private const val CIRCLE_DISC_ALPHA = 0.08f
-private const val CIRCLE_DISC_ACTIVE_ALPHA = 0.12f
+private const val CIRCLE_DISC_ALPHA = 0.045f
+private const val CIRCLE_DISC_ACTIVE_ALPHA = 0.07f
 
 /**
  * The lyrics, output and queue glyphs, and the volume bar's speakers, dodged
