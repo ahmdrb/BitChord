@@ -3870,6 +3870,10 @@ class PlaybackService : MediaLibraryService() {
             return
         }
         val current = exoPlayer.currentMediaItem?.toSong() ?: return
+        // Playlist, album and artist contexts end with their own tracks. Do not
+        // append Similar Music behind them; one-off Home/Search stations and the
+        // app-wide Local Music / Addons lists retain their existing behaviour.
+        if (!shouldLoadAutoplayForSong(current)) return
         if (AppSettings.dontRepeatSuggestions.value) sessionSongHistory += current
         // In a party the server's queue is the one being topped up, and this
         // player's copy of it lags behind by however long reconcile is held off
@@ -4410,7 +4414,20 @@ class PlaybackService : MediaLibraryService() {
         // it onto the standby player, so letting completed entries accumulate
         // made every one of those paths progressively more expensive.
         val expiredHistory = queueHistoryTrimCount(exoPlayer.currentMediaItemIndex)
-        if (expiredHistory > 0 && !isQueueUndoRestoring(exoPlayer)) {
+        if (QueueShuffle.enabled.value) {
+            // The visible timeline stays in its original order during shuffle;
+            // only the anchored ShuffleOrder tells us what has really played.
+            // Never trim every physical row before currentIndex: some of those
+            // rows are still ahead in the active shuffled traversal.
+            val playedIndices = QueueShuffle.historyIndices(exoPlayer)
+            val excessHistory = (playedIndices.size - MAX_QUEUE_HISTORY).coerceAtLeast(0)
+            val canPrune = boundedContextWindow != null ||
+                exoPlayer.repeatMode != Player.REPEAT_MODE_ALL
+            if (excessHistory > 0 && canPrune && !isQueueUndoRestoring(exoPlayer)) {
+                exoPlayer.removeQueueIndices(playedIndices.take(excessHistory))
+            }
+            QueueShuffle.refreshHistory(exoPlayer)
+        } else if (expiredHistory > 0 && !isQueueUndoRestoring(exoPlayer)) {
             if (boundedContextWindow != null) {
                 // In bounded mode the logical QueueWindow owns repeat/cycle
                 // state. The player timeline only retains the recent history;
