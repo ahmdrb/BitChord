@@ -507,7 +507,7 @@ object AppSettings {
     /** Draws the BitChord mark at the top of a shared lyrics card. */
     val lyricsCardLogo = MutableStateFlow(true)
 
-    val showQueueHistory = MutableStateFlow(false)
+    val showQueueHistory = MutableStateFlow(true)
 
     /** Swiping a song row plays it next instead of adding it to the end of the queue. */
     val swipeToPlayNext = MutableStateFlow(false)
@@ -1138,7 +1138,7 @@ object AppSettings {
         hideSongStatus.value = prefs.getBoolean(KEY_HIDE_SONG_STATUS, false)
         hideLyricsPreview.value = prefs.getBoolean(KEY_HIDE_LYRICS_PREVIEW, false)
         lyricsCardLogo.value = prefs.getBoolean(KEY_LYRICS_CARD_LOGO, true)
-        showQueueHistory.value = prefs.getBoolean(KEY_SHOW_QUEUE_HISTORY, false)
+        showQueueHistory.value = prefs.getBoolean(KEY_SHOW_QUEUE_HISTORY, true)
         swipeToPlayNext.value = prefs.getBoolean(KEY_SWIPE_TO_PLAY_NEXT, false)
         dontRepeatSuggestions.value = prefs.getBoolean(KEY_DONT_REPEAT_SUGGESTIONS, false)
         preferMusicOnly.value = prefs.getBoolean(KEY_PREFER_MUSIC_ONLY, false)
