@@ -628,14 +628,14 @@ private const val GLASS_SLAB_ALPHA = 0.38f
 /** The slab alone, with no blur under it, thick enough to hold the glyph on any cover. */
 private const val GLASS_FLAT_ALPHA = 0.72f
 
-/** Best Part stays translucent even when live blur is unavailable or suspended. */
-private const val BEST_PART_GLASS_ALPHA = 0.38f
+/** A light, see-through glass tint; never the opaque charcoal used by menus. */
+private const val BEST_PART_GLASS_ALPHA = 0.16f
 
 private fun Modifier.bestPartGlassFrost(hazeState: HazeState?, flat: Boolean): Modifier =
     if (flat || hazeState == null) {
-        background(MenuFrostDark.copy(alpha = BEST_PART_GLASS_ALPHA))
+        background(Color.White.copy(alpha = BEST_PART_GLASS_ALPHA))
     } else {
-        liveMenuFrost(hazeState, MenuFrostDark, alpha = BEST_PART_GLASS_ALPHA)
+        liveMenuFrost(hazeState, Color.White, alpha = BEST_PART_GLASS_ALPHA)
     }
 
 /**
@@ -929,11 +929,8 @@ internal fun PlayerActionRow(
     }
 }
 
-/** How much more of the ink [CircleGlyph]'s disc takes than its plain white — 0.45 at rest, 0.85 lit. */
-private const val CIRCLE_DISC_DODGE_GAIN = 1.5f
-
-/** The star and ⋯ discs' fill at rest. */
-private const val CIRCLE_DISC_ALPHA = 0.10f
+/** Subtle translucent white fill for the star and ⋯ circles. */
+private const val CIRCLE_DISC_ALPHA = 0.14f
 
 /**
  * The lyrics, output and queue glyphs, and the volume bar's speakers, dodged
@@ -1033,7 +1030,6 @@ internal fun CircleGlyph(
         targetValue = if (active) 0.22f else CIRCLE_DISC_ALPHA,
         label = "glyphDisc",
     )
-    val chrome = LocalPlayerChrome.current
     Box(
         modifier = modifier
             .size(34.dp)
@@ -1047,15 +1043,8 @@ internal fun CircleGlyph(
             },
         contentAlignment = Alignment.Center,
     ) {
-        // The disc carries the blend, dodged as the bottom row's glyphs are, and
-        // the glyph sits on it in plain white. The ink is mixed in at a few times
-        // the plain disc's strength: a dodge laid on this thinly is next to nothing.
-        Box(
-            Modifier
-                .matchParentSize()
-                .vibrantChrome(chrome)
-                .background(discFill(chrome, discAlpha)),
-        )
+        // A light translucent disc lets the artwork remain visible through it.
+        Box(Modifier.matchParentSize().background(Color.White.copy(alpha = discAlpha)))
         // Outside the blend: the rim is light catching the edge, not ink.
         Box(Modifier.matchParentSize().glassRim(CircleShape))
         Crossfade(
@@ -1072,17 +1061,6 @@ internal fun CircleGlyph(
         }
     }
 }
-
-/**
- * The star and ⋯ discs' fill at [alpha]: under the blend, the ink at a few
- * times that strength, since a dodge laid on this thinly is next to nothing.
- */
-private fun discFill(chrome: Boolean, alpha: Float = CIRCLE_DISC_ALPHA): Color =
-    if (chrome) {
-        VibrantChromeInk.copy(alpha = (alpha * CIRCLE_DISC_DODGE_GAIN).coerceAtMost(1f))
-    } else {
-        Color.White.copy(alpha = alpha)
-    }
 
 @Composable
 internal fun rememberAutoMixFrostHold(): () -> Boolean {
