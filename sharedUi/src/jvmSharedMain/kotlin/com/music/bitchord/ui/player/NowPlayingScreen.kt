@@ -2514,6 +2514,7 @@ fun NowPlayingScreen(
                             queue = queue,
                             currentIndex = queueIndex,
                             autoplayEnabled = autoplayEnabled,
+                            shuffleEnabled = shuffleEnabled,
                             controlsLocked = controlsLocked,
                             hazeState = playerHaze,
                             onJumpTo = onJumpTo,
