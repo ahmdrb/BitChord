@@ -46,7 +46,7 @@ class QueueShuffleTest {
 
         assertEquals(listOf(2, 0, 3, 1), traversal)
         assertEquals(0, order.getPreviousIndex(3))
-        assertEquals(3, traversal.distinct().size)
+        assertEquals(4, traversal.distinct().size)
         assertEquals(setOf(0, 1, 2, 3), traversal.toSet())
     }
 
