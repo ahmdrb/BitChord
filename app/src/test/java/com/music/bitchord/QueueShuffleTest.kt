@@ -1,8 +1,12 @@
 package com.music.bitchord
 
+import androidx.media3.common.C
+import com.music.bitchord.playback.AnchoredQueueShuffleOrder
 import com.music.bitchord.playback.QueueShuffle
 import com.music.bitchord.playback.queueStartIndex
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -16,13 +20,62 @@ class QueueShuffleTest {
         QueueShuffle.restoreOrder(upcoming, original).map { upcoming[it] }
 
     @Test
-    fun `a shuffled queue starts at the tapped track moved to its head`() {
-        assertEquals(0, queueStartIndex(requestedIndex = 3, itemCount = 5, shuffled = true))
+    fun `shuffle keeps the tapped track at its visible queue position`() {
+        assertEquals(3, queueStartIndex(requestedIndex = 3, itemCount = 5, shuffled = true))
     }
 
     @Test
-    fun `an unshuffled queue starts at the tapped track's list position`() {
+    fun `shuffle off also keeps the tapped track at its visible queue position`() {
         assertEquals(3, queueStartIndex(requestedIndex = 3, itemCount = 5, shuffled = false))
+    }
+
+    @Test
+    fun `playback shuffle follows a random traversal without changing queue indices`() {
+        val order = AnchoredQueueShuffleOrder(
+            indices = intArrayOf(2, 0, 3, 1),
+            anchorIndex = 2,
+        )
+
+        val traversal = buildList {
+            var index = order.getFirstIndex()
+            while (index != C.INDEX_UNSET) {
+                add(index)
+                index = order.getNextIndex(index)
+            }
+        }
+
+        assertEquals(listOf(2, 0, 3, 1), traversal)
+        assertEquals(0, order.getPreviousIndex(3))
+        assertEquals(3, traversal.distinct().size)
+        assertEquals(setOf(0, 1, 2, 3), traversal.toSet())
+    }
+
+    @Test
+    fun `playback shuffle returns unset for indices outside its queue`() {
+        val order = AnchoredQueueShuffleOrder(indices = intArrayOf(0, 2, 1), anchorIndex = 0)
+
+        assertEquals(C.INDEX_UNSET, order.getNextIndex(99))
+        assertEquals(C.INDEX_UNSET, order.getPreviousIndex(99))
+        assertEquals(C.INDEX_UNSET, order.getNextIndex(1))
+    }
+
+    @Test
+    fun `inserted queue entries join the future random traversal without losing existing entries`() {
+        val original = AnchoredQueueShuffleOrder(indices = intArrayOf(0, 3, 1, 2), anchorIndex = 0)
+        val inserted = original.cloneAndInsert(2, 2) as AnchoredQueueShuffleOrder
+
+        val traversal = buildList {
+            var index = inserted.getFirstIndex()
+            while (index != C.INDEX_UNSET) {
+                add(index)
+                index = inserted.getNextIndex(index)
+            }
+        }
+
+        assertEquals(6, inserted.getLength())
+        assertEquals(6, traversal.size)
+        assertEquals((0..5).toSet(), traversal.toSet())
+        assertEquals(0, traversal.first())
     }
 
     @Test
