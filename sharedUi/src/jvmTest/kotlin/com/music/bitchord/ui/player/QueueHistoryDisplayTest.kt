@@ -11,18 +11,18 @@ class QueueHistoryDisplayTest {
         Song(videoId = id, title = id, artist = "Artist", thumbnailUrl = null, queueTier = tier)
 
     @Test
-    fun `history is hidden by default without changing upcoming sections`() {
+    fun `history is visible by default and can still be hidden by preference`() {
         val queue = listOf(song("old"), song("current"), song("manual", QueueTier.USER_QUEUE),
             song("album"), song("radio", QueueTier.AUTOPLAY))
-        val hidden = splitQueue(queue, 1)
-        val visible = splitQueue(queue, 1, showHistory = true)
+        val visible = splitQueue(queue, 1)
+        val hidden = splitQueue(queue, 1, showHistory = false)
 
-        assertTrue(hidden.history.isEmpty())
         assertEquals(listOf(0), visible.history.map { it.timelineIndex })
-        assertEquals(hidden.nowPlaying, visible.nowPlaying)
-        assertEquals(hidden.user, visible.user)
-        assertEquals(hidden.context, visible.context)
-        assertEquals(hidden.autoplay, visible.autoplay)
+        assertTrue(hidden.history.isEmpty())
+        assertEquals(visible.nowPlaying, hidden.nowPlaying)
+        assertEquals(visible.user, hidden.user)
+        assertEquals(visible.context, hidden.context)
+        assertEquals(visible.autoplay, hidden.autoplay)
     }
 
     @Test
@@ -87,6 +87,26 @@ class QueueHistoryDisplayTest {
         assertTrue(splitQueue(listOf(song("current")), 0).rows.isEmpty())
         assertTrue(splitQueue(emptyList(), 0).rows.isEmpty())
     }
+    @Test
+    fun `shuffle history uses played entry IDs and removes them from upcoming sections`() {
+        val queue = listOf("a", "b", "c", "d", "e").map { id ->
+            song(id).copy(queueEntryId = id)
+        }
+
+        val tracks = splitQueue(
+            queue = queue,
+            currentIndex = 1,
+            showHistory = true,
+            shuffleEnabled = true,
+            queueHistoryEntryIds = listOf("d", "a"),
+        )
+
+        assertEquals(listOf("d", "a"), tracks.history.map { it.song.videoId })
+        assertEquals(listOf(3, 0), tracks.history.map { it.timelineIndex })
+        assertEquals(listOf("c", "e"), tracks.context.map { it.song.videoId })
+        assertEquals("b", tracks.nowPlaying?.song?.videoId)
+    }
+
     @Test
     fun `shuffle keeps every non-current row in original timeline order after a backwards jump`() {
         val queue = listOf(song("a"), song("b"), song("c"), song("d"), song("e"))
