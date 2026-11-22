@@ -935,10 +935,9 @@ suspend fun MediaController.playSongs(songs: List<Song>, startIndex: Int) {
         SessionCommand(ACTION_CLEAR_BOUNDED_CONTEXT, Bundle.EMPTY),
         Bundle.EMPTY,
     ).await()
-    // A queue started while shuffle is on goes in shuffled rather than being
-    // played out of order — see [QueueShuffle]. The track the user picked still
-    // leads, so it ends up at the top instead of at [startIndex].
-    val shuffled = QueueShuffle.enabled.value
+    // Keep the supplied queue and its selected start position exactly as shown.
+    // When Shuffle is enabled, PlaybackService supplies a separate random
+    // ShuffleOrder; it never rearranges these media items.
     val items = withContext(Dispatchers.Default) {
         val songsWithIds = songs.map { song ->
             if (song.queueEntryId == null) song.copy(queueEntryId = java.util.UUID.randomUUID().toString()) else song
@@ -946,12 +945,7 @@ suspend fun MediaController.playSongs(songs: List<Song>, startIndex: Int) {
         val contextEntries = songsWithIds.filter { it.queueTier == QueueTier.CONTEXT }
         val canonicalIndexMap = contextEntries.mapIndexed { idx, s -> s.queueEntryId!! to idx }.toMap()
 
-        val queue = if (shuffled) {
-            QueueShuffle.startingOrder(songsWithIds, startIndex.coerceIn(songsWithIds.indices))
-        } else {
-            songsWithIds
-        }
-        val mediaItems = queue.map { song ->
+        val mediaItems = songsWithIds.map { song ->
             val item = song.toMediaItem()
             val cIndex = if (song.queueTier == QueueTier.CONTEXT) {
                 canonicalIndexMap[song.queueEntryId]
@@ -966,14 +960,11 @@ suspend fun MediaController.playSongs(songs: List<Song>, startIndex: Int) {
 
         mediaItems
     }
-    setMediaItems(items, queueStartIndex(startIndex, items.size, shuffled), 0L)
+    setMediaItems(items, queueStartIndex(startIndex, items.size, QueueShuffle.enabled.value), 0L)
     prepare()
     play()
 }
 
-/**
- * The selected track is moved to the head when a new queue is shuffled, so
- * playback must begin there rather than at its index in the unshuffled list.
- */
+/** Shuffle changes playback traversal only; the selected song keeps its list position. */
 internal fun queueStartIndex(requestedIndex: Int, itemCount: Int, shuffled: Boolean): Int =
-    if (shuffled) 0 else requestedIndex.coerceIn(0, itemCount - 1)
+    requestedIndex.coerceIn(0, itemCount - 1)
