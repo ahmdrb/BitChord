@@ -360,6 +360,21 @@ private suspend fun MediaController.acknowledgedQueueEdit(action: String, args: 
 
 
 
+/**
+ * Reads a controller's traversal neighbour without letting a transiently
+ * inconsistent Media3 session timeline crash the app.
+ *
+ * During playlist hand-offs Media3 can briefly throw ArrayIndexOutOfBoundsException
+ * from PlaylistTimeline.getNextWindowIndex() instead of returning INDEX_UNSET.
+ * The next player event will retry the read against the settled timeline.
+ */
+internal fun safeMediaItemIndex(queueSize: Int, readIndex: () -> Int): Int? =
+    try {
+        readIndex().takeIf { it in 0 until queueSize }
+    } catch (_: IndexOutOfBoundsException) {
+        null
+    }
+
 /** Mirrors the controller into Compose state, polling position while playing. */
 @Composable
 fun rememberPlayerState(controller: MediaController?): PlayerState {
@@ -405,6 +420,17 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
             // Synced here too, so seeking while paused or buffering still moves
             // the scrubber (the poll loop only runs on play).
             position.report(player.currentPosition.coerceAtLeast(0L))
+
+            // These traversal getters consult Media3's concatenated session
+            // timeline. During a queue replacement it can be between the old
+            // and new child mapping; guard both reads and derive the booleans
+            // from the same safe indices so one bad read cannot crash onEvents.
+            val previousIndex = safeMediaItemIndex(queueSnapshot.size) {
+                player.previousMediaItemIndex
+            }
+            val nextIndex = safeMediaItemIndex(queueSnapshot.size) {
+                player.nextMediaItemIndex
+            }
             state = state.copy(
                 song = item?.toSong(),
                 isPlaying = player.isPlaying,
@@ -414,10 +440,10 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
                 repeatMode = player.repeatMode,
                 queue = queueSnapshot,
                 queueIndex = player.currentMediaItemIndex,
-                previousSong = queueSnapshot.getOrNull(player.previousMediaItemIndex),
-                nextSong = queueSnapshot.getOrNull(player.nextMediaItemIndex),
-                hasPrevious = player.hasPreviousMediaItem(),
-                hasNext = player.hasNextMediaItem(),
+                previousSong = previousIndex?.let(queueSnapshot::getOrNull),
+                nextSong = nextIndex?.let(queueSnapshot::getOrNull),
+                hasPrevious = previousIndex != null,
+                hasNext = nextIndex != null,
                 isQualityUpgraded = item?.mediaMetadata?.extras
                     ?.getBoolean(EXTRA_QUALITY_UPGRADED) == true,
             )
