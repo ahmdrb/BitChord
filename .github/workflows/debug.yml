@@ -28,6 +28,10 @@ jobs:
         mkdir -p ~/.android
         echo "$DEBUG_KEYSTORE_BASE64" | base64 -d > ~/.android/debug.keystore
     - run: chmod +x gradlew
+    - name: Run phone unit tests
+      run: ./gradlew testDevDebugUnitTest
+    - name: Run shared JVM tests
+      run: ./gradlew :shared:jvmTest
     - name: Build the phone Dev APK
       run: ./gradlew :app:assembleDevDebug
     - name: Upload the phone Dev APK
