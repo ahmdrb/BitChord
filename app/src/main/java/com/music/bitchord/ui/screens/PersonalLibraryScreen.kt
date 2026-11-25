@@ -2,6 +2,7 @@ package com.music.bitchord.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.fadeIn
@@ -603,8 +604,22 @@ private fun PersonalCollectionDetailDialog(
                                             Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.48f)),
                                             contentAlignment = Alignment.Center,
                                         ) {
-                                            if (isPlaying) NowPlayingEqualizer(palette.accent)
-                                            else Icon(Icons.Rounded.Pause, contentDescription = "Paused", tint = palette.accent)
+                                            Crossfade(
+                                                targetState = isPlaying,
+                                                animationSpec = tween(durationMillis = 180),
+                                                label = "personalCollectionPlaybackIndicator",
+                                            ) { playing ->
+                                                if (playing) {
+                                                    NowPlayingEqualizer(palette.accent)
+                                                } else {
+                                                    Icon(
+                                                        Icons.Rounded.Pause,
+                                                        contentDescription = "Paused",
+                                                        tint = palette.accent,
+                                                        modifier = Modifier.size(22.dp),
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
                                 }

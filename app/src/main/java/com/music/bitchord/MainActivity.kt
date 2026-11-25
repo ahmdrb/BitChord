@@ -4482,8 +4482,11 @@ private fun BitChordApp(
                                 // Left of the account photo, and only on Library itself:
                                 // a history is a record of what was played, which reads
                                 // as that tab's business rather than every tab's.
-                                if (route == null && detail == null && selectedTab == TAB_LIBRARY &&
-                                    !personalCollectionDetailOpen
+                                AnimatedVisibility(
+                                    visible = route == null && detail == null &&
+                                        selectedTab == TAB_LIBRARY && !personalCollectionDetailOpen,
+                                    enter = fadeIn(tween(180)) + scaleIn(initialScale = 0.88f, animationSpec = tween(220)),
+                                    exit = fadeOut(tween(120)) + scaleOut(targetScale = 0.88f, animationSpec = tween(160)),
                                 ) {
                                     IconButton(
                                         onClick = {
@@ -4582,7 +4585,11 @@ private fun BitChordApp(
                                 // Personal BitChord collections use these same shared
                                 // FrostedTopBar controls. Their page content owns only
                                 // the search field and popup menus, never another toolbar.
-                                if (personalCollectionDetailOpen) {
+                                AnimatedVisibility(
+                                    visible = personalCollectionDetailOpen,
+                                    enter = fadeIn(tween(180)) + scaleIn(initialScale = 0.88f, animationSpec = tween(220)),
+                                    exit = fadeOut(tween(120)) + scaleOut(targetScale = 0.88f, animationSpec = tween(160)),
+                                ) {
                                     PersonalCollectionTopBarActions(
                                         searchOpen = personalCollectionSearchOpen,
                                         onSearchToggle = { personalCollectionSearchOpen = !personalCollectionSearchOpen },
@@ -4601,16 +4608,22 @@ private fun BitChordApp(
                                 // Not on a release page, whose pill already carries
                                 // three of its own controls — Apple Music leaves the
                                 // profile off its album pages too.
-                                if (!isReleaseDetail && !isArtistDetail && !personalCollectionDetailOpen) TopBarAccountButton(
-                                    account = account,
-                                    onClick = {
-                                        if (signedIn) {
-                                            viewModel.loadChannels()
-                                            showAccountSelector = true
-                                        } else navigator.push(AppRoute.Settings)
-                                    },
-                                    onSwipeProfile = { forward -> viewModel.stepProfile(forward) },
-                                )
+                                AnimatedVisibility(
+                                    visible = !isReleaseDetail && !isArtistDetail && !personalCollectionDetailOpen,
+                                    enter = fadeIn(tween(180)) + scaleIn(initialScale = 0.88f, animationSpec = tween(220)),
+                                    exit = fadeOut(tween(120)) + scaleOut(targetScale = 0.88f, animationSpec = tween(160)),
+                                ) {
+                                    TopBarAccountButton(
+                                        account = account,
+                                        onClick = {
+                                            if (signedIn) {
+                                                viewModel.loadChannels()
+                                                showAccountSelector = true
+                                            } else navigator.push(AppRoute.Settings)
+                                        },
+                                        onSwipeProfile = { forward -> viewModel.stepProfile(forward) },
+                                    )
+                                }
                             }
                         },
                     )

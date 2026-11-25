@@ -10,6 +10,8 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
@@ -300,24 +302,26 @@ fun FrostedTopBar(
              */
             // On a pushed page the back affordance is always visible, since
             // there is no large in-list header to fall back on.
-            if (onBack != null) {
+            AnimatedVisibility(
+                visible = onBack != null,
+                enter = fadeIn(tween(180)) + scaleIn(initialScale = 0.82f, animationSpec = tween(220)),
+                exit = fadeOut(tween(120)) + scaleOut(targetScale = 0.82f, animationSpec = tween(160)),
+                modifier = Modifier.align(Alignment.CenterStart),
+            ) {
                 if (useFloatingChrome) {
                     ArtworkPageBackButton(
-                        onClick = onBack,
+                        onClick = { onBack?.invoke() },
                         hazeState = backButtonHazeState,
                         lightweightGlass = lightweightArtworkChrome,
                         progressBarArtworkChrome = progressBarArtworkChrome,
-                        // The surface edge aligns with the floating navbar. The
-                        // padding belongs outside the circle; its icon remains
-                        // centred in the same 44dp control in every material.
-                        modifier = Modifier
-                            .align(Alignment.CenterStart)
-                            .padding(start = BAR_GUTTER),
+                        // Keep the floating edge aligned while the circle enters
+                        // and leaves with the same transition as its action pill.
+                        modifier = Modifier.padding(start = BAR_GUTTER),
                     )
                 } else {
                     IconButton(
-                        onClick = onBack,
-                        modifier = Modifier.align(Alignment.CenterStart).padding(start = 4.dp),
+                        onClick = { onBack?.invoke() },
+                        modifier = Modifier.padding(start = 4.dp),
                     ) {
                         Icon(
                             SfIcons.ArrowBack,
