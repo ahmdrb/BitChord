@@ -4484,21 +4484,23 @@ private fun BitChordApp(
                                 // Left of the account photo, and only on Library itself:
                                 // a history is a record of what was played, which reads
                                 // as that tab's business rather than every tab's.
-                                TopBarControlVisibility(
-                                    visible = route == null && detail == null &&
-                                        selectedTab == TAB_LIBRARY && !personalCollectionDetailOpen,
-                                ) {
-                                    IconButton(
-                                        onClick = {
-                                            navigator.push(AppRoute.History)
-                                            viewModel.loadHistory()
-                                        },
+                                if (!isLocalDetail) {
+                                    TopBarControlVisibility(
+                                        visible = route == null && detail == null &&
+                                            selectedTab == TAB_LIBRARY && !personalCollectionDetailOpen,
                                     ) {
-                                        Icon(
-                                            Icons.Rounded.History,
-                                            contentDescription = stringResource(R.string.listening_history),
-                                            tint = MaterialTheme.colorScheme.onSurface,
-                                        )
+                                        IconButton(
+                                            onClick = {
+                                                navigator.push(AppRoute.History)
+                                                viewModel.loadHistory()
+                                            },
+                                        ) {
+                                            Icon(
+                                                Icons.Rounded.History,
+                                                contentDescription = stringResource(R.string.listening_history),
+                                                tint = MaterialTheme.colorScheme.onSurface,
+                                            )
+                                        }
                                     }
                                 }
                                 // Left of the account photo, and only on a Library
@@ -4539,48 +4541,63 @@ private fun BitChordApp(
                                 // replace the Search / Filter / More set with separate
                                 // Share / Delete controls, making their navigation look
                                 // like a different toolbar.
-                                if ((isReleaseDetail || isLocalDetail || isArtistDetail) && detail != null) {
-                                    val detailSongs = (detail.songs as? UiState.Success)?.data.orEmpty()
-                                    DetailPageTopBarActions(
-                                        isReleaseDetail = isReleaseDetail,
-                                        isLocalDetail = isLocalDetail,
-                                        isArtistDetail = isArtistDetail,
-                                        browseId = detail.browseId,
-                                        title = detail.title,
-                                        songs = detailSongs,
-                                        isPersonalArtist = personalLibrary.artists.any {
-                                            it.browseId == detail.browseId
-                                        },
-                                        detailSearching = detailSearching,
-                                        onDetailSearchToggle = { detailSearching = !detailSearching },
-                                        onSortClick = {
-                                            if (isLocalDetail) folderMenuOpen = true else songSortMenuOpen = true
-                                        },
-                                        onMoreClick = {
-                                            openBrowseMenu(BrowseTarget(
-                                                browseId = detail.browseId,
-                                                title = detail.title,
-                                                subtitle = detail.subtitle,
-                                                thumbnailUrl = detail.thumbnailUrl,
-                                                type = detail.type,
-                                                songs = detailSongs.sortedForDetail(songSort).map { song ->
-                                                    if (detail.type == BrowseType.ALBUM) {
-                                                        song.copy(albumName = song.albumName ?: detail.title)
-                                                    } else {
-                                                        song
-                                                    }
-                                                },
-                                                fromCard = false,
-                                                downloadId = downloadIdFor(detail.browseId),
-                                            ))
-                                        },
-                                        artistMoreMenuOpen = artistMoreMenuOpen,
-                                        onArtistMoreMenuOpenChange = { artistMoreMenuOpen = it },
-                                        onDeleteArtist = {
-                                            PersonalLibraryStore.removeArtist(detail.browseId)
-                                            viewModel.closeDetail()
-                                        },
-                                    )
+                                val detailActions: @Composable () -> Unit = {
+                                    if ((isReleaseDetail || isLocalDetail || isArtistDetail) && detail != null) {
+                                        val detailSongs = (detail.songs as? UiState.Success)?.data.orEmpty()
+                                        DetailPageTopBarActions(
+                                            isReleaseDetail = isReleaseDetail,
+                                            isLocalDetail = isLocalDetail,
+                                            isArtistDetail = isArtistDetail,
+                                            browseId = detail.browseId,
+                                            title = detail.title,
+                                            songs = detailSongs,
+                                            isPersonalArtist = personalLibrary.artists.any {
+                                                it.browseId == detail.browseId
+                                            },
+                                            detailSearching = detailSearching,
+                                            onDetailSearchToggle = { detailSearching = !detailSearching },
+                                            onSortClick = {
+                                                if (isLocalDetail) folderMenuOpen = true else songSortMenuOpen = true
+                                            },
+                                            onMoreClick = {
+                                                openBrowseMenu(BrowseTarget(
+                                                    browseId = detail.browseId,
+                                                    title = detail.title,
+                                                    subtitle = detail.subtitle,
+                                                    thumbnailUrl = detail.thumbnailUrl,
+                                                    type = detail.type,
+                                                    songs = detailSongs.sortedForDetail(songSort).map { song ->
+                                                        if (detail.type == BrowseType.ALBUM) {
+                                                            song.copy(albumName = song.albumName ?: detail.title)
+                                                        } else {
+                                                            song
+                                                        }
+                                                    },
+                                                    fromCard = false,
+                                                    downloadId = downloadIdFor(detail.browseId),
+                                                ))
+                                            },
+                                            artistMoreMenuOpen = artistMoreMenuOpen,
+                                            onArtistMoreMenuOpenChange = { artistMoreMenuOpen = it },
+                                            onDeleteArtist = {
+                                                PersonalLibraryStore.removeArtist(detail.browseId)
+                                                viewModel.closeDetail()
+                                            },
+                                        )
+                                    }
+                                }
+                                if (isLocalDetail) {
+                                    // Keep Local Music's established top-bar transition untouched.
+                                    detailActions()
+                                } else {
+                                    // Stay in the composition while Library is visible; otherwise
+                                    // AnimatedVisibility would first appear already visible and
+                                    // have no entrance transition when a remote detail is opened.
+                                    TopBarControlVisibility(
+                                        visible = (isReleaseDetail || isArtistDetail) && detail != null,
+                                    ) {
+                                        detailActions()
+                                    }
                                 }
                                 // Personal BitChord collections use these same shared
                                 // FrostedTopBar controls. Their page content owns only

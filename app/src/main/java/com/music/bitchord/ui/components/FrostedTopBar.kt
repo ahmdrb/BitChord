@@ -302,25 +302,24 @@ fun FrostedTopBar(
              */
             // On a pushed page the back affordance is always visible, since
             // there is no large in-list header to fall back on.
-            TopBarControlVisibility(
-                visible = onBack != null,
-                modifier = Modifier.align(Alignment.CenterStart),
-                initialScale = 0.82f,
-            ) {
+            if (onBack != null) {
                 if (useFloatingChrome) {
+                    // Keep the artwork-aware surface out of AnimatedVisibility's
+                    // alpha layer: ColorDodge needs the real backdrop, or the
+                    // circle flashes black before the blend settles.
                     ArtworkPageBackButton(
-                        onClick = { onBack?.invoke() },
+                        onClick = onBack,
                         hazeState = backButtonHazeState,
                         lightweightGlass = lightweightArtworkChrome,
                         progressBarArtworkChrome = progressBarArtworkChrome,
-                        // Keep the floating edge aligned while the circle enters
-                        // and leaves with the same transition as its action pill.
-                        modifier = Modifier.padding(start = BAR_GUTTER),
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .padding(start = BAR_GUTTER),
                     )
                 } else {
                     IconButton(
-                        onClick = { onBack?.invoke() },
-                        modifier = Modifier.padding(start = 4.dp),
+                        onClick = onBack,
+                        modifier = Modifier.align(Alignment.CenterStart).padding(start = 4.dp),
                     ) {
                         Icon(
                             SfIcons.ArrowBack,
