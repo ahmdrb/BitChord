@@ -5,6 +5,8 @@ import com.music.bitchord.data.forArtistInAddedOrder
 import com.music.bitchord.data.nextArtistMembershipOrder
 import com.music.bitchord.data.normalizePersonalArtistOrder
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.settings.SongSort
+import com.music.bitchord.ui.screens.sortedForDetail
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -46,10 +48,12 @@ class PersonalArtistOrderTest {
             if (it.song.videoId == "saturn") assignedSaturn else it
         }
 
-        assertEquals(
-            listOf("open-arms", "nobody-gets-me", "snooze", "kill-bill", "saturn"),
-            afterAdding.forArtistInAddedOrder(sza).map { it.song.videoId },
-        )
+        val artistSongs = afterAdding.forArtistInAddedOrder(sza).map { it.song }
+        val insertionOrder = listOf("open-arms", "nobody-gets-me", "snooze", "kill-bill", "saturn")
+        assertEquals(insertionOrder, artistSongs.map { it.videoId })
+        assertEquals(insertionOrder, artistSongs.sortedForDetail(SongSort.DEFAULT).map { it.videoId })
+        assertEquals(insertionOrder, artistSongs.sortedForDetail(SongSort.DATE_ADDED_ASC).map { it.videoId })
+        assertEquals(insertionOrder.reversed(), artistSongs.sortedForDetail(SongSort.DATE_ADDED_DESC).map { it.videoId })
     }
 
     @Test
