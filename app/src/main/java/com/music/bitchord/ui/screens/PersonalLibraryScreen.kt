@@ -717,7 +717,7 @@ fun PersonalLibraryScreen(
 
     val visibleSongs = remember(collection.songs, selectedArtist) {
         if (selectedArtist == null) collection.songs
-        else collection.songs.filter { entry -> selectedArtist?.browseId?.let(entry.artistBrowseIds::contains) == true }
+        else collection.songs.forArtistInAddedOrder(selectedArtist!!.browseId)
     }
 
     LazyColumn(

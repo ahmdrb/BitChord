@@ -378,7 +378,7 @@ fun DetailScreen(
         personalLibrary.artists.any { it.browseId == page.browseId }
     var showPersonalSongPicker by remember(page.browseId) { mutableStateOf(false) }
     val rawSongs = if (isPersonalArtist) {
-        personalLibrary.songs.filter { page.browseId in it.artistBrowseIds }.map { it.song }
+        personalLibrary.songs.forArtistInAddedOrder(page.browseId).map { it.song }
     } else {
         (page.songs as? UiState.Success)?.data.orEmpty()
     }

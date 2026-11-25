@@ -21,6 +21,13 @@ object PersonalLibraryStore {
         val song: Song,
         /** Artist cards this song belongs to in BitChord; empty means unassigned. */
         val artistBrowseIds: Set<String> = emptySet(),
+        /**
+         * Position at which this song was added to each artist collection.
+         * A song may already exist in the global Songs list long before it is
+         * assigned to an artist, so the global list position is not its
+         * membership order for that artist.
+         */
+        val artistOrder: Map<String, Long> = emptyMap(),
     )
 
     data class PersonalPlaylist(
@@ -158,7 +165,10 @@ object PersonalLibraryStore {
         current.copy(
             artists = current.artists.filterNot { it.browseId == browseId },
             songs = current.songs.map { entry ->
-                entry.copy(artistBrowseIds = entry.artistBrowseIds - browseId)
+                entry.copy(
+                    artistBrowseIds = entry.artistBrowseIds - browseId,
+                    artistOrder = entry.artistOrder - browseId,
+                )
             },
         )
     }
@@ -167,7 +177,10 @@ object PersonalLibraryStore {
     fun addSong(song: Song, artistBrowseIds: Set<String>) = update { current ->
         val existingIndex = current.songs.indexOfFirst { it.song.videoId == song.videoId }
         if (existingIndex < 0) {
-            current.copy(songs = current.songs + PersonalSong(song, artistBrowseIds))
+            val artistOrder = artistBrowseIds.associateWith { artistId ->
+                current.songs.nextArtistMembershipOrder(artistId)
+            }
+            current.copy(songs = current.songs + PersonalSong(song, artistBrowseIds, artistOrder))
         } else {
             val updated = current.songs.toMutableList()
             val existing = updated[existingIndex]
@@ -175,9 +188,17 @@ object PersonalLibraryStore {
                 existing.song.isExplicit == true || song.isExplicit == true -> true
                 else -> existing.song.isExplicit ?: song.isExplicit
             }
+            // A globally saved song can be assigned to this artist much later.
+            // Give each newly added membership its own position at the end of
+            // that artist's collection; never inherit the song's global index.
+            val newlyAddedArtists = artistBrowseIds - existing.artistBrowseIds
+            val newArtistOrder = newlyAddedArtists.associateWith { artistId ->
+                current.songs.nextArtistMembershipOrder(artistId)
+            }
             updated[existingIndex] = existing.copy(
                 song = existing.song.copy(isExplicit = explicit),
                 artistBrowseIds = existing.artistBrowseIds + artistBrowseIds,
+                artistOrder = existing.artistOrder + newArtistOrder,
             )
             current.copy(songs = updated)
         }
@@ -191,7 +212,10 @@ object PersonalLibraryStore {
     fun removeSongFromArtist(videoId: String, artistBrowseId: String) = update { current ->
         current.copy(songs = current.songs.map { entry ->
             if (entry.song.videoId == videoId && artistBrowseId in entry.artistBrowseIds) {
-                entry.copy(artistBrowseIds = entry.artistBrowseIds - artistBrowseId)
+                entry.copy(
+                    artistBrowseIds = entry.artistBrowseIds - artistBrowseId,
+                    artistOrder = entry.artistOrder - artistBrowseId,
+                )
             } else entry
         })
     }
@@ -225,6 +249,9 @@ object PersonalLibraryStore {
                             put("isExplicit", song.isExplicit ?: JSONObject.NULL)
                             put("personalArtistIds", JSONArray().apply {
                                 entry.artistBrowseIds.forEach { artistId -> put(artistId) }
+                            })
+                            put("artistOrder", JSONObject().apply {
+                                entry.artistOrder.forEach { (artistId, order) -> put(artistId, order) }
                             })
                         })
                     }
@@ -289,9 +316,23 @@ object PersonalLibraryStore {
                     artistBrowseIds = item.optJSONArray("personalArtistIds")?.let { ids ->
                         (0 until ids.length()).mapNotNull { ids.optString(it).takeIf { artistId -> artistId.isNotBlank() } }.toSet()
                     } ?: item.nullableString("personalArtistId")?.let { setOf(it) }.orEmpty(),
+                    artistOrder = item.optJSONObject("artistOrder")?.let { savedOrder ->
+                        buildMap {
+                            val keys = savedOrder.keys()
+                            while (keys.hasNext()) {
+                                val artistId = keys.next()
+                                val order = savedOrder.optLong(artistId, -1L)
+                                if (artistId.isNotBlank() && order >= 0L) put(artistId, order)
+                            }
+                        }
+                    }.orEmpty(),
                 )
             }
         }.getOrDefault(emptyList())
+        // Upgrade older personal-library records without changing their
+        // already-visible artist order. New memberships added after this
+        // migration are assigned their own per-artist position.
+        val orderedSongs = normalizePersonalArtistOrder(songs)
         val playlists = runCatching {
             val array = JSONArray(preferences.getString(KEY_PLAYLISTS, "[]"))
             (0 until array.length()).mapNotNull playlistEntry@{ index ->
@@ -317,7 +358,7 @@ object PersonalLibraryStore {
                 PersonalPlaylist(id = id, title = title, songs = playlistSongs, artworkPath = item.nullableString("artworkPath"))
             }
         }.getOrDefault(emptyList())
-        return Snapshot(artists, songs, playlists)
+        return Snapshot(artists, orderedSongs, playlists)
     }
 
     private fun JSONObject.nullableString(key: String): String? =
@@ -343,3 +384,45 @@ object PersonalLibraryStore {
         return unique.values.toList()
     }
 }
+
+
+/**
+ * Migrates older personal-library entries that only stored artist membership.
+ * For those entries, the old global insertion order is the best available
+ * record of their previous artist order. Once assigned, positions are stored
+ * independently per artist.
+ */
+internal fun normalizePersonalArtistOrder(
+    songs: List<PersonalLibraryStore.PersonalSong>,
+): List<PersonalLibraryStore.PersonalSong> {
+    val nextByArtist = mutableMapOf<String, Long>()
+    return songs.map { entry ->
+        val order = entry.artistOrder.toMutableMap()
+        entry.artistBrowseIds.forEach { artistId ->
+            val position = order[artistId] ?: nextByArtist[artistId] ?: 0L
+            order[artistId] = position
+            nextByArtist[artistId] = maxOf(nextByArtist[artistId] ?: 0L, position + 1L)
+        }
+        entry.copy(artistOrder = order.filterKeys { it in entry.artistBrowseIds })
+    }
+}
+
+/** The next append position for a newly assigned song in one artist collection. */
+internal fun List<PersonalLibraryStore.PersonalSong>.nextArtistMembershipOrder(
+    artistBrowseId: String,
+): Long =
+    mapNotNull { it.artistOrder[artistBrowseId] }.maxOrNull()?.plus(1L)
+        ?: count { artistBrowseId in it.artistBrowseIds }.toLong()
+
+/** Songs for one artist in the order they were assigned to that artist. */
+internal fun List<PersonalLibraryStore.PersonalSong>.forArtistInAddedOrder(
+    artistBrowseId: String,
+): List<PersonalLibraryStore.PersonalSong> =
+    withIndex()
+        .filter { (_, entry) -> artistBrowseId in entry.artistBrowseIds }
+        .sortedWith(
+            compareBy<IndexedValue<PersonalLibraryStore.PersonalSong>> {
+                it.value.artistOrder[artistBrowseId] ?: it.index.toLong()
+            }.thenBy { it.index },
+        )
+        .map { it.value }
