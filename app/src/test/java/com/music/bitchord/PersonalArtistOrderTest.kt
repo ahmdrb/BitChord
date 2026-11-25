@@ -2,8 +2,8 @@ package com.music.bitchord
 
 import com.music.bitchord.data.PersonalLibraryStore
 import com.music.bitchord.data.forArtistInAddedOrder
-import com.music.bitchord.data.nextArtistMembershipOrder
 import com.music.bitchord.data.normalizePersonalArtistOrder
+import com.music.bitchord.data.addingSongToArtists
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.SongSort
 import com.music.bitchord.ui.screens.sortedForDetail
@@ -37,16 +37,12 @@ class PersonalArtistOrderTest {
         )
         val globalSongs = listOf(globallyEarlierSaturn) + existingArtistSongs
 
-        val newPosition = globalSongs.nextArtistMembershipOrder(sza)
-        assertEquals(4L, newPosition)
-
-        val assignedSaturn = globallyEarlierSaturn.copy(
+        // Exercise the same helper used by PersonalLibraryStore.addSong,
+        // rather than manually assigning the expected position in this test.
+        val afterAdding = globalSongs.addingSongToArtists(
+            song = globallyEarlierSaturn.song,
             artistBrowseIds = setOf(sza),
-            artistOrder = mapOf(sza to newPosition),
         )
-        val afterAdding = globalSongs.map {
-            if (it.song.videoId == "saturn") assignedSaturn else it
-        }
 
         val artistSongs = afterAdding.forArtistInAddedOrder(sza).map { it.song }
         val insertionOrder = listOf("open-arms", "nobody-gets-me", "snooze", "kill-bill", "saturn")
@@ -54,6 +50,52 @@ class PersonalArtistOrderTest {
         assertEquals(insertionOrder, artistSongs.sortedForDetail(SongSort.DEFAULT).map { it.videoId })
         assertEquals(insertionOrder, artistSongs.sortedForDetail(SongSort.DATE_ADDED_ASC).map { it.videoId })
         assertEquals(insertionOrder.reversed(), artistSongs.sortedForDetail(SongSort.DATE_ADDED_DESC).map { it.videoId })
+    }
+
+    @Test
+    fun globallyEarlierSongAppendsAfterFrankOceanMembershipsWithMissingPosition() {
+        val frankOcean = "artist-frank-ocean"
+        // Thinkin Bout You already exists globally, before the other tracks.
+        val globallyEarlierThinkin = PersonalLibraryStore.PersonalSong(
+            song = Song(
+                videoId = "thinkin-bout-you",
+                title = "Thinkin Bout You",
+                artist = "Frank Ocean",
+                thumbnailUrl = null,
+            ),
+        )
+        val ivy = PersonalLibraryStore.PersonalSong(
+            song = Song("ivy", "Ivy", "Frank Ocean", null),
+            artistBrowseIds = setOf(frankOcean),
+            artistOrder = mapOf(frankOcean to 0L),
+        )
+        val whiteFerrari = PersonalLibraryStore.PersonalSong(
+            song = Song("white-ferrari", "White Ferrari", "Frank Ocean", null),
+            artistBrowseIds = setOf(frankOcean),
+            artistOrder = mapOf(frankOcean to 1L),
+        )
+        // Simulate an older/partially migrated membership whose order map is absent.
+        val pinkAndWhite = PersonalLibraryStore.PersonalSong(
+            song = Song("pink-and-white", "Pink + White", "Frank Ocean", null),
+            artistBrowseIds = setOf(frankOcean),
+        )
+
+        val afterAdding = listOf(
+            globallyEarlierThinkin,
+            ivy,
+            whiteFerrari,
+            pinkAndWhite,
+        ).addingSongToArtists(
+            song = globallyEarlierThinkin.song,
+            artistBrowseIds = setOf(frankOcean),
+        )
+
+        assertEquals(
+            listOf("ivy", "white-ferrari", "pink-and-white", "thinkin-bout-you"),
+            afterAdding.forArtistInAddedOrder(frankOcean).map { it.song.videoId },
+        )
+        assertEquals(2L, afterAdding.first { it.song.videoId == "pink-and-white" }.artistOrder[frankOcean])
+        assertEquals(3L, afterAdding.first { it.song.videoId == "thinkin-bout-you" }.artistOrder[frankOcean])
     }
 
     @Test

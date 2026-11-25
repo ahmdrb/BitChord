@@ -562,9 +562,10 @@ private fun artworkPageSurface(
     val useLiquidGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
 
     val surface = when {
-        // Match the Playlist/Artist detail controls to the Shuffle and Plus
-        // buttons: a light 7% veil, with only the optional directional glass rim.
-        neutralLiquidGlassBackdrop ->
+        // With Liquid Glass on, keep artwork out of backdrop sampling and
+        // retain the neutral veil and rim. With it off, use the same thin Haze
+        // material as the mini-player instead of a flat translucent fill.
+        neutralLiquidGlassBackdrop && useLiquidGlass ->
             Modifier
                 .background(Color.White.copy(alpha = 0.07f), shape)
                 .liquidGlassRim(shape)
@@ -594,7 +595,7 @@ private fun artworkPageSurface(
         .then(
             when {
                 lightweightGlass && useLiquidGlass && !neutralLiquidGlassBackdrop -> Modifier
-                neutralLiquidGlassBackdrop ->
+                neutralLiquidGlassBackdrop && useLiquidGlass ->
                     Modifier.border(1.dp, Color.White.copy(alpha = 0.10f), shape)
                 !useLiquidGlass ->
                     Modifier.border(0.5.dp, Color.White.copy(alpha = 0.10f), shape)
