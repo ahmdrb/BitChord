@@ -4637,11 +4637,8 @@ private fun BitChordApp(
 
                                 // Profile stays in the same trailing slot between Library
                                 // and Local Music, then slides away only for a collection page.
-                                AnimatedVisibility(
+                                TopBarAccountVisibility(
                                     visible = !isReleaseDetail && !isArtistDetail && !personalCollectionDetailOpen,
-                                    enter = slideInHorizontally(animationSpec = tween(240)) { it / 3 },
-                                    exit = slideOutHorizontally(animationSpec = tween(190)) { it / 3 },
-                                    label = "topBarAccountTransition",
                                 ) {
                                     TopBarAccountButton(
                                         account = account,
@@ -7047,5 +7044,23 @@ private fun PersonalCollectionTopBarActions(
     }
     IconButton(onClick = onMoreToggle) {
         Icon(Icons.Rounded.MoreHoriz, contentDescription = stringResource(R.string.more), tint = MaterialTheme.colorScheme.onSurface)
+    }
+}
+
+
+@Composable
+private fun TopBarAccountVisibility(
+    visible: Boolean,
+    content: @Composable () -> Unit,
+) {
+    // Kept outside the actions lambda so Compose resolves the scope-independent
+    // AnimatedVisibility overload rather than a RowScope overload.
+    AnimatedVisibility(
+        visible = visible,
+        enter = slideInHorizontally(animationSpec = tween(240)) { it / 3 },
+        exit = slideOutHorizontally(animationSpec = tween(190)) { it / 3 },
+        label = "topBarAccountTransition",
+    ) {
+        content()
     }
 }
