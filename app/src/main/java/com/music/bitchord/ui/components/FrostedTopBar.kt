@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -77,9 +76,9 @@ import com.music.bitchord.R
 import com.music.bitchord.data.model.Account
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.theme.stableStatusBarInsets
-import com.music.bitchord.ui.player.vibrantChrome
 import dev.chrisbanes.haze.ExperimentalHazeApi
 import dev.chrisbanes.haze.HazeState
+import com.music.bitchord.ui.components.backdrop.backdrops.rememberCanvasBackdrop
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 import kotlin.math.roundToInt
@@ -170,12 +169,12 @@ fun FrostedTopBar(
     /** Circular back surface and no collapsing title, for artwork-led pages. */
     artworkPageChrome: Boolean = false,
     /**
-     * Opt into the lighter Liquid Glass treatment at the explicit call sites
-     * that should avoid full lens refraction.
+     * Artwork detail pages keep the same floating controls but avoid sampling
+     * the hero image through those controls. The glass tint and rim remain.
      */
     lightweightArtworkChrome: Boolean = false,
-    /** Use the player scrubber's artwork-aware progress-track material on release/artist pages. */
-    progressBarArtworkChrome: Boolean = false,
+    /** Neutralize artwork sampling on each floating control without adding a bar behind them. */
+    neutralLiquidGlassBackdrop: Boolean = false,
     /** Source sampled by floating top-bar surfaces when liquid glass is off. */
     backButtonHazeState: HazeState? = null,
     trailingTitle: String? = null,
@@ -305,7 +304,7 @@ fun FrostedTopBar(
                         onClick = onBack,
                         hazeState = backButtonHazeState,
                         lightweightGlass = lightweightArtworkChrome,
-                        progressBarArtworkChrome = progressBarArtworkChrome,
+                        neutralLiquidGlassBackdrop = neutralLiquidGlassBackdrop,
                         // The surface edge aligns with the floating navbar. The
                         // padding belongs outside the circle; its icon remains
                         // centred in the same 44dp control in every material.
@@ -351,7 +350,7 @@ fun FrostedTopBar(
                     ArtworkPageActions(
                         hazeState = backButtonHazeState,
                         lightweightGlass = lightweightArtworkChrome,
-                        progressBarArtworkChrome = progressBarArtworkChrome,
+                        neutralLiquidGlassBackdrop = neutralLiquidGlassBackdrop,
                         content = actions,
                     )
                 } else {
@@ -365,13 +364,32 @@ fun FrostedTopBar(
 }
 
 /** Circular floating back affordance, material-matched to the navbar. */
+/**
+ * Artwork pages must not become the backdrop for their own navigation chrome.
+ * Liquid Glass still runs its blur/lens/rim pipeline, but against a stable,
+ * theme-neutral canvas instead of the playlist sleeve or artist photograph.
+ */
+@Composable
+private fun NeutralArtworkGlassBackdrop(content: @Composable () -> Unit) {
+    // Keep Liquid Glass on the same neutral material as non-artwork pages.
+    // Using the window background here made dark-theme controls collapse to pure black.
+    val neutralBackdropColor = MaterialTheme.colorScheme.surface
+    val neutralBackdrop = rememberCanvasBackdrop {
+        drawRect(color = neutralBackdropColor)
+    }
+    CompositionLocalProvider(
+        LocalAppBackdrop provides neutralBackdrop,
+        content = content,
+    )
+}
+
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 private fun ArtworkPageBackButton(
     onClick: () -> Unit,
     hazeState: HazeState?,
     lightweightGlass: Boolean,
-    progressBarArtworkChrome: Boolean,
+    neutralLiquidGlassBackdrop: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val shape = CircleShape
@@ -383,18 +401,8 @@ private fun ArtworkPageBackButton(
         MaterialTheme.colorScheme.onSurface
     }
 
-    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides TOP_CONTROL_SIZE) {
-        if (progressBarArtworkChrome) {
-            ProgressBarArtworkSurface(modifier = modifier.size(TOP_CONTROL_SIZE)) {
-                IconButton(onClick = onClick, modifier = Modifier.matchParentSize()) {
-                    Icon(
-                        SfIcons.ArrowBack,
-                        contentDescription = stringResource(R.string.back),
-                        tint = contentColor,
-                    )
-                }
-            }
-        } else {
+    val button: @Composable () -> Unit = {
+        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides TOP_CONTROL_SIZE) {
             IconButton(
                 onClick = onClick,
                 modifier = modifier
@@ -403,6 +411,7 @@ private fun ArtworkPageBackButton(
                         shape = shape,
                         hazeState = hazeState,
                         lightweightGlass = lightweightGlass,
+                        neutralLiquidGlassBackdrop = neutralLiquidGlassBackdrop,
                     )),
             ) {
                 Icon(
@@ -413,6 +422,11 @@ private fun ArtworkPageBackButton(
             }
         }
     }
+    if (neutralLiquidGlassBackdrop && useLiquidGlass && !reduceDynamicBlur) {
+        NeutralArtworkGlassBackdrop(content = button)
+    } else {
+        button()
+    }
 }
 
 /** One shared pill for every action at the right of a floating top bar. */
@@ -420,54 +434,43 @@ private fun ArtworkPageBackButton(
 private fun ArtworkPageActions(
     hazeState: HazeState?,
     lightweightGlass: Boolean,
-    progressBarArtworkChrome: Boolean,
+    neutralLiquidGlassBackdrop: Boolean,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    val actionContent: @Composable () -> Unit = {
-        ActionsRow(modifier = Modifier) {
-            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides TOP_CONTROL_SIZE) {
-                content()
-            }
-        }
-    }
-    val animatedModifier = modifier
-        // Keep the right edge fixed while a new action opens room to its left.
-        // The surface grows around the same animated action-row measurement.
-        .animateContentSize(
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioNoBouncy,
-                stiffness = Spring.StiffnessMediumLow,
-            ),
-        )
-        // One profile target with no inset is a true circle; once another
-        // action exists, Apple's inset opens at both ends.
-        .artworkActionEdgePadding()
-
-    if (progressBarArtworkChrome) {
-        ProgressBarArtworkSurface(modifier = animatedModifier) {
-            actionContent()
-        }
-    } else {
+    val actions: @Composable () -> Unit = {
         ActionsRow(
             modifier = modifier
                 .then(artworkPageSurface(
                     shape = CircleShape,
                     hazeState = hazeState,
                     lightweightGlass = lightweightGlass,
+                    neutralLiquidGlassBackdrop = neutralLiquidGlassBackdrop,
                 ))
+                // Keep the right edge fixed while a new action opens room to its
+                // left. The surface itself therefore grows instead of jumping to
+                // its new width in a single frame.
                 .animateContentSize(
                     animationSpec = spring(
                         dampingRatio = Spring.DampingRatioNoBouncy,
                         stiffness = Spring.StiffnessMediumLow,
                     ),
                 )
+                // One profile target with no inset is a true circle; once another
+                // action exists, Apple's inset opens at both ends.
                 .artworkActionEdgePadding(),
         ) {
             CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides TOP_CONTROL_SIZE) {
                 content()
             }
         }
+    }
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val useLiquidGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
+    if (neutralLiquidGlassBackdrop && useLiquidGlass && !reduceDynamicBlur) {
+        NeutralArtworkGlassBackdrop(content = actions)
+    } else {
+        actions()
     }
 }
 
@@ -545,33 +548,6 @@ private fun Modifier.artworkActionEdgePadding(): Modifier = layout { measurable,
     }
 }
 
-/**
- * The artwork-aware surface used by the player's progress track: muted scrubber
- * ink colour-dodged into the page, not a blur or an opaque slab. The content is
- * drawn separately above the ink, and a hairline keeps the edge readable.
- */
-@Composable
-private fun ProgressBarArtworkSurface(
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
-) {
-    val shape = CircleShape
-    Box(
-        modifier = modifier
-            .clip(shape)
-            .border(0.5.dp, Color.White.copy(alpha = 0.10f), shape),
-    ) {
-        Box(
-            Modifier
-                .matchParentSize()
-                .vibrantChrome(true)
-                // The inactive seek-track uses this exact ink and opacity.
-                .background(Color(0xFFB0B0B0).copy(alpha = 0.6f), shape),
-        )
-        content()
-    }
-}
-
 /** The navbar's exact material choice, reusable by every floating top control. */
 @OptIn(ExperimentalHazeMaterialsApi::class, ExperimentalHazeApi::class)
 @Composable
@@ -579,16 +555,24 @@ private fun artworkPageSurface(
     shape: CornerBasedShape,
     hazeState: HazeState?,
     lightweightGlass: Boolean,
+    neutralLiquidGlassBackdrop: Boolean,
 ): Modifier {
     val container = MaterialTheme.colorScheme.surface
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val useLiquidGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
 
     val surface = when {
-// The optional lightweight treatment is reserved for its explicit
+        // With Liquid Glass on, keep artwork out of backdrop sampling and
+        // retain the neutral veil and rim. With it off, use the same thin Haze
+        // material as the mini-player instead of a flat translucent fill.
+        neutralLiquidGlassBackdrop && useLiquidGlass ->
+            Modifier
+                .background(Color.White.copy(alpha = 0.07f), shape)
+                .liquidGlassRim(shape)
+        // The optional lightweight treatment is reserved for its explicit
         // call sites. Playlist and Artist controls use the shared top-bar
         // material regardless of whether their page has artwork.
-        lightweightGlass && useLiquidGlass ->
+        lightweightGlass && useLiquidGlass && !neutralLiquidGlassBackdrop ->
             Modifier.lightweightLiquidGlass(
                 shape = shape,
                 fallbackColor = container,
@@ -610,7 +594,9 @@ private fun artworkPageSurface(
         .then(surface)
         .then(
             when {
-                lightweightGlass && useLiquidGlass -> Modifier
+                lightweightGlass && useLiquidGlass && !neutralLiquidGlassBackdrop -> Modifier
+                neutralLiquidGlassBackdrop && useLiquidGlass ->
+                    Modifier.border(1.dp, Color.White.copy(alpha = 0.10f), shape)
                 !useLiquidGlass ->
                     Modifier.border(0.5.dp, Color.White.copy(alpha = 0.10f), shape)
                 else -> Modifier.border(GLASS_EDGE_WIDTH, GLASS_EDGE_COLOR, shape)

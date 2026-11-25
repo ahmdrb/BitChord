@@ -4329,13 +4329,12 @@ private fun BitChordApp(
                         // circles over the shared gradient — no full-width pane.
                         transparentBackdrop = true,
                         artworkPageChrome = true,
-                        // Use the full Liquid Glass treatment over the live page
-                        // backdrop; with Liquid Glass off, these share thin Haze.
+                        // Keep the full-width bar transparent; the artwork-page
+                        // controls themselves use the player's scrubber material.
                         lightweightArtworkChrome = false,
-                        // Playlist and Artist controls use the same artwork-aware ink as the player scrubber.
                         progressBarArtworkChrome = protectNavigationChrome,
-                        // Use the very same Haze source as Local Music and the mini-player.
-                        // The material and its backdrop pipeline must not branch on artwork.
+                        // Other floating top-bar surfaces continue to share the app's
+                        // Haze source with Local Music and the mini-player.
                         backButtonHazeState = hazeState,
                         trailingTitle = if (detail != null && detailActiveShelf != null) detail.title else null,
                         // Search has no large in-list header to hand the title back to —
