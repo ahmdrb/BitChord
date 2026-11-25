@@ -10,6 +10,8 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
@@ -24,6 +26,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -51,6 +54,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
@@ -76,9 +80,9 @@ import com.music.bitchord.R
 import com.music.bitchord.data.model.Account
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.theme.stableStatusBarInsets
+import com.music.bitchord.ui.player.vibrantChrome
 import dev.chrisbanes.haze.ExperimentalHazeApi
 import dev.chrisbanes.haze.HazeState
-import com.music.bitchord.ui.components.backdrop.backdrops.rememberCanvasBackdrop
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 import kotlin.math.roundToInt
@@ -169,12 +173,12 @@ fun FrostedTopBar(
     /** Circular back surface and no collapsing title, for artwork-led pages. */
     artworkPageChrome: Boolean = false,
     /**
-     * Artwork detail pages keep the same floating controls but avoid sampling
-     * the hero image through those controls. The glass tint and rim remain.
+     * Opt into the lighter Liquid Glass treatment at the explicit call sites
+     * that should avoid full lens refraction.
      */
     lightweightArtworkChrome: Boolean = false,
-    /** Neutralize artwork sampling on each floating control without adding a bar behind them. */
-    neutralLiquidGlassBackdrop: Boolean = false,
+    /** Use the player scrubber's artwork-aware progress-track material on release/artist pages. */
+    progressBarArtworkChrome: Boolean = false,
     /** Source sampled by floating top-bar surfaces when liquid glass is off. */
     backButtonHazeState: HazeState? = null,
     trailingTitle: String? = null,
@@ -296,26 +300,26 @@ fun FrostedTopBar(
                 }
             }
              */
-            // On a pushed page the back affordance is always visible, since
-            // there is no large in-list header to fall back on.
-            if (onBack != null) {
+            // Keep the visibility node mounted on Library. On navigation, the
+            // finished back-button material slides into place without fading through
+            // a transparent ColorDodge layer (the source of the old black flash).
+            TopBarControlVisibility(
+                visible = onBack != null,
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .then(if (useFloatingChrome) Modifier.padding(start = BAR_GUTTER) else Modifier.padding(start = 4.dp)),
+            ) {
                 if (useFloatingChrome) {
                     ArtworkPageBackButton(
-                        onClick = onBack,
+                        onClick = { onBack?.invoke() },
                         hazeState = backButtonHazeState,
                         lightweightGlass = lightweightArtworkChrome,
-                        neutralLiquidGlassBackdrop = neutralLiquidGlassBackdrop,
-                        // The surface edge aligns with the floating navbar. The
-                        // padding belongs outside the circle; its icon remains
-                        // centred in the same 44dp control in every material.
-                        modifier = Modifier
-                            .align(Alignment.CenterStart)
-                            .padding(start = BAR_GUTTER),
+                        progressBarArtworkChrome = progressBarArtworkChrome,
                     )
                 } else {
                     IconButton(
-                        onClick = onBack,
-                        modifier = Modifier.align(Alignment.CenterStart).padding(start = 4.dp),
+                        onClick = { onBack?.invoke() },
+                        modifier = Modifier.size(TOP_CONTROL_SIZE),
                     ) {
                         Icon(
                             SfIcons.ArrowBack,
@@ -350,7 +354,7 @@ fun FrostedTopBar(
                     ArtworkPageActions(
                         hazeState = backButtonHazeState,
                         lightweightGlass = lightweightArtworkChrome,
-                        neutralLiquidGlassBackdrop = neutralLiquidGlassBackdrop,
+                        progressBarArtworkChrome = progressBarArtworkChrome,
                         content = actions,
                     )
                 } else {
@@ -363,33 +367,38 @@ fun FrostedTopBar(
     }
 }
 
-/** Circular floating back affordance, material-matched to the navbar. */
 /**
- * Artwork pages must not become the backdrop for their own navigation chrome.
- * Liquid Glass still runs its blur/lens/rim pipeline, but against a stable,
- * theme-neutral canvas instead of the playlist sleeve or artist photograph.
+ * Scope-independent wrapper for the back control's enter/exit motion. Calling
+ * AnimatedVisibility directly from the nested Column/Box scopes can select a
+ * RowScope/ColumnScope overload that is not available at this call site.
  */
 @Composable
-private fun NeutralArtworkGlassBackdrop(content: @Composable () -> Unit) {
-    // Keep Liquid Glass on the same neutral material as non-artwork pages.
-    // Using the window background here made dark-theme controls collapse to pure black.
-    val neutralBackdropColor = MaterialTheme.colorScheme.surface
-    val neutralBackdrop = rememberCanvasBackdrop {
-        drawRect(color = neutralBackdropColor)
+private fun TopBarControlVisibility(
+    visible: Boolean,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    // Keep the artwork-aware surface fully opaque while it moves into place.
+    // This avoids a fade through the black/transparent ColorDodge intermediate.
+    AnimatedVisibility(
+        visible = visible,
+        modifier = modifier,
+        enter = slideInHorizontally(animationSpec = tween(280)) { -it },
+        exit = slideOutHorizontally(animationSpec = tween(220)) { -it },
+        label = "topBarBackButtonTransition",
+    ) {
+        content()
     }
-    CompositionLocalProvider(
-        LocalAppBackdrop provides neutralBackdrop,
-        content = content,
-    )
 }
 
+/** Circular floating back affordance, material-matched to the navbar. */
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 private fun ArtworkPageBackButton(
     onClick: () -> Unit,
     hazeState: HazeState?,
     lightweightGlass: Boolean,
-    neutralLiquidGlassBackdrop: Boolean,
+    progressBarArtworkChrome: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val shape = CircleShape
@@ -401,8 +410,18 @@ private fun ArtworkPageBackButton(
         MaterialTheme.colorScheme.onSurface
     }
 
-    val button: @Composable () -> Unit = {
-        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides TOP_CONTROL_SIZE) {
+    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides TOP_CONTROL_SIZE) {
+        if (progressBarArtworkChrome) {
+            ProgressBarArtworkSurface(modifier = modifier.size(TOP_CONTROL_SIZE)) {
+                IconButton(onClick = onClick, modifier = Modifier.fillMaxSize()) {
+                    Icon(
+                        SfIcons.ArrowBack,
+                        contentDescription = stringResource(R.string.back),
+                        tint = contentColor,
+                    )
+                }
+            }
+        } else {
             IconButton(
                 onClick = onClick,
                 modifier = modifier
@@ -411,7 +430,6 @@ private fun ArtworkPageBackButton(
                         shape = shape,
                         hazeState = hazeState,
                         lightweightGlass = lightweightGlass,
-                        neutralLiquidGlassBackdrop = neutralLiquidGlassBackdrop,
                     )),
             ) {
                 Icon(
@@ -422,11 +440,6 @@ private fun ArtworkPageBackButton(
             }
         }
     }
-    if (neutralLiquidGlassBackdrop && useLiquidGlass && !reduceDynamicBlur) {
-        NeutralArtworkGlassBackdrop(content = button)
-    } else {
-        button()
-    }
 }
 
 /** One shared pill for every action at the right of a floating top bar. */
@@ -434,43 +447,54 @@ private fun ArtworkPageBackButton(
 private fun ArtworkPageActions(
     hazeState: HazeState?,
     lightweightGlass: Boolean,
-    neutralLiquidGlassBackdrop: Boolean,
+    progressBarArtworkChrome: Boolean,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    val actions: @Composable () -> Unit = {
+    val actionContent: @Composable () -> Unit = {
+        ActionsRow(modifier = Modifier) {
+            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides TOP_CONTROL_SIZE) {
+                content()
+            }
+        }
+    }
+    val animatedModifier = modifier
+        // Keep the right edge fixed while a new action opens room to its left.
+        // The surface grows around the same animated action-row measurement.
+        .animateContentSize(
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioNoBouncy,
+                stiffness = Spring.StiffnessMediumLow,
+            ),
+        )
+        // One profile target with no inset is a true circle; once another
+        // action exists, Apple's inset opens at both ends.
+        .artworkActionEdgePadding()
+
+    if (progressBarArtworkChrome) {
+        ProgressBarArtworkSurface(modifier = animatedModifier) {
+            actionContent()
+        }
+    } else {
         ActionsRow(
             modifier = modifier
                 .then(artworkPageSurface(
                     shape = CircleShape,
                     hazeState = hazeState,
                     lightweightGlass = lightweightGlass,
-                    neutralLiquidGlassBackdrop = neutralLiquidGlassBackdrop,
                 ))
-                // Keep the right edge fixed while a new action opens room to its
-                // left. The surface itself therefore grows instead of jumping to
-                // its new width in a single frame.
                 .animateContentSize(
                     animationSpec = spring(
                         dampingRatio = Spring.DampingRatioNoBouncy,
                         stiffness = Spring.StiffnessMediumLow,
                     ),
                 )
-                // One profile target with no inset is a true circle; once another
-                // action exists, Apple's inset opens at both ends.
                 .artworkActionEdgePadding(),
         ) {
             CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides TOP_CONTROL_SIZE) {
                 content()
             }
         }
-    }
-    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
-    val useLiquidGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
-    if (neutralLiquidGlassBackdrop && useLiquidGlass && !reduceDynamicBlur) {
-        NeutralArtworkGlassBackdrop(content = actions)
-    } else {
-        actions()
     }
 }
 
@@ -548,6 +572,34 @@ private fun Modifier.artworkActionEdgePadding(): Modifier = layout { measurable,
     }
 }
 
+/**
+ * The artwork-aware surface used by the player's progress track: muted scrubber
+ * ink colour-dodged into the page, not a blur or an opaque slab. The content is
+ * drawn separately above the ink, and a hairline keeps the edge readable.
+ */
+@Composable
+private fun ProgressBarArtworkSurface(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    val shape = CircleShape
+    Box(
+        modifier = modifier
+            .clip(shape)
+            .border(0.5.dp, Color.White.copy(alpha = 0.10f), shape)
+            // Draw the scrubber ink behind the content without a fillMaxSize
+            // child: that child made this wrap-content pill claim the whole
+            // available row width, stretching it behind the back button.
+            .vibrantChrome(true)
+            // The inactive seek-track uses this exact ink and opacity.
+            .drawBehind {
+                drawRect(Color(0xFFB0B0B0).copy(alpha = 0.6f))
+            },
+    ) {
+        content()
+    }
+}
+
 /** The navbar's exact material choice, reusable by every floating top control. */
 @OptIn(ExperimentalHazeMaterialsApi::class, ExperimentalHazeApi::class)
 @Composable
@@ -555,23 +607,16 @@ private fun artworkPageSurface(
     shape: CornerBasedShape,
     hazeState: HazeState?,
     lightweightGlass: Boolean,
-    neutralLiquidGlassBackdrop: Boolean,
 ): Modifier {
     val container = MaterialTheme.colorScheme.surface
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val useLiquidGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
 
     val surface = when {
-        // Match the Playlist/Artist detail controls to the Shuffle and Plus
-        // buttons: a light 7% veil, with only the optional directional glass rim.
-        neutralLiquidGlassBackdrop ->
-            Modifier
-                .background(Color.White.copy(alpha = 0.07f), shape)
-                .liquidGlassRim(shape)
-        // The optional lightweight treatment is reserved for its explicit
+// The optional lightweight treatment is reserved for its explicit
         // call sites. Playlist and Artist controls use the shared top-bar
         // material regardless of whether their page has artwork.
-        lightweightGlass && useLiquidGlass && !neutralLiquidGlassBackdrop ->
+        lightweightGlass && useLiquidGlass ->
             Modifier.lightweightLiquidGlass(
                 shape = shape,
                 fallbackColor = container,
@@ -593,9 +638,7 @@ private fun artworkPageSurface(
         .then(surface)
         .then(
             when {
-                lightweightGlass && useLiquidGlass && !neutralLiquidGlassBackdrop -> Modifier
-                neutralLiquidGlassBackdrop ->
-                    Modifier.border(1.dp, Color.White.copy(alpha = 0.10f), shape)
+                lightweightGlass && useLiquidGlass -> Modifier
                 !useLiquidGlass ->
                     Modifier.border(0.5.dp, Color.White.copy(alpha = 0.10f), shape)
                 else -> Modifier.border(GLASS_EDGE_WIDTH, GLASS_EDGE_COLOR, shape)

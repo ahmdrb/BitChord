@@ -2,6 +2,7 @@ package com.music.bitchord.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.fadeIn
@@ -90,6 +91,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.music.bitchord.data.PersonalLibraryStore
+import com.music.bitchord.data.forArtistInAddedOrder
 import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.model.BrowseItem
 import com.music.bitchord.data.model.BrowseType
@@ -102,6 +104,7 @@ import com.music.bitchord.ui.theme.rememberArtworkPalette
 import com.music.bitchord.ui.components.ExplicitSongTitle
 import com.music.bitchord.ui.components.PAGE_GUTTER
 import com.music.bitchord.ui.components.IosMenuShape
+import com.music.bitchord.ui.components.IosMenuRow
 import com.music.bitchord.ui.components.iosMenuColors
 import com.music.bitchord.ui.components.iosMenuPanel
 import com.music.bitchord.ui.components.optimizedHazeEffect
@@ -377,95 +380,93 @@ private fun PersonalCollectionDetailDialog(
                     DropdownMenu(
                         expanded = sortMenuOpen,
                         onDismissRequest = { onSortMenuOpenChange(false) },
-                        modifier = Modifier.iosMenuPanel(translucent = true, hazeState = hazeState),
+                        modifier = Modifier.width(208.dp).iosMenuPanel(translucent = false),
                         shape = IosMenuShape,
                         containerColor = Color.Transparent,
                         tonalElevation = 0.dp,
                         shadowElevation = 0.dp,
                     ) {
-                        listOf(
-                            "Date added",
-                            "Default order",
-                            "Alphabetical (A to Z)",
-                            "Alphabetical (Z to A)",
-                        ).forEach { option ->
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        option,
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = menuColors.label,
-                                    )
-                                },
-                                trailingIcon = {
-                                    if (option == "Date added" && sortMode == option) {
-                                        Text(
-                                            if (dateAddedDescending) "↓" else "↑",
-                                            color = menuColors.label,
-                                            style = MaterialTheme.typography.titleLarge,
-                                        )
-                                    } else if (sortMode == option) {
-                                        Icon(
-                                            Icons.Rounded.Check,
-                                            contentDescription = "Selected",
-                                            tint = menuColors.label,
-                                        )
-                                    }
-                                },
-                                onClick = {
-                                    if (option == "Date added" && sortMode == "Date added") {
-                                        dateAddedDescending = !dateAddedDescending
-                                    } else {
-                                        sortMode = option
-                                    }
-                                    onSortMenuOpenChange(false)
-                                },
-                            )
+                        Column(Modifier.padding(vertical = 8.dp)) {
+                            listOf(
+                                "Date added",
+                                "Default order",
+                                "Alphabetical (A to Z)",
+                                "Alphabetical (Z to A)",
+                            ).forEach { option ->
+                                IosMenuRow(
+                                    label = option,
+                                    icon = null,
+                                    onClick = {
+                                        if (option == "Date added" && sortMode == "Date added") {
+                                            dateAddedDescending = !dateAddedDescending
+                                        } else {
+                                            sortMode = option
+                                        }
+                                        onSortMenuOpenChange(false)
+                                    },
+                                    labelColor = menuColors.label,
+                                    trailing = {
+                                        if (option == "Date added" && sortMode == option) {
+                                            Text(
+                                                if (dateAddedDescending) "↓" else "↑",
+                                                color = menuColors.label,
+                                                style = MaterialTheme.typography.titleLarge,
+                                            )
+                                        } else if (sortMode == option) {
+                                            Icon(
+                                                Icons.Rounded.Check,
+                                                contentDescription = "Selected",
+                                                tint = menuColors.label,
+                                            )
+                                        }
+                                    },
+                                )
+                            }
                         }
                     }
                     DropdownMenu(
                         expanded = menuOpen,
                         onDismissRequest = { onMenuOpenChange(false) },
-                        modifier = Modifier.iosMenuPanel(translucent = true, hazeState = hazeState),
+                        modifier = Modifier.width(208.dp).iosMenuPanel(translucent = false),
                         shape = IosMenuShape,
                         containerColor = Color.Transparent,
                         tonalElevation = 0.dp,
                         shadowElevation = 0.dp,
                     ) {
-                        DropdownMenuItem(
-                            text = { Text("Play next", color = menuColors.label) },
-                            onClick = { onMenuOpenChange(false); onPlayNextAll() },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Add to queue", color = menuColors.label) },
-                            onClick = { onMenuOpenChange(false); onAddAllToQueue() },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Download all", color = menuColors.label) },
-                            onClick = { onMenuOpenChange(false); onDownloadAll() },
-                        )
-                        if (onCustomizeArtwork != null) {
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        "Customize artwork",
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = menuColors.label,
-                                    )
-                                },
-                                onClick = { onMenuOpenChange(false); onCustomizeArtwork() },
+                        Column(Modifier.padding(vertical = 8.dp)) {
+                            IosMenuRow(
+                                label = "Play next",
+                                icon = null,
+                                onClick = { onMenuOpenChange(false); onPlayNextAll() },
+                                labelColor = menuColors.label,
+                            )
+                            IosMenuRow(
+                                label = "Add to queue",
+                                icon = null,
+                                onClick = { onMenuOpenChange(false); onAddAllToQueue() },
+                                labelColor = menuColors.label,
+                            )
+                            IosMenuRow(
+                                label = "Download all",
+                                icon = null,
+                                onClick = { onMenuOpenChange(false); onDownloadAll() },
+                                labelColor = menuColors.label,
+                            )
+                            if (onCustomizeArtwork != null) {
+                                IosMenuRow(
+                                    label = "Customize artwork",
+                                    icon = null,
+                                    onClick = { onMenuOpenChange(false); onCustomizeArtwork() },
+                                    labelColor = menuColors.label,
+                                )
+                            }
+                            IosMenuRow(
+                                label = if (collectionKind == "playlist") "Delete playlist" else "Remove from collection",
+                                icon = null,
+                                onClick = { onMenuOpenChange(false); confirmDelete = true },
+                                labelColor = MaterialTheme.colorScheme.error,
                             )
                         }
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    if (collectionKind == "playlist") "Delete playlist" else "Remove from collection",
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.colorScheme.error,
-                                )
-                            },
-                            onClick = { onMenuOpenChange(false); confirmDelete = true },
-                        )
                     }
                 }
 
@@ -602,8 +603,22 @@ private fun PersonalCollectionDetailDialog(
                                             Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.48f)),
                                             contentAlignment = Alignment.Center,
                                         ) {
-                                            if (isPlaying) NowPlayingEqualizer(palette.accent)
-                                            else Icon(Icons.Rounded.Pause, contentDescription = "Paused", tint = palette.accent)
+                                            Crossfade(
+                                                targetState = isPlaying,
+                                                animationSpec = tween(durationMillis = 180),
+                                                label = "personalCollectionPlaybackIndicator",
+                                            ) { playing ->
+                                                if (playing) {
+                                                    NowPlayingEqualizer(palette.accent)
+                                                } else {
+                                                    Icon(
+                                                        Icons.Rounded.Pause,
+                                                        contentDescription = "Paused",
+                                                        tint = palette.accent,
+                                                        modifier = Modifier.size(22.dp),
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -639,6 +654,7 @@ private fun PersonalCollectionDetailDialog(
                 }
             }
     }
+
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
@@ -717,7 +733,7 @@ fun PersonalLibraryScreen(
 
     val visibleSongs = remember(collection.songs, selectedArtist) {
         if (selectedArtist == null) collection.songs
-        else collection.songs.filter { entry -> selectedArtist?.browseId?.let(entry.artistBrowseIds::contains) == true }
+        else collection.songs.forArtistInAddedOrder(selectedArtist!!.browseId)
     }
 
     LazyColumn(

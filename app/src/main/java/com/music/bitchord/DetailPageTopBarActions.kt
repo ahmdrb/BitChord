@@ -38,6 +38,7 @@ internal fun DetailPageTopBarActions(
     isReleaseDetail: Boolean,
     isLocalDetail: Boolean,
     isArtistDetail: Boolean,
+    showSearchAction: Boolean = true,
     browseId: String,
     title: String,
     songs: List<Song>,
@@ -56,7 +57,7 @@ internal fun DetailPageTopBarActions(
     val controlTint = if (glassControls) glassContentColor() else MaterialTheme.colorScheme.onSurface
     val canShareArtist = browseId.startsWith("UC")
 
-    if (songs.isNotEmpty()) {
+    if (showSearchAction && songs.isNotEmpty()) {
         IconButton(onClick = onDetailSearchToggle) {
             Icon(
                 if (detailSearching) Icons.Rounded.Close else BitChordIcons.Search,

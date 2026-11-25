@@ -13,6 +13,7 @@ import com.music.bitchord.sharedui.resources.*
 
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -152,7 +153,6 @@ import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
-import com.music.bitchord.ui.components.ExplicitBadge
 import com.music.bitchord.ui.components.VideoThumbnails
 import com.music.bitchord.ui.components.menuAnchor
 import com.music.bitchord.ui.theme.HideStatusBar
@@ -795,6 +795,8 @@ fun NowPlayingScreen(
     nextSong: Song?,
     repeatMode: Int,
     shuffleEnabled: Boolean,
+    /** Entry identities traversed already by the active playback shuffle path. */
+    queueHistoryEntryIds: List<String> = emptyList(),
     autoplayEnabled: Boolean,
     signedIn: Boolean,
     accountName: String?,
@@ -1065,6 +1067,9 @@ fun NowPlayingScreen(
     var lyricsOpen by remember {
         mutableStateOf(restoredPlayerScreen == LastPlayerScreen.LYRICS)
     }
+    // In landscape Lyrics mode the cover can take focus: hide the transport
+    // rail and let the sleeve and its credits use the space it leaves behind.
+    var landscapeLyricsArtworkExpanded by remember { mutableStateOf(false) }
     val queueSlide = remember { mutableFloatStateOf(0f) }
     // Expensive, song-scoped preparation is deliberately staggered. The small
     // backdrop decode runs after the track hand-off has settled; lyrics and
@@ -1087,7 +1092,10 @@ fun NowPlayingScreen(
     // out never gets a matching "stopped scrolling" event of its own.
     var lyricsScrolling by remember { mutableStateOf(false) }
     var queueScrolling by remember { mutableStateOf(false) }
-    LaunchedEffect(lyricsOpen) { if (!lyricsOpen) lyricsScrolling = false }
+    LaunchedEffect(lyricsOpen, sideways) {
+        if (!lyricsOpen || !sideways) landscapeLyricsArtworkExpanded = false
+        if (!lyricsOpen) lyricsScrolling = false
+    }
     LaunchedEffect(queueOpen) { if (!queueOpen) queueScrolling = false }
     val panelScrolling = lyricsScrolling || queueScrolling
     var lyricsControlsOpen by remember {
@@ -1537,6 +1545,14 @@ fun NowPlayingScreen(
         spotifyCanvasControlsOpen = false
     }
 
+    // Turning auto-hide off means the deck should come back immediately if
+    // the previous five-second countdown has already collapsed it.
+    LaunchedEffect(spotifyCanvasPresentation, spotifyCanvasAutoHide) {
+        if (spotifyCanvasPresentation && !spotifyCanvasAutoHide) {
+            spotifyCanvasControlsOpen = true
+        }
+    }
+
     // Returning from a subview, or regaining the TextureView after backgrounding,
     // is a fresh visit, so show the deck again before any optional countdown.
     LaunchedEffect(spotifyCanvasPresentation, lyricsOpen, queueOpen) {
@@ -1734,7 +1750,10 @@ fun NowPlayingScreen(
             val versionAligning by PlayerSettings.versionAlignmentInProgress.collectAsStateWithLifecycle()
             val transitionWindow by PlayerSettings.smartTransitionWindow.collectAsStateWithLifecycle()
             Column(
-                modifier = Modifier.fillMaxWidth().widthIn(max = PLAYER_MAX_WIDTH),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = PLAYER_MAX_WIDTH)
+                    .animateContentSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Row(
@@ -1742,57 +1761,64 @@ fun NowPlayingScreen(
                     horizontalArrangement = Arrangement.Center,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    if (song.isExplicit == true) {
-                        ExplicitBadge(color = Color.White, modifier = Modifier.size(15.dp))
-                        Spacer(Modifier.width(6.dp))
-                    }
                     Text(
                         text = song.title,
-                        style = MaterialTheme.typography.titleLarge,
+                        style = if (landscapeLyricsArtworkExpanded) {
+                            MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
+                        } else {
+                            MaterialTheme.typography.titleLarge
+                        },
                         color = Color.White,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
                     )
                 }
                 Text(
                     text = song.artist,
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = if (landscapeLyricsArtworkExpanded) {
+                        MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Normal)
+                    } else {
+                        MaterialTheme.typography.bodyLarge
+                    },
                     color = Color.White.copy(alpha = 0.78f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Spacer(Modifier.height(6.dp))
-                PlayerScrubber(
-                    shown = shown,
-                    durationMs = durationMs,
-                    loading = versionAligning || audioVersionSwitching,
-                    mixing = mixing && !scrub.scrubbing,
-                    transitionWindow = transitionWindow
-                        ?.takeIf { !scrub.scrubbing && it.end > it.start }
-                        ?.let { it.start..it.end },
-                    onScrub = onScrub,
-                    onScrubFinished = onScrubFinished,
-                ) {
-                    PlaybackQualityLabel(
-                        song = song,
-                        isLoading = isLoading,
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .padding(horizontal = 8.dp),
+                if (!landscapeLyricsArtworkExpanded) {
+                    Spacer(Modifier.height(6.dp))
+                    PlayerScrubber(
+                        shown = shown,
+                        durationMs = durationMs,
+                        loading = versionAligning || audioVersionSwitching,
+                        mixing = mixing && !scrub.scrubbing,
+                        transitionWindow = transitionWindow
+                            ?.takeIf { !scrub.scrubbing && it.end > it.start }
+                            ?.let { it.start..it.end },
+                        onScrub = onScrub,
+                        onScrubFinished = onScrubFinished,
+                    ) {
+                        PlaybackQualityLabel(
+                            song = song,
+                            isLoading = isLoading,
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .padding(horizontal = 8.dp),
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    TransportRow(
+                        isPlaying = isPlaying,
+                        isLoading = isLoading || audioVersionSwitching,
+                        previousEnabled = !controlsLocked && (hasPrevious || pastRestartPoint),
+                        nextEnabled = !controlsLocked && hasNext,
+                        onPrevious = onPrevious,
+                        onPlayPause = onPlayPause,
+                        onNext = onNext,
+                        compact = true,
+                        extraCompact = true,
                     )
                 }
-                Spacer(Modifier.height(4.dp))
-                TransportRow(
-                    isPlaying = isPlaying,
-                    isLoading = isLoading || audioVersionSwitching,
-                    previousEnabled = !controlsLocked && (hasPrevious || pastRestartPoint),
-                    nextEnabled = !controlsLocked && hasNext,
-                    onPrevious = onPrevious,
-                    onPlayPause = onPlayPause,
-                    onNext = onNext,
-                    compact = true,
-                    extraCompact = true,
-                )
             }
         } else {
             PlayerActionRow(
@@ -2334,8 +2360,12 @@ fun NowPlayingScreen(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null,
                                 ) {
-                                    queueOpen = false
-                                    closeLyrics()
+                                    if (lyricsOpen && sideways) {
+                                        landscapeLyricsArtworkExpanded = !landscapeLyricsArtworkExpanded
+                                    } else {
+                                        queueOpen = false
+                                        closeLyrics()
+                                    }
                                 },
                         ) {
                             // The stats belong to the player, not to the sleeve, so
@@ -2515,6 +2545,7 @@ fun NowPlayingScreen(
                             currentIndex = queueIndex,
                             autoplayEnabled = autoplayEnabled,
                             shuffleEnabled = shuffleEnabled,
+                            queueHistoryEntryIds = queueHistoryEntryIds,
                             controlsLocked = controlsLocked,
                             hazeState = playerHaze,
                             onJumpTo = onJumpTo,
@@ -3939,11 +3970,6 @@ fun NowPlayingScreen(
                                             ),
                                             color = Color.White,
                                             enabled = scrolling,
-                                            leading = if (info.isExplicit == true) {
-                                                { ExplicitBadge(color = artistColor) }
-                                            } else {
-                                                null
-                                            },
                                             onOverflowChange = { titleOverflowing = it },
                                             modifier = Modifier.opensPage(info.albumId, onOpenAlbum),
                                         )
@@ -4193,6 +4219,8 @@ fun NowPlayingScreen(
                                     queue = queue,
                                     currentIndex = queueIndex,
                                     autoplayEnabled = autoplayEnabled,
+                                    shuffleEnabled = shuffleEnabled,
+                                    queueHistoryEntryIds = queueHistoryEntryIds,
                                     controlsLocked = controlsLocked,
                                     hazeState = playerHaze,
                                     onJumpTo = onJumpTo,

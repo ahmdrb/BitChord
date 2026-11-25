@@ -151,6 +151,7 @@ import com.music.bitchord.data.canvas.CanvasRepository
 import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.DetailPage
 import com.music.bitchord.data.PersonalLibraryStore
+import com.music.bitchord.data.forArtistInAddedOrder
 import com.music.bitchord.data.model.CARD_ART_PX
 import com.music.bitchord.data.model.HEADER_ART_PX
 import com.music.bitchord.data.model.ROW_ART_PX
@@ -378,7 +379,7 @@ fun DetailScreen(
         personalLibrary.artists.any { it.browseId == page.browseId }
     var showPersonalSongPicker by remember(page.browseId) { mutableStateOf(false) }
     val rawSongs = if (isPersonalArtist) {
-        personalLibrary.songs.filter { page.browseId in it.artistBrowseIds }.map { it.song }
+        personalLibrary.songs.forArtistInAddedOrder(page.browseId).map { it.song }
     } else {
         (page.songs as? UiState.Success)?.data.orEmpty()
     }

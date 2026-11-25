@@ -109,17 +109,44 @@ internal class AnchoredQueueShuffleOrder(
     }
 }
 
+internal fun shuffleHistoryIndices(order: IntArray, currentIndex: Int): List<Int> {
+    val currentPosition = order.indexOf(currentIndex)
+    return if (currentPosition <= 0) emptyList() else order.take(currentPosition)
+}
+
 object QueueShuffle {
 
     private val _enabled = MutableStateFlow(false)
+    private val _historyEntryIds = MutableStateFlow<List<String>>(emptyList())
     private val shuffleStates = WeakHashMap<ExoPlayer, QueueShuffleOrderState>()
 
     /** Whether playback currently follows a random path through the queue. */
     val enabled: StateFlow<Boolean> = _enabled.asStateFlow()
 
+    /** Entry identities in actual playback history, not inferred from timeline positions. */
+    val historyEntryIds: StateFlow<List<String>> = _historyEntryIds.asStateFlow()
+
+    /** Played timeline indices in the active shuffle traversal, oldest first. */
+    internal fun historyIndices(player: ExoPlayer): List<Int> {
+        if (!_enabled.value) return emptyList()
+        val state = shuffleStates[player] ?: return emptyList()
+        if (state.indices.size != player.mediaItemCount) return emptyList()
+        return shuffleHistoryIndices(state.indices, player.currentMediaItemIndex)
+    }
+
+    /** Publishes the current traversal history for the queue screen. */
+    internal fun refreshHistory(player: ExoPlayer) {
+        _historyEntryIds.value = historyIndices(player).mapNotNull { index ->
+            player.getMediaItemAt(index).queueEntryId
+        }
+    }
+
     fun setEnabled(enabled: Boolean) {
         _enabled.value = enabled
-        if (!enabled) boundedUserQueueOriginal = emptyList()
+        if (!enabled) {
+            boundedUserQueueOriginal = emptyList()
+            _historyEntryIds.value = emptyList()
+        }
     }
 
     /** Apply or remove playback-only shuffle without changing any media-item positions. */
@@ -128,6 +155,7 @@ object QueueShuffle {
             player.shuffleModeEnabled = false
             player.setShuffleOrder(ShuffleOrder.UnshuffledShuffleOrder(player.mediaItemCount))
             shuffleStates.remove(player)
+            _historyEntryIds.value = emptyList()
             return
         }
 
@@ -138,6 +166,7 @@ object QueueShuffle {
         if (current in 0 until player.mediaItemCount) state.anchorIndex = current
         player.setShuffleOrder(AnchoredQueueShuffleOrder(state))
         player.shuffleModeEnabled = true
+        refreshHistory(player)
     }
 
     /**
@@ -162,6 +191,7 @@ object QueueShuffle {
         shuffleStates[player] = state
         player.setShuffleOrder(AnchoredQueueShuffleOrder(state))
         player.shuffleModeEnabled = true
+        refreshHistory(player)
     }
 
     /** Start a fresh random traversal after a restored/selected current row, leaving earlier rows as history. */
@@ -174,6 +204,7 @@ object QueueShuffle {
         shuffleStates[player] = state
         player.setShuffleOrder(AnchoredQueueShuffleOrder(state))
         player.shuffleModeEnabled = true
+        refreshHistory(player)
     }
 
     /**
@@ -191,9 +222,18 @@ object QueueShuffle {
             return
         }
 
+        if (current == state.anchorIndex) {
+            // Repeat-one and same-item re-anchors are not a new shuffle cycle.
+            refreshHistory(player)
+            return
+        }
+
         val expected = AnchoredQueueShuffleOrder(state).nextIndex(state.anchorIndex)
         if (current == expected) {
+            // Move the existing cursor only. Never draw a fresh random order on
+            // an ordinary shuffle transition.
             state.anchorIndex = current
+            refreshHistory(player)
         } else {
             resetPlaybackOrder(player)
         }

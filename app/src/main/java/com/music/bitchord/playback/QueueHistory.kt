@@ -1,6 +1,8 @@
 package com.music.bitchord.playback
 
 import androidx.media3.common.Player
+import com.music.bitchord.data.model.PlaybackSourceType
+import com.music.bitchord.data.model.Song
 
 /** Number of completed queue entries retained behind the current song. */
 internal const val MAX_QUEUE_HISTORY = 25
@@ -20,6 +22,43 @@ internal fun queueHistoryTrimCount(currentIndex: Int): Int =
  */
 internal fun Player.rotateExpiredHistory(count: Int) {
     if (count > 0) moveMediaItems(0, count, mediaItemCount - count)
+}
+
+/**
+ * Removes selected old history positions without assuming that playback order
+ * matches the visible timeline. Ranges are removed from the end backwards so
+ * every earlier position remains stable for the next removal.
+ */
+internal fun Player.removeQueueIndices(indices: List<Int>) {
+    val sorted = indices.distinct()
+        .filter { it in 0 until mediaItemCount }
+        .sortedDescending()
+    var cursor = 0
+    while (cursor < sorted.size) {
+        var start = sorted[cursor]
+        val endExclusive = start + 1
+        cursor++
+        while (cursor < sorted.size && sorted[cursor] == start - 1) {
+            start = sorted[cursor]
+            cursor++
+        }
+        removeMediaItems(start, endExclusive)
+    }
+}
+
+/**
+ * Playlist, album and artist pages are explicit collection contexts. They
+ * should finish at the end of that collection rather than silently turning
+ * into a Similar Music station. The two BROWSE IDs below are app-wide lists,
+ * not collection pages, and keep their existing AutoPlay behaviour.
+ */
+internal fun shouldLoadAutoplayForSong(song: Song): Boolean {
+    // playRadio builds a one-off queue deliberately intended to continue as a
+    // station, even when the seed came from an artist's Videos shelf.
+    if (song.radioName != null) return true
+    if (song.playbackSourceType != PlaybackSourceType.BROWSE) return true
+    val sourceId = song.playbackSourceId ?: return false
+    return sourceId.startsWith("local:") || sourceId.startsWith("addons:")
 }
 
 /**

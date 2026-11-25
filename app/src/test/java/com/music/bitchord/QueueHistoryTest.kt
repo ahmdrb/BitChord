@@ -5,10 +5,16 @@ import com.music.bitchord.playback.MAX_QUEUE_HISTORY
 import com.music.bitchord.playback.LastPlayed
 import com.music.bitchord.playback.queueHistoryTrimCount
 import com.music.bitchord.playback.queueStartingAt
+import com.music.bitchord.playback.removeQueueIndices
 import com.music.bitchord.playback.rotateExpiredHistory
+import com.music.bitchord.playback.shouldLoadAutoplayForSong
+import com.music.bitchord.data.model.PlaybackSourceType
+import com.music.bitchord.data.model.Song
 import com.music.bitchord.playback.skippedByQueueJump
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.lang.reflect.Proxy
 
@@ -51,6 +57,56 @@ class QueueHistoryTest {
 
         assertEquals(9_974, window.first)
         assertEquals(26, window.count())
+    }
+
+    @Test
+    fun `removing shuffled history deletes only the selected played indices`() {
+        val queue = (0 until 9).toMutableList()
+        val removedRanges = mutableListOf<Pair<Int, Int>>()
+        val player = Proxy.newProxyInstance(
+            Player::class.java.classLoader,
+            arrayOf(Player::class.java),
+        ) { _, method, args ->
+            when (method.name) {
+                "getMediaItemCount" -> queue.size
+                "removeMediaItems" -> {
+                    val start = args[0] as Int
+                    val end = args[1] as Int
+                    removedRanges += start to end
+                    queue.subList(start, end).clear()
+                    null
+                }
+                else -> null
+            }
+        } as Player
+
+        player.removeQueueIndices(listOf(1, 3, 4, 7))
+
+        assertEquals(listOf(0, 2, 5, 6, 8), queue)
+        assertEquals(listOf(7 to 8, 3 to 5, 1 to 2), removedRanges)
+    }
+
+    @Test
+    fun `collection pages do not turn into Similar Music stations`() {
+        fun song(type: PlaybackSourceType, id: String? = null) = Song(
+            videoId = "track",
+            title = "Track",
+            artist = "Artist",
+            thumbnailUrl = null,
+            playbackSourceType = type,
+            playbackSourceId = id,
+        )
+
+        assertFalse(shouldLoadAutoplayForSong(song(PlaybackSourceType.BROWSE, "browse:playlist")))
+        assertFalse(shouldLoadAutoplayForSong(song(PlaybackSourceType.BROWSE, "personal-artist:123")))
+        assertTrue(shouldLoadAutoplayForSong(song(PlaybackSourceType.BROWSE, "local:all")))
+        assertTrue(shouldLoadAutoplayForSong(song(PlaybackSourceType.BROWSE, "addons:search")))
+        assertTrue(shouldLoadAutoplayForSong(song(PlaybackSourceType.SEARCH)))
+        assertTrue(
+            shouldLoadAutoplayForSong(
+                song(PlaybackSourceType.BROWSE, "artist-browse").copy(radioName = "Seed track"),
+            ),
+        )
     }
 
     @Test

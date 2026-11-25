@@ -24,12 +24,16 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -1254,6 +1258,7 @@ private fun BitChordApp(
         }
     }
     val shuffleEnabled by QueueShuffle.enabled.collectAsStateWithLifecycle()
+    val queueHistoryEntryIds by QueueShuffle.historyEntryIds.collectAsStateWithLifecycle()
     // For the version switch's "there is no other version" notice.
     val versionContext = LocalContext.current
     // Tracks whose other cut a switch looked for and didn't find: their menu
@@ -2807,6 +2812,7 @@ private fun BitChordApp(
             nextSong = player.nextSong.takeIf { player.hasNext },
             repeatMode = player.repeatMode,
             shuffleEnabled = shuffleEnabled,
+            queueHistoryEntryIds = queueHistoryEntryIds,
             autoplayEnabled = autoplayEnabled,
             signedIn = signedIn,
             likeStatus = likeStatusOf(song),
@@ -4327,12 +4333,12 @@ private fun BitChordApp(
                         // circles over the shared gradient — no full-width pane.
                         transparentBackdrop = true,
                         artworkPageChrome = true,
-                        // Keep the same app-level controls as Local Music, but do
-                        // not sample or refract the artwork behind Playlist/Artist.
+                        // Keep the full-width bar transparent; the artwork-page
+                        // controls themselves use the player's scrubber material.
                         lightweightArtworkChrome = false,
-                        neutralLiquidGlassBackdrop = protectNavigationChrome,
-                        // Use the very same Haze source as Local Music and the mini-player.
-                        // The material and its backdrop pipeline must not branch on artwork.
+                        progressBarArtworkChrome = protectNavigationChrome,
+                        // Other floating top-bar surfaces continue to share the app's
+                        // Haze source with Local Music and the mini-player.
                         backButtonHazeState = hazeState,
                         trailingTitle = if (detail != null && detailActiveShelf != null) detail.title else null,
                         // Search has no large in-list header to hand the title back to —
@@ -4477,138 +4483,174 @@ private fun BitChordApp(
                             // None on Settings or the pages opened from it: those are
                             // about the account, and the photo would only reopen them.
                             if (!(route != null && AppRoute.Settings in navigator)) {
-                                // Left of the account photo, and only on Library itself:
-                                // a history is a record of what was played, which reads
-                                // as that tab's business rather than every tab's.
-                                if (route == null && detail == null && selectedTab == TAB_LIBRARY &&
-                                    !personalCollectionDetailOpen
-                                ) {
-                                    IconButton(
-                                        onClick = {
-                                            navigator.push(AppRoute.History)
-                                            viewModel.loadHistory()
-                                        },
-                                    ) {
-                                        Icon(
-                                            Icons.Rounded.History,
-                                            contentDescription = stringResource(R.string.listening_history),
-                                            tint = MaterialTheme.colorScheme.onSurface,
+                                // A stable content slot morphs the leading actions between
+                                // Library, Local Music, and personal collections. The account
+                                // button and download affordance stay in their own trailing slots.
+                                val toolbarMode = when {
+                                    personalCollectionDetailOpen -> 3
+                                    isLocalDetail -> 2
+                                    (isReleaseDetail || isArtistDetail) && detail != null -> 4
+                                    route is AppRoute.LibraryShowAll -> 5
+                                    route == null && detail == null && selectedTab == TAB_LIBRARY -> 1
+                                    else -> 0
+                                }
+
+                                val detailActions: @Composable () -> Unit = {
+                                    if ((isReleaseDetail || isLocalDetail || isArtistDetail) && detail != null) {
+                                        val detailSongs = (detail.songs as? UiState.Success)?.data.orEmpty()
+                                        DetailPageTopBarActions(
+                                            isReleaseDetail = isReleaseDetail,
+                                            isLocalDetail = isLocalDetail,
+                                            isArtistDetail = isArtistDetail,
+                                            showSearchAction = true,
+                                            browseId = detail.browseId,
+                                            title = detail.title,
+                                            songs = detailSongs,
+                                            isPersonalArtist = personalLibrary.artists.any {
+                                                it.browseId == detail.browseId
+                                            },
+                                            detailSearching = detailSearching,
+                                            onDetailSearchToggle = { detailSearching = !detailSearching },
+                                            onSortClick = {
+                                                if (isLocalDetail) folderMenuOpen = true else songSortMenuOpen = true
+                                            },
+                                            onMoreClick = {
+                                                openBrowseMenu(BrowseTarget(
+                                                    browseId = detail.browseId,
+                                                    title = detail.title,
+                                                    subtitle = detail.subtitle,
+                                                    thumbnailUrl = detail.thumbnailUrl,
+                                                    type = detail.type,
+                                                    songs = detailSongs.sortedForDetail(songSort).map { song ->
+                                                        if (detail.type == BrowseType.ALBUM) {
+                                                            song.copy(albumName = song.albumName ?: detail.title)
+                                                        } else {
+                                                            song
+                                                        }
+                                                    },
+                                                    fromCard = false,
+                                                    downloadId = downloadIdFor(detail.browseId),
+                                                ))
+                                            },
+                                            artistMoreMenuOpen = artistMoreMenuOpen,
+                                            onArtistMoreMenuOpenChange = { artistMoreMenuOpen = it },
+                                            onDeleteArtist = {
+                                                PersonalLibraryStore.removeArtist(detail.browseId)
+                                                viewModel.closeDetail()
+                                            },
                                         )
                                     }
                                 }
-                                // Left of the account photo, and only on a Library
-                                // "Show all" grid — the same control the Downloads
-                                // folder offers (see `LocalSearchField`), adapted to
-                                // the one thing a playlist or album card carries: a
-                                // title.
-                                if (route is AppRoute.LibraryShowAll) {
-                                    Box {
-                                        IconButton(onClick = { librarySortMenuOpen = true }) {
-                                            Icon(
-                                                Icons.Rounded.Sort,
-                                                contentDescription = stringResource(R.string.sort_library),
-                                                tint = MaterialTheme.colorScheme.onSurface,
-                                            )
+
+                                AnimatedContent(
+                                    targetState = toolbarMode,
+                                    transitionSpec = {
+                                        val movingForward = targetState > initialState
+                                        val enter = slideInHorizontally(
+                                            animationSpec = tween(280),
+                                        ) { width ->
+                                            if (movingForward) width / 3 else -width / 3
                                         }
-                                        DropdownMenu(
-                                            expanded = librarySortMenuOpen,
-                                            onDismissRequest = { librarySortMenuOpen = false },
-                                        ) {
-                                            LibrarySort.entries.forEach { option ->
-                                                DropdownMenuItem(
-                                                    text = { Text(option.localizedLabel()) },
-                                                    trailingIcon = if (option == librarySort) {
-                                                        { Icon(Icons.Rounded.Check, contentDescription = null) }
-                                                    } else null,
+                                        val exit = slideOutHorizontally(
+                                            animationSpec = tween(230),
+                                        ) { width ->
+                                            if (movingForward) -width / 4 else width / 4
+                                        }
+                                        enter togetherWith exit
+                                    },
+                                    label = "libraryLocalCollectionTopBarTransition",
+                                ) { mode ->
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        when (mode) {
+                                            1 -> {
+                                                IconButton(
                                                     onClick = {
-                                                        AppSettings.setLibrarySort(option)
-                                                        librarySortMenuOpen = false
+                                                        navigator.push(AppRoute.History)
+                                                        viewModel.loadHistory()
                                                     },
-                                                )
+                                                ) {
+                                                    Icon(
+                                                        Icons.Rounded.History,
+                                                        contentDescription = stringResource(R.string.listening_history),
+                                                        tint = MaterialTheme.colorScheme.onSurface,
+                                                    )
+                                                }
                                             }
+
+                                            2, 4 -> detailActions()
+
+                                            3 -> PersonalCollectionTopBarActions(
+                                                searchOpen = personalCollectionSearchOpen,
+                                                onSearchToggle = { personalCollectionSearchOpen = !personalCollectionSearchOpen },
+                                                onSortToggle = {
+                                                    personalCollectionMoreMenuOpen = false
+                                                    personalCollectionSortMenuOpen = !personalCollectionSortMenuOpen
+                                                },
+                                                onMoreToggle = {
+                                                    personalCollectionSortMenuOpen = false
+                                                    personalCollectionMoreMenuOpen = !personalCollectionMoreMenuOpen
+                                                },
+                                            )
+
+                                            5 -> {
+                                                Box {
+                                                    IconButton(onClick = { librarySortMenuOpen = true }) {
+                                                        Icon(
+                                                            Icons.Rounded.Sort,
+                                                            contentDescription = stringResource(R.string.sort_library),
+                                                            tint = MaterialTheme.colorScheme.onSurface,
+                                                        )
+                                                    }
+                                                    DropdownMenu(
+                                                        expanded = librarySortMenuOpen,
+                                                        onDismissRequest = { librarySortMenuOpen = false },
+                                                    ) {
+                                                        LibrarySort.entries.forEach { option ->
+                                                            DropdownMenuItem(
+                                                                text = { Text(option.localizedLabel()) },
+                                                                trailingIcon = if (option == librarySort) {
+                                                                    { Icon(Icons.Rounded.Check, contentDescription = null) }
+                                                                } else null,
+                                                                onClick = {
+                                                                    AppSettings.setLibrarySort(option)
+                                                                    librarySortMenuOpen = false
+                                                                },
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            else -> Unit
                                         }
                                     }
                                 }
-                                // Release, artist and device-folder actions all live in
-                                // this one app-level FrostedTopBar pill. Artists used to
-                                // replace the Search / Filter / More set with separate
-                                // Share / Delete controls, making their navigation look
-                                // like a different toolbar.
-                                if ((isReleaseDetail || isLocalDetail || isArtistDetail) && detail != null) {
-                                    val detailSongs = (detail.songs as? UiState.Success)?.data.orEmpty()
-                                    DetailPageTopBarActions(
-                                        isReleaseDetail = isReleaseDetail,
-                                        isLocalDetail = isLocalDetail,
-                                        isArtistDetail = isArtistDetail,
-                                        browseId = detail.browseId,
-                                        title = detail.title,
-                                        songs = detailSongs,
-                                        isPersonalArtist = personalLibrary.artists.any {
-                                            it.browseId == detail.browseId
-                                        },
-                                        detailSearching = detailSearching,
-                                        onDetailSearchToggle = { detailSearching = !detailSearching },
-                                        onSortClick = {
-                                            if (isLocalDetail) folderMenuOpen = true else songSortMenuOpen = true
-                                        },
-                                        onMoreClick = {
-                                            openBrowseMenu(BrowseTarget(
-                                                browseId = detail.browseId,
-                                                title = detail.title,
-                                                subtitle = detail.subtitle,
-                                                thumbnailUrl = detail.thumbnailUrl,
-                                                type = detail.type,
-                                                songs = detailSongs.sortedForDetail(songSort).map { song ->
-                                                    if (detail.type == BrowseType.ALBUM) {
-                                                        song.copy(albumName = song.albumName ?: detail.title)
-                                                    } else {
-                                                        song
-                                                    }
-                                                },
-                                                fromCard = false,
-                                                downloadId = downloadIdFor(detail.browseId),
-                                            ))
-                                        },
-                                        artistMoreMenuOpen = artistMoreMenuOpen,
-                                        onArtistMoreMenuOpenChange = { artistMoreMenuOpen = it },
-                                        onDeleteArtist = {
-                                            PersonalLibraryStore.removeArtist(detail.browseId)
-                                            viewModel.closeDetail()
-                                        },
-                                    )
-                                }
-                                // Personal BitChord collections use these same shared
-                                // FrostedTopBar controls. Their page content owns only
-                                // the search field and popup menus, never another toolbar.
-                                if (personalCollectionDetailOpen) {
-                                    PersonalCollectionTopBarActions(
-                                        searchOpen = personalCollectionSearchOpen,
-                                        onSearchToggle = { personalCollectionSearchOpen = !personalCollectionSearchOpen },
-                                        onSortToggle = { personalCollectionSortMenuOpen = !personalCollectionSortMenuOpen },
-                                        onMoreToggle = { personalCollectionMoreMenuOpen = !personalCollectionMoreMenuOpen },
-                                    )
-                                }
-                                // Left of the account photo, and only there while
-                                // there is a batch to report on — see
-                                // [TopBarDownloadButton], which decides that for
-                                // itself rather than being told. Not on the page it
-                                // opens, where it would only lead back to itself.
+
                                 if (route != AppRoute.Downloads) {
-                                    TopBarDownloadButton(onClick = { navigator.push(AppRoute.Downloads) })
+                                    TopBarDownloadButton(
+                                        onClick = { navigator.push(AppRoute.Downloads) },
+                                    )
                                 }
-                                // Not on a release page, whose pill already carries
-                                // three of its own controls — Apple Music leaves the
-                                // profile off its album pages too.
-                                if (!isReleaseDetail && !isArtistDetail && !personalCollectionDetailOpen) TopBarAccountButton(
-                                    account = account,
-                                    onClick = {
-                                        if (signedIn) {
-                                            viewModel.loadChannels()
-                                            showAccountSelector = true
-                                        } else navigator.push(AppRoute.Settings)
-                                    },
-                                    onSwipeProfile = { forward -> viewModel.stepProfile(forward) },
-                                )
+
+                                // Profile stays in the same trailing slot between Library
+                                // and Local Music, then slides away only for a collection page.
+                                TopBarAccountVisibility(
+                                    visible = !isReleaseDetail && !isArtistDetail && !personalCollectionDetailOpen,
+                                ) {
+                                    TopBarAccountButton(
+                                        account = account,
+                                        onClick = {
+                                            if (signedIn) {
+                                                viewModel.loadChannels()
+                                                showAccountSelector = true
+                                            } else navigator.push(AppRoute.Settings)
+                                        },
+                                        onSwipeProfile = { forward -> viewModel.stepProfile(forward) },
+                                    )
+                                }
                             }
                         },
                     )
@@ -7002,5 +7044,23 @@ private fun PersonalCollectionTopBarActions(
     }
     IconButton(onClick = onMoreToggle) {
         Icon(Icons.Rounded.MoreHoriz, contentDescription = stringResource(R.string.more), tint = MaterialTheme.colorScheme.onSurface)
+    }
+}
+
+
+@Composable
+private fun TopBarAccountVisibility(
+    visible: Boolean,
+    content: @Composable () -> Unit,
+) {
+    // Kept outside the actions lambda so Compose resolves the scope-independent
+    // AnimatedVisibility overload rather than a RowScope overload.
+    AnimatedVisibility(
+        visible = visible,
+        enter = slideInHorizontally(animationSpec = tween(240)) { it / 3 },
+        exit = slideOutHorizontally(animationSpec = tween(190)) { it / 3 },
+        label = "topBarAccountTransition",
+    ) {
+        content()
     }
 }
