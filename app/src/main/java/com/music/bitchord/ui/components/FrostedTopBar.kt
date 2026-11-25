@@ -302,11 +302,10 @@ fun FrostedTopBar(
              */
             // On a pushed page the back affordance is always visible, since
             // there is no large in-list header to fall back on.
-            AnimatedVisibility(
+            TopBarControlVisibility(
                 visible = onBack != null,
-                enter = fadeIn(tween(180)) + scaleIn(initialScale = 0.82f, animationSpec = tween(220)),
-                exit = fadeOut(tween(120)) + scaleOut(targetScale = 0.82f, animationSpec = tween(160)),
                 modifier = Modifier.align(Alignment.CenterStart),
+                initialScale = 0.82f,
             ) {
                 if (useFloatingChrome) {
                     ArtworkPageBackButton(
@@ -366,6 +365,28 @@ fun FrostedTopBar(
         }
         HorizontalDivider(thickness = 0.5.dp, color = dividerColor)
         RefreshPuck(refreshing = refreshing, pullFraction = pullFraction)
+    }
+}
+
+/**
+ * Scope-independent wrapper for the back control's enter/exit motion. Calling
+ * AnimatedVisibility directly from the nested Column/Box scopes can select a
+ * RowScope/ColumnScope overload that is not available at this call site.
+ */
+@Composable
+private fun TopBarControlVisibility(
+    visible: Boolean,
+    modifier: Modifier = Modifier,
+    initialScale: Float = 0.88f,
+    content: @Composable () -> Unit,
+) {
+    AnimatedVisibility(
+        visible = visible,
+        modifier = modifier,
+        enter = fadeIn(tween(180)) + scaleIn(initialScale = initialScale, animationSpec = tween(220)),
+        exit = fadeOut(tween(120)) + scaleOut(targetScale = initialScale, animationSpec = tween(160)),
+    ) {
+        content()
     }
 }
 

@@ -4484,11 +4484,9 @@ private fun BitChordApp(
                                 // Left of the account photo, and only on Library itself:
                                 // a history is a record of what was played, which reads
                                 // as that tab's business rather than every tab's.
-                                AnimatedVisibility(
+                                TopBarControlVisibility(
                                     visible = route == null && detail == null &&
                                         selectedTab == TAB_LIBRARY && !personalCollectionDetailOpen,
-                                    enter = fadeIn(tween(180)) + scaleIn(initialScale = 0.88f, animationSpec = tween(220)),
-                                    exit = fadeOut(tween(120)) + scaleOut(targetScale = 0.88f, animationSpec = tween(160)),
                                 ) {
                                     IconButton(
                                         onClick = {
@@ -4587,10 +4585,8 @@ private fun BitChordApp(
                                 // Personal BitChord collections use these same shared
                                 // FrostedTopBar controls. Their page content owns only
                                 // the search field and popup menus, never another toolbar.
-                                AnimatedVisibility(
+                                TopBarControlVisibility(
                                     visible = personalCollectionDetailOpen,
-                                    enter = fadeIn(tween(180)) + scaleIn(initialScale = 0.88f, animationSpec = tween(220)),
-                                    exit = fadeOut(tween(120)) + scaleOut(targetScale = 0.88f, animationSpec = tween(160)),
                                 ) {
                                     PersonalCollectionTopBarActions(
                                         searchOpen = personalCollectionSearchOpen,
@@ -4610,10 +4606,8 @@ private fun BitChordApp(
                                 // Not on a release page, whose pill already carries
                                 // three of its own controls — Apple Music leaves the
                                 // profile off its album pages too.
-                                AnimatedVisibility(
+                                TopBarControlVisibility(
                                     visible = !isReleaseDetail && !isArtistDetail && !personalCollectionDetailOpen,
-                                    enter = fadeIn(tween(180)) + scaleIn(initialScale = 0.88f, animationSpec = tween(220)),
-                                    exit = fadeOut(tween(120)) + scaleOut(targetScale = 0.88f, animationSpec = tween(160)),
                                 ) {
                                     TopBarAccountButton(
                                         account = account,
@@ -7001,6 +6995,26 @@ private const val TAB_SEARCH = 3
 private const val TAB_RADIO = 4
 
 @Composable
+/**
+ * Scope-independent visibility motion for top-bar actions. The actions lambda
+ * is hosted inside a custom Layout, not a RowScope/ColumnScope, so keep the
+ * AnimatedVisibility call here rather than resolving a layout-scope overload
+ * at each action call site.
+ */
+@Composable
+private fun TopBarControlVisibility(
+    visible: Boolean,
+    content: @Composable () -> Unit,
+) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(tween(180)) + scaleIn(initialScale = 0.88f, animationSpec = tween(220)),
+        exit = fadeOut(tween(120)) + scaleOut(targetScale = 0.88f, animationSpec = tween(160)),
+    ) {
+        content()
+    }
+}
+
 private fun PersonalCollectionTopBarActions(
     searchOpen: Boolean,
     onSearchToggle: () -> Unit,
