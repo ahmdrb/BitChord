@@ -6994,7 +6994,6 @@ private const val TAB_LIBRARY = 2
 private const val TAB_SEARCH = 3
 private const val TAB_RADIO = 4
 
-@Composable
 /**
  * Scope-independent visibility motion for top-bar actions. The actions lambda
  * is hosted inside a custom Layout, not a RowScope/ColumnScope, so keep the
@@ -7015,6 +7014,7 @@ private fun TopBarControlVisibility(
     }
 }
 
+@Composable
 private fun PersonalCollectionTopBarActions(
     searchOpen: Boolean,
     onSearchToggle: () -> Unit,
