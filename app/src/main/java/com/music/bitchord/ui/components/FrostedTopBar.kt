@@ -24,7 +24,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.matchParentSize
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -386,7 +386,7 @@ private fun ArtworkPageBackButton(
     CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides TOP_CONTROL_SIZE) {
         if (progressBarArtworkChrome) {
             ProgressBarArtworkSurface(modifier = modifier.size(TOP_CONTROL_SIZE)) {
-                IconButton(onClick = onClick, modifier = Modifier.matchParentSize()) {
+                IconButton(onClick = onClick, modifier = Modifier.fillMaxSize()) {
                     Icon(
                         SfIcons.ArrowBack,
                         contentDescription = stringResource(R.string.back),
@@ -563,7 +563,7 @@ private fun ProgressBarArtworkSurface(
     ) {
         Box(
             Modifier
-                .matchParentSize()
+                .fillMaxSize()
                 .vibrantChrome(true)
                 // The inactive seek-track uses this exact ink and opacity.
                 .background(Color(0xFFB0B0B0).copy(alpha = 0.6f), shape),
