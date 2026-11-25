@@ -168,8 +168,8 @@ fun FrostedTopBar(
     /** Circular back surface and no collapsing title, for artwork-led pages. */
     artworkPageChrome: Boolean = false,
     /**
-     * Artwork detail pages keep the same floating controls but avoid sampling
-     * the hero image through those controls. The glass tint and rim remain.
+     * Opt into the lighter Liquid Glass treatment at the explicit call sites
+     * that should avoid full lens refraction.
      */
     lightweightArtworkChrome: Boolean = false,
     /** Source sampled by floating top-bar surfaces when liquid glass is off. */

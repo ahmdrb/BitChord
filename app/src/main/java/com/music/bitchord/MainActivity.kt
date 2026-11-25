@@ -4329,8 +4329,8 @@ private fun BitChordApp(
                         // circles over the shared gradient — no full-width pane.
                         transparentBackdrop = true,
                         artworkPageChrome = true,
-                        // Keep the same app-level controls as Local Music, but do
-                        // not sample or refract the artwork behind Playlist/Artist.
+                        // Use the full Liquid Glass treatment over the live page
+                        // backdrop; with Liquid Glass off, these share thin Haze.
                         lightweightArtworkChrome = false,
                         // Use the very same Haze source as Local Music and the mini-player.
                         // The material and its backdrop pipeline must not branch on artwork.
