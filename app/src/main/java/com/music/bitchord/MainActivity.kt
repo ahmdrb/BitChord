@@ -24,6 +24,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
@@ -4484,20 +4486,46 @@ private fun BitChordApp(
                                 // Left of the account photo, and only on Library itself:
                                 // a history is a record of what was played, which reads
                                 // as that tab's business rather than every tab's.
-                                if (!isLocalDetail) {
-                                    TopBarControlVisibility(
-                                        visible = route == null && detail == null &&
-                                            selectedTab == TAB_LIBRARY && !personalCollectionDetailOpen,
-                                    ) {
-                                        IconButton(
-                                            onClick = {
+                                // Library history and Local Music search occupy one stable
+                                // action slot, so the glyph morphs in place instead of one
+                                // button leaving while another is independently introduced.
+                                val showLibraryHistory = route == null && detail == null &&
+                                    selectedTab == TAB_LIBRARY && !personalCollectionDetailOpen
+                                val showLocalMusicSearch = isLocalDetail
+                                if (showLibraryHistory || showLocalMusicSearch) {
+                                    IconButton(
+                                        onClick = {
+                                            if (showLocalMusicSearch) {
+                                                detailSearching = !detailSearching
+                                            } else {
                                                 navigator.push(AppRoute.History)
                                                 viewModel.loadHistory()
+                                            }
+                                        },
+                                    ) {
+                                        AnimatedContent(
+                                            targetState = showLocalMusicSearch,
+                                            transitionSpec = {
+                                                (fadeIn(tween(190)) +
+                                                    scaleIn(initialScale = 0.78f, animationSpec = tween(220))) togetherWith
+                                                    (fadeOut(tween(130)) +
+                                                        scaleOut(targetScale = 0.78f, animationSpec = tween(150)))
                                             },
-                                        ) {
+                                            label = "libraryHistoryToLocalMusicSearch",
+                                        ) { localMusicSearch ->
                                             Icon(
-                                                Icons.Rounded.History,
-                                                contentDescription = stringResource(R.string.listening_history),
+                                                imageVector = if (localMusicSearch) {
+                                                    if (detailSearching) Icons.Rounded.Close else BitChordIcons.Search
+                                                } else {
+                                                    Icons.Rounded.History
+                                                },
+                                                contentDescription = stringResource(
+                                                    when {
+                                                        localMusicSearch && detailSearching -> R.string.close_search
+                                                        localMusicSearch -> R.string.search_this_list
+                                                        else -> R.string.listening_history
+                                                    },
+                                                ),
                                                 tint = MaterialTheme.colorScheme.onSurface,
                                             )
                                         }
@@ -4548,6 +4576,7 @@ private fun BitChordApp(
                                             isReleaseDetail = isReleaseDetail,
                                             isLocalDetail = isLocalDetail,
                                             isArtistDetail = isArtistDetail,
+                                            showSearchAction = !isLocalDetail,
                                             browseId = detail.browseId,
                                             title = detail.title,
                                             songs = detailSongs,
@@ -4604,12 +4633,19 @@ private fun BitChordApp(
                                 // the search field and popup menus, never another toolbar.
                                 TopBarControlVisibility(
                                     visible = personalCollectionDetailOpen,
+                                    slideFromEnd = true,
                                 ) {
                                     PersonalCollectionTopBarActions(
                                         searchOpen = personalCollectionSearchOpen,
                                         onSearchToggle = { personalCollectionSearchOpen = !personalCollectionSearchOpen },
-                                        onSortToggle = { personalCollectionSortMenuOpen = !personalCollectionSortMenuOpen },
-                                        onMoreToggle = { personalCollectionMoreMenuOpen = !personalCollectionMoreMenuOpen },
+                                        onSortToggle = {
+                                            personalCollectionMoreMenuOpen = false
+                                            personalCollectionSortMenuOpen = !personalCollectionSortMenuOpen
+                                        },
+                                        onMoreToggle = {
+                                            personalCollectionSortMenuOpen = false
+                                            personalCollectionMoreMenuOpen = !personalCollectionMoreMenuOpen
+                                        },
                                     )
                                 }
                                 // Left of the account photo, and only there while
@@ -7020,12 +7056,27 @@ private const val TAB_RADIO = 4
 @Composable
 private fun TopBarControlVisibility(
     visible: Boolean,
+    slideFromEnd: Boolean = false,
     content: @Composable () -> Unit,
 ) {
+    val horizontalEnter = if (slideFromEnd) {
+        slideInHorizontally(animationSpec = tween(250)) { fullWidth -> fullWidth / 4 }
+    } else {
+        EnterTransition.None
+    }
+    val horizontalExit = if (slideFromEnd) {
+        slideOutHorizontally(animationSpec = tween(190)) { fullWidth -> fullWidth / 5 }
+    } else {
+        ExitTransition.None
+    }
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(tween(180)) + scaleIn(initialScale = 0.88f, animationSpec = tween(220)),
-        exit = fadeOut(tween(120)) + scaleOut(targetScale = 0.88f, animationSpec = tween(160)),
+        enter = fadeIn(tween(190)) +
+            scaleIn(initialScale = if (slideFromEnd) 0.94f else 0.88f, animationSpec = tween(220)) +
+            horizontalEnter,
+        exit = fadeOut(tween(140)) +
+            scaleOut(targetScale = if (slideFromEnd) 0.94f else 0.88f, animationSpec = tween(170)) +
+            horizontalExit,
     ) {
         // AnimatedVisibility's default content container is a Box, which
         // stacks the personal-collection action buttons on top of one another.

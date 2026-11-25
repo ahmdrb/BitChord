@@ -75,11 +75,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.focus.FocusRequester
@@ -104,6 +107,8 @@ import com.music.bitchord.ui.theme.rememberArtworkPalette
 import com.music.bitchord.ui.components.ExplicitSongTitle
 import com.music.bitchord.ui.components.PAGE_GUTTER
 import com.music.bitchord.ui.components.IosMenuShape
+import com.music.bitchord.ui.components.IosMenuPopover
+import com.music.bitchord.ui.components.IosMenuRow
 import com.music.bitchord.ui.components.iosMenuColors
 import com.music.bitchord.ui.components.iosMenuPanel
 import com.music.bitchord.ui.components.optimizedHazeEffect
@@ -305,6 +310,7 @@ private fun PersonalCollectionDetailDialog(
     var searchQuery by remember { mutableStateOf("") }
     var sortMode by remember { mutableStateOf("Default order") }
     var dateAddedDescending by remember { mutableStateOf(true) }
+    var topMenuAnchor by remember { mutableStateOf<Rect?>(null) }
     val searchFocusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     LaunchedEffect(searchOpen) {
@@ -374,102 +380,9 @@ private fun PersonalCollectionDetailDialog(
                         .align(Alignment.TopEnd)
                         .statusBarsPadding()
                         .padding(top = 24.dp, end = 20.dp)
-                        .size(1.dp),
-                ) {
-                    DropdownMenu(
-                        expanded = sortMenuOpen,
-                        onDismissRequest = { onSortMenuOpenChange(false) },
-                        modifier = Modifier.iosMenuPanel(translucent = true, hazeState = hazeState),
-                        shape = IosMenuShape,
-                        containerColor = Color.Transparent,
-                        tonalElevation = 0.dp,
-                        shadowElevation = 0.dp,
-                    ) {
-                        listOf(
-                            "Date added",
-                            "Default order",
-                            "Alphabetical (A to Z)",
-                            "Alphabetical (Z to A)",
-                        ).forEach { option ->
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        option,
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = menuColors.label,
-                                    )
-                                },
-                                trailingIcon = {
-                                    if (option == "Date added" && sortMode == option) {
-                                        Text(
-                                            if (dateAddedDescending) "↓" else "↑",
-                                            color = menuColors.label,
-                                            style = MaterialTheme.typography.titleLarge,
-                                        )
-                                    } else if (sortMode == option) {
-                                        Icon(
-                                            Icons.Rounded.Check,
-                                            contentDescription = "Selected",
-                                            tint = menuColors.label,
-                                        )
-                                    }
-                                },
-                                onClick = {
-                                    if (option == "Date added" && sortMode == "Date added") {
-                                        dateAddedDescending = !dateAddedDescending
-                                    } else {
-                                        sortMode = option
-                                    }
-                                    onSortMenuOpenChange(false)
-                                },
-                            )
-                        }
-                    }
-                    DropdownMenu(
-                        expanded = menuOpen,
-                        onDismissRequest = { onMenuOpenChange(false) },
-                        modifier = Modifier.iosMenuPanel(translucent = true, hazeState = hazeState),
-                        shape = IosMenuShape,
-                        containerColor = Color.Transparent,
-                        tonalElevation = 0.dp,
-                        shadowElevation = 0.dp,
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Play next", color = menuColors.label) },
-                            onClick = { onMenuOpenChange(false); onPlayNextAll() },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Add to queue", color = menuColors.label) },
-                            onClick = { onMenuOpenChange(false); onAddAllToQueue() },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Download all", color = menuColors.label) },
-                            onClick = { onMenuOpenChange(false); onDownloadAll() },
-                        )
-                        if (onCustomizeArtwork != null) {
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        "Customize artwork",
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = menuColors.label,
-                                    )
-                                },
-                                onClick = { onMenuOpenChange(false); onCustomizeArtwork() },
-                            )
-                        }
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    if (collectionKind == "playlist") "Delete playlist" else "Remove from collection",
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.colorScheme.error,
-                                )
-                            },
-                            onClick = { onMenuOpenChange(false); confirmDelete = true },
-                        )
-                    }
-                }
+                        .size(1.dp)
+                        .onGloballyPositioned { topMenuAnchor = it.boundsInWindow() },
+                )
 
                 LazyColumn(
                     Modifier.fillMaxSize(),
@@ -655,6 +568,94 @@ private fun PersonalCollectionDetailDialog(
                 }
             }
     }
+
+    IosMenuPopover(
+        item = "sort".takeIf { sortMenuOpen },
+        anchor = topMenuAnchor,
+        onDismiss = { onSortMenuOpenChange(false) },
+        hazeState = hazeState,
+    ) {
+        Column {
+            listOf(
+                "Date added",
+                "Default order",
+                "Alphabetical (A to Z)",
+                "Alphabetical (Z to A)",
+            ).forEach { option ->
+                IosMenuRow(
+                    label = option,
+                    icon = null,
+                    onClick = {
+                        if (option == "Date added" && sortMode == "Date added") {
+                            dateAddedDescending = !dateAddedDescending
+                        } else {
+                            sortMode = option
+                        }
+                        onSortMenuOpenChange(false)
+                    },
+                    labelColor = menuColors.label,
+                    trailing = {
+                        if (option == "Date added" && sortMode == option) {
+                            Text(
+                                if (dateAddedDescending) "↓" else "↑",
+                                color = menuColors.label,
+                                style = MaterialTheme.typography.titleLarge,
+                            )
+                        } else if (sortMode == option) {
+                            Icon(
+                                Icons.Rounded.Check,
+                                contentDescription = "Selected",
+                                tint = menuColors.label,
+                            )
+                        }
+                    },
+                )
+            }
+        }
+    }
+
+    IosMenuPopover(
+        item = "actions".takeIf { menuOpen },
+        anchor = topMenuAnchor,
+        onDismiss = { onMenuOpenChange(false) },
+        hazeState = hazeState,
+    ) {
+        Column {
+            IosMenuRow(
+                label = "Play next",
+                icon = null,
+                onClick = { onMenuOpenChange(false); onPlayNextAll() },
+                labelColor = menuColors.label,
+            )
+            IosMenuRow(
+                label = "Add to queue",
+                icon = null,
+                onClick = { onMenuOpenChange(false); onAddAllToQueue() },
+                labelColor = menuColors.label,
+            )
+            IosMenuRow(
+                label = "Download all",
+                icon = null,
+                onClick = { onMenuOpenChange(false); onDownloadAll() },
+                labelColor = menuColors.label,
+            )
+            if (onCustomizeArtwork != null) {
+                IosMenuRow(
+                    label = "Customize artwork",
+                    icon = null,
+                    onClick = { onMenuOpenChange(false); onCustomizeArtwork() },
+                    labelColor = menuColors.label,
+                )
+            }
+            IosMenuRow(
+                label = if (collectionKind == "playlist") "Delete playlist" else "Remove from collection",
+                icon = null,
+                onClick = { onMenuOpenChange(false); confirmDelete = true },
+                labelColor = MaterialTheme.colorScheme.error,
+            )
+        }
+    }
+
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
