@@ -4332,7 +4332,6 @@ private fun BitChordApp(
                         // Keep the same app-level controls as Local Music, but do
                         // not sample or refract the artwork behind Playlist/Artist.
                         lightweightArtworkChrome = false,
-                        neutralLiquidGlassBackdrop = protectNavigationChrome,
                         // Use the very same Haze source as Local Music and the mini-player.
                         // The material and its backdrop pipeline must not branch on artwork.
                         backButtonHazeState = hazeState,
