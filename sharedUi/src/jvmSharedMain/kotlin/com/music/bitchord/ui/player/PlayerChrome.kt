@@ -79,7 +79,7 @@ fun Modifier.additiveChrome(enabled: Boolean): Modifier =
  * the artwork's colour comes back brighter and more saturated rather than paler.
  * Where the platform has no dodge the ink is added instead, as [additiveChrome].
  */
-internal fun Modifier.vibrantChrome(enabled: Boolean): Modifier =
+fun Modifier.vibrantChrome(enabled: Boolean): Modifier =
     if (!enabled || !BlendMode.ColorDodge.isSupported()) {
         additiveChrome(enabled)
     } else {

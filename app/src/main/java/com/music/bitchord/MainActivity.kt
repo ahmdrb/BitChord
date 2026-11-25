@@ -4332,6 +4332,8 @@ private fun BitChordApp(
                         // Use the full Liquid Glass treatment over the live page
                         // backdrop; with Liquid Glass off, these share thin Haze.
                         lightweightArtworkChrome = false,
+                        // Playlist and Artist controls use the same artwork-aware ink as the player scrubber.
+                        progressBarArtworkChrome = protectNavigationChrome,
                         // Use the very same Haze source as Local Music and the mini-player.
                         // The material and its backdrop pipeline must not branch on artwork.
                         backButtonHazeState = hazeState,

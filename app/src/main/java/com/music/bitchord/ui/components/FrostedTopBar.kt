@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -76,6 +77,7 @@ import com.music.bitchord.R
 import com.music.bitchord.data.model.Account
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.theme.stableStatusBarInsets
+import com.music.bitchord.ui.player.vibrantChrome
 import dev.chrisbanes.haze.ExperimentalHazeApi
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
@@ -172,6 +174,8 @@ fun FrostedTopBar(
      * that should avoid full lens refraction.
      */
     lightweightArtworkChrome: Boolean = false,
+    /** Use the player scrubber's artwork-aware progress-track material on release/artist pages. */
+    progressBarArtworkChrome: Boolean = false,
     /** Source sampled by floating top-bar surfaces when liquid glass is off. */
     backButtonHazeState: HazeState? = null,
     trailingTitle: String? = null,
@@ -301,6 +305,7 @@ fun FrostedTopBar(
                         onClick = onBack,
                         hazeState = backButtonHazeState,
                         lightweightGlass = lightweightArtworkChrome,
+                        progressBarArtworkChrome = progressBarArtworkChrome,
                         // The surface edge aligns with the floating navbar. The
                         // padding belongs outside the circle; its icon remains
                         // centred in the same 44dp control in every material.
@@ -346,6 +351,7 @@ fun FrostedTopBar(
                     ArtworkPageActions(
                         hazeState = backButtonHazeState,
                         lightweightGlass = lightweightArtworkChrome,
+                        progressBarArtworkChrome = progressBarArtworkChrome,
                         content = actions,
                     )
                 } else {
@@ -365,6 +371,7 @@ private fun ArtworkPageBackButton(
     onClick: () -> Unit,
     hazeState: HazeState?,
     lightweightGlass: Boolean,
+    progressBarArtworkChrome: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val shape = CircleShape
@@ -376,8 +383,18 @@ private fun ArtworkPageBackButton(
         MaterialTheme.colorScheme.onSurface
     }
 
-    val button: @Composable () -> Unit = {
-        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides TOP_CONTROL_SIZE) {
+    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides TOP_CONTROL_SIZE) {
+        if (progressBarArtworkChrome) {
+            ProgressBarArtworkSurface(modifier = modifier.size(TOP_CONTROL_SIZE)) {
+                IconButton(onClick = onClick, modifier = Modifier.matchParentSize()) {
+                    Icon(
+                        SfIcons.ArrowBack,
+                        contentDescription = stringResource(R.string.back),
+                        tint = contentColor,
+                    )
+                }
+            }
+        } else {
             IconButton(
                 onClick = onClick,
                 modifier = modifier
@@ -396,7 +413,6 @@ private fun ArtworkPageBackButton(
             }
         }
     }
-    button()
 }
 
 /** One shared pill for every action at the right of a floating top bar. */
@@ -404,10 +420,35 @@ private fun ArtworkPageBackButton(
 private fun ArtworkPageActions(
     hazeState: HazeState?,
     lightweightGlass: Boolean,
+    progressBarArtworkChrome: Boolean,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    val actions: @Composable () -> Unit = {
+    val actionContent: @Composable () -> Unit = {
+        ActionsRow(modifier = Modifier) {
+            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides TOP_CONTROL_SIZE) {
+                content()
+            }
+        }
+    }
+    val animatedModifier = modifier
+        // Keep the right edge fixed while a new action opens room to its left.
+        // The surface grows around the same animated action-row measurement.
+        .animateContentSize(
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioNoBouncy,
+                stiffness = Spring.StiffnessMediumLow,
+            ),
+        )
+        // One profile target with no inset is a true circle; once another
+        // action exists, Apple's inset opens at both ends.
+        .artworkActionEdgePadding()
+
+    if (progressBarArtworkChrome) {
+        ProgressBarArtworkSurface(modifier = animatedModifier) {
+            actionContent()
+        }
+    } else {
         ActionsRow(
             modifier = modifier
                 .then(artworkPageSurface(
@@ -415,17 +456,12 @@ private fun ArtworkPageActions(
                     hazeState = hazeState,
                     lightweightGlass = lightweightGlass,
                 ))
-                // Keep the right edge fixed while a new action opens room to its
-                // left. The surface itself therefore grows instead of jumping to
-                // its new width in a single frame.
                 .animateContentSize(
                     animationSpec = spring(
                         dampingRatio = Spring.DampingRatioNoBouncy,
                         stiffness = Spring.StiffnessMediumLow,
                     ),
                 )
-                // One profile target with no inset is a true circle; once another
-                // action exists, Apple's inset opens at both ends.
                 .artworkActionEdgePadding(),
         ) {
             CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides TOP_CONTROL_SIZE) {
@@ -433,7 +469,6 @@ private fun ArtworkPageActions(
             }
         }
     }
-    actions()
 }
 
 /**
@@ -507,6 +542,33 @@ private fun Modifier.artworkActionEdgePadding(): Modifier = layout { measurable,
 
     layout(width, placeable.height) {
         placeable.placeRelative(edgePadding, 0)
+    }
+}
+
+/**
+ * The artwork-aware surface used by the player's progress track: muted scrubber
+ * ink colour-dodged into the page, not a blur or an opaque slab. The content is
+ * drawn separately above the ink, and a hairline keeps the edge readable.
+ */
+@Composable
+private fun ProgressBarArtworkSurface(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    val shape = CircleShape
+    Box(
+        modifier = modifier
+            .clip(shape)
+            .border(0.5.dp, Color.White.copy(alpha = 0.10f), shape),
+    ) {
+        Box(
+            Modifier
+                .matchParentSize()
+                .vibrantChrome(true)
+                // The inactive seek-track uses this exact ink and opacity.
+                .background(Color(0xFFB0B0B0).copy(alpha = 0.6f), shape),
+        )
+        content()
     }
 }
 
