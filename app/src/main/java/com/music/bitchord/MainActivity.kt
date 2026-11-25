@@ -7010,7 +7010,16 @@ private fun TopBarControlVisibility(
         enter = fadeIn(tween(180)) + scaleIn(initialScale = 0.88f, animationSpec = tween(220)),
         exit = fadeOut(tween(120)) + scaleOut(targetScale = 0.88f, animationSpec = tween(160)),
     ) {
-        content()
+        // AnimatedVisibility's default content container is a Box, which
+        // stacks the personal-collection action buttons on top of one another.
+        // Keep them side by side like the regular ActionsRow layout, using its
+        // same 10dp inter-button gap.
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            content()
+        }
     }
 }
 
