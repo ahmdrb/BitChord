@@ -52,6 +52,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
@@ -559,15 +560,16 @@ private fun ProgressBarArtworkSurface(
     Box(
         modifier = modifier
             .clip(shape)
-            .border(0.5.dp, Color.White.copy(alpha = 0.10f), shape),
+            .border(0.5.dp, Color.White.copy(alpha = 0.10f), shape)
+            // Draw the scrubber ink behind the content without a fillMaxSize
+            // child: that child made this wrap-content pill claim the whole
+            // available row width, stretching it behind the back button.
+            .vibrantChrome(true)
+            // The inactive seek-track uses this exact ink and opacity.
+            .drawBehind {
+                drawRect(Color(0xFFB0B0B0).copy(alpha = 0.6f))
+            },
     ) {
-        Box(
-            Modifier
-                .fillMaxSize()
-                .vibrantChrome(true)
-                // The inactive seek-track uses this exact ink and opacity.
-                .background(Color(0xFFB0B0B0).copy(alpha = 0.6f), shape),
-        )
         content()
     }
 }
