@@ -4483,92 +4483,18 @@ private fun BitChordApp(
                             // None on Settings or the pages opened from it: those are
                             // about the account, and the photo would only reopen them.
                             if (!(route != null && AppRoute.Settings in navigator)) {
-                                // Left of the account photo, and only on Library itself:
-                                // a history is a record of what was played, which reads
-                                // as that tab's business rather than every tab's.
-                                // Library history and Local Music search occupy one stable
-                                // action slot, so the glyph morphs in place instead of one
-                                // button leaving while another is independently introduced.
-                                val showLibraryHistory = route == null && detail == null &&
-                                    selectedTab == TAB_LIBRARY && !personalCollectionDetailOpen
-                                val showLocalMusicSearch = isLocalDetail
-                                if (showLibraryHistory || showLocalMusicSearch) {
-                                    IconButton(
-                                        onClick = {
-                                            if (showLocalMusicSearch) {
-                                                detailSearching = !detailSearching
-                                            } else {
-                                                navigator.push(AppRoute.History)
-                                                viewModel.loadHistory()
-                                            }
-                                        },
-                                    ) {
-                                        AnimatedContent(
-                                            targetState = showLocalMusicSearch,
-                                            transitionSpec = {
-                                                (fadeIn(tween(190)) +
-                                                    scaleIn(initialScale = 0.78f, animationSpec = tween(220))) togetherWith
-                                                    (fadeOut(tween(130)) +
-                                                        scaleOut(targetScale = 0.78f, animationSpec = tween(150)))
-                                            },
-                                            label = "libraryHistoryToLocalMusicSearch",
-                                        ) { localMusicSearch ->
-                                            Icon(
-                                                imageVector = if (localMusicSearch) {
-                                                    if (detailSearching) Icons.Rounded.Close else BitChordIcons.Search
-                                                } else {
-                                                    Icons.Rounded.History
-                                                },
-                                                contentDescription = stringResource(
-                                                    when {
-                                                        localMusicSearch && detailSearching -> R.string.close_search
-                                                        localMusicSearch -> R.string.search_this_list
-                                                        else -> R.string.listening_history
-                                                    },
-                                                ),
-                                                tint = MaterialTheme.colorScheme.onSurface,
-                                            )
-                                        }
-                                    }
+                                // A stable content slot morphs the leading actions between
+                                // Library, Local Music, and personal collections. The account
+                                // button and download affordance stay in their own trailing slots.
+                                val toolbarMode = when {
+                                    personalCollectionDetailOpen -> 3
+                                    isLocalDetail -> 2
+                                    (isReleaseDetail || isArtistDetail) && detail != null -> 4
+                                    route is AppRoute.LibraryShowAll -> 5
+                                    route == null && detail == null && selectedTab == TAB_LIBRARY -> 1
+                                    else -> 0
                                 }
-                                // Left of the account photo, and only on a Library
-                                // "Show all" grid — the same control the Downloads
-                                // folder offers (see `LocalSearchField`), adapted to
-                                // the one thing a playlist or album card carries: a
-                                // title.
-                                if (route is AppRoute.LibraryShowAll) {
-                                    Box {
-                                        IconButton(onClick = { librarySortMenuOpen = true }) {
-                                            Icon(
-                                                Icons.Rounded.Sort,
-                                                contentDescription = stringResource(R.string.sort_library),
-                                                tint = MaterialTheme.colorScheme.onSurface,
-                                            )
-                                        }
-                                        DropdownMenu(
-                                            expanded = librarySortMenuOpen,
-                                            onDismissRequest = { librarySortMenuOpen = false },
-                                        ) {
-                                            LibrarySort.entries.forEach { option ->
-                                                DropdownMenuItem(
-                                                    text = { Text(option.localizedLabel()) },
-                                                    trailingIcon = if (option == librarySort) {
-                                                        { Icon(Icons.Rounded.Check, contentDescription = null) }
-                                                    } else null,
-                                                    onClick = {
-                                                        AppSettings.setLibrarySort(option)
-                                                        librarySortMenuOpen = false
-                                                    },
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                                // Release, artist and device-folder actions all live in
-                                // this one app-level FrostedTopBar pill. Artists used to
-                                // replace the Search / Filter / More set with separate
-                                // Share / Delete controls, making their navigation look
-                                // like a different toolbar.
+
                                 val detailActions: @Composable () -> Unit = {
                                     if ((isReleaseDetail || isLocalDetail || isArtistDetail) && detail != null) {
                                         val detailSongs = (detail.songs as? UiState.Success)?.data.orEmpty()
@@ -4576,7 +4502,7 @@ private fun BitChordApp(
                                             isReleaseDetail = isReleaseDetail,
                                             isLocalDetail = isLocalDetail,
                                             isArtistDetail = isArtistDetail,
-                                            showSearchAction = !isLocalDetail,
+                                            showSearchAction = true,
                                             browseId = detail.browseId,
                                             title = detail.title,
                                             songs = detailSongs,
@@ -4615,52 +4541,107 @@ private fun BitChordApp(
                                         )
                                     }
                                 }
-                                if (isLocalDetail) {
-                                    // Keep Local Music's established top-bar transition untouched.
-                                    detailActions()
-                                } else {
-                                    // Stay in the composition while Library is visible; otherwise
-                                    // AnimatedVisibility would first appear already visible and
-                                    // have no entrance transition when a remote detail is opened.
-                                    TopBarControlVisibility(
-                                        visible = (isReleaseDetail || isArtistDetail) && detail != null,
+
+                                AnimatedContent(
+                                    targetState = toolbarMode,
+                                    transitionSpec = {
+                                        val movingForward = targetState > initialState
+                                        val enter = slideInHorizontally(
+                                            animationSpec = tween(280),
+                                        ) { width ->
+                                            if (movingForward) width / 3 else -width / 3
+                                        }
+                                        val exit = slideOutHorizontally(
+                                            animationSpec = tween(230),
+                                        ) { width ->
+                                            if (movingForward) -width / 4 else width / 4
+                                        }
+                                        enter togetherWith exit
+                                    },
+                                    label = "libraryLocalCollectionTopBarTransition",
+                                ) { mode ->
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
                                     ) {
-                                        detailActions()
+                                        when (mode) {
+                                            1 -> {
+                                                IconButton(
+                                                    onClick = {
+                                                        navigator.push(AppRoute.History)
+                                                        viewModel.loadHistory()
+                                                    },
+                                                ) {
+                                                    Icon(
+                                                        Icons.Rounded.History,
+                                                        contentDescription = stringResource(R.string.listening_history),
+                                                        tint = MaterialTheme.colorScheme.onSurface,
+                                                    )
+                                                }
+                                            }
+
+                                            2, 4 -> detailActions()
+
+                                            3 -> PersonalCollectionTopBarActions(
+                                                searchOpen = personalCollectionSearchOpen,
+                                                onSearchToggle = { personalCollectionSearchOpen = !personalCollectionSearchOpen },
+                                                onSortToggle = {
+                                                    personalCollectionMoreMenuOpen = false
+                                                    personalCollectionSortMenuOpen = !personalCollectionSortMenuOpen
+                                                },
+                                                onMoreToggle = {
+                                                    personalCollectionSortMenuOpen = false
+                                                    personalCollectionMoreMenuOpen = !personalCollectionMoreMenuOpen
+                                                },
+                                            )
+
+                                            5 -> {
+                                                Box {
+                                                    IconButton(onClick = { librarySortMenuOpen = true }) {
+                                                        Icon(
+                                                            Icons.Rounded.Sort,
+                                                            contentDescription = stringResource(R.string.sort_library),
+                                                            tint = MaterialTheme.colorScheme.onSurface,
+                                                        )
+                                                    }
+                                                    DropdownMenu(
+                                                        expanded = librarySortMenuOpen,
+                                                        onDismissRequest = { librarySortMenuOpen = false },
+                                                    ) {
+                                                        LibrarySort.entries.forEach { option ->
+                                                            DropdownMenuItem(
+                                                                text = { Text(option.localizedLabel()) },
+                                                                trailingIcon = if (option == librarySort) {
+                                                                    { Icon(Icons.Rounded.Check, contentDescription = null) }
+                                                                } else null,
+                                                                onClick = {
+                                                                    AppSettings.setLibrarySort(option)
+                                                                    librarySortMenuOpen = false
+                                                                },
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            else -> Unit
+                                        }
                                     }
                                 }
-                                // Personal BitChord collections use these same shared
-                                // FrostedTopBar controls. Their page content owns only
-                                // the search field and popup menus, never another toolbar.
-                                TopBarControlVisibility(
-                                    visible = personalCollectionDetailOpen,
-                                    slideFromEnd = true,
-                                ) {
-                                    PersonalCollectionTopBarActions(
-                                        searchOpen = personalCollectionSearchOpen,
-                                        onSearchToggle = { personalCollectionSearchOpen = !personalCollectionSearchOpen },
-                                        onSortToggle = {
-                                            personalCollectionMoreMenuOpen = false
-                                            personalCollectionSortMenuOpen = !personalCollectionSortMenuOpen
-                                        },
-                                        onMoreToggle = {
-                                            personalCollectionSortMenuOpen = false
-                                            personalCollectionMoreMenuOpen = !personalCollectionMoreMenuOpen
-                                        },
+
+                                if (route != AppRoute.Downloads) {
+                                    TopBarDownloadButton(
+                                        onClick = { navigator.push(AppRoute.Downloads) },
                                     )
                                 }
-                                // Left of the account photo, and only there while
-                                // there is a batch to report on — see
-                                // [TopBarDownloadButton], which decides that for
-                                // itself rather than being told. Not on the page it
-                                // opens, where it would only lead back to itself.
-                                if (route != AppRoute.Downloads) {
-                                    TopBarDownloadButton(onClick = { navigator.push(AppRoute.Downloads) })
-                                }
-                                // Not on a release page, whose pill already carries
-                                // three of its own controls — Apple Music leaves the
-                                // profile off its album pages too.
-                                TopBarControlVisibility(
+
+                                // Profile stays in the same trailing slot between Library
+                                // and Local Music, then slides away only for a collection page.
+                                AnimatedVisibility(
                                     visible = !isReleaseDetail && !isArtistDetail && !personalCollectionDetailOpen,
+                                    enter = slideInHorizontally(animationSpec = tween(240)) { it / 3 },
+                                    exit = slideOutHorizontally(animationSpec = tween(190)) { it / 3 },
+                                    label = "topBarAccountTransition",
                                 ) {
                                     TopBarAccountButton(
                                         account = account,
@@ -7046,50 +7027,6 @@ private const val TAB_EXPLORE = 1
 private const val TAB_LIBRARY = 2
 private const val TAB_SEARCH = 3
 private const val TAB_RADIO = 4
-
-/**
- * Scope-independent visibility motion for top-bar actions. The actions lambda
- * is hosted inside a custom Layout, not a RowScope/ColumnScope, so keep the
- * AnimatedVisibility call here rather than resolving a layout-scope overload
- * at each action call site.
- */
-@Composable
-private fun TopBarControlVisibility(
-    visible: Boolean,
-    slideFromEnd: Boolean = false,
-    content: @Composable () -> Unit,
-) {
-    val horizontalEnter = if (slideFromEnd) {
-        slideInHorizontally(animationSpec = tween(250)) { fullWidth -> fullWidth / 4 }
-    } else {
-        EnterTransition.None
-    }
-    val horizontalExit = if (slideFromEnd) {
-        slideOutHorizontally(animationSpec = tween(190)) { fullWidth -> fullWidth / 5 }
-    } else {
-        ExitTransition.None
-    }
-    AnimatedVisibility(
-        visible = visible,
-        enter = fadeIn(tween(190)) +
-            scaleIn(initialScale = if (slideFromEnd) 0.94f else 0.88f, animationSpec = tween(220)) +
-            horizontalEnter,
-        exit = fadeOut(tween(140)) +
-            scaleOut(targetScale = if (slideFromEnd) 0.94f else 0.88f, animationSpec = tween(170)) +
-            horizontalExit,
-    ) {
-        // AnimatedVisibility's default content container is a Box, which
-        // stacks the personal-collection action buttons on top of one another.
-        // Keep them side by side like the regular ActionsRow layout, using its
-        // same 10dp inter-button gap.
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            content()
-        }
-    }
-}
 
 @Composable
 private fun PersonalCollectionTopBarActions(

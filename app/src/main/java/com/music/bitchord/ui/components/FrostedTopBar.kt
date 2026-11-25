@@ -300,26 +300,29 @@ fun FrostedTopBar(
                 }
             }
              */
-            // On a pushed page the back affordance is always visible, since
-            // there is no large in-list header to fall back on.
-            if (onBack != null) {
+            // Keep the visibility node mounted on Library. On navigation, the
+            // finished back-button material slides into place without fading through
+            // a transparent ColorDodge layer (the source of the old black flash).
+            AnimatedVisibility(
+                visible = onBack != null,
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .then(if (useFloatingChrome) Modifier.padding(start = BAR_GUTTER) else Modifier.padding(start = 4.dp)),
+                enter = slideInHorizontally(animationSpec = tween(280)) { -it },
+                exit = slideOutHorizontally(animationSpec = tween(220)) { -it },
+                label = "topBarBackButtonTransition",
+            ) {
                 if (useFloatingChrome) {
-                    // Keep the artwork-aware surface out of AnimatedVisibility's
-                    // alpha layer: ColorDodge needs the real backdrop, or the
-                    // circle flashes black before the blend settles.
                     ArtworkPageBackButton(
-                        onClick = onBack,
+                        onClick = { onBack?.invoke() },
                         hazeState = backButtonHazeState,
                         lightweightGlass = lightweightArtworkChrome,
                         progressBarArtworkChrome = progressBarArtworkChrome,
-                        modifier = Modifier
-                            .align(Alignment.CenterStart)
-                            .padding(start = BAR_GUTTER),
                     )
                 } else {
                     IconButton(
-                        onClick = onBack,
-                        modifier = Modifier.align(Alignment.CenterStart).padding(start = 4.dp),
+                        onClick = { onBack?.invoke() },
+                        modifier = Modifier.size(TOP_CONTROL_SIZE),
                     ) {
                         Icon(
                             SfIcons.ArrowBack,
