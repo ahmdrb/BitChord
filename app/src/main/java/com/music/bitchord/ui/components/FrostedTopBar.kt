@@ -303,14 +303,11 @@ fun FrostedTopBar(
             // Keep the visibility node mounted on Library. On navigation, the
             // finished back-button material slides into place without fading through
             // a transparent ColorDodge layer (the source of the old black flash).
-            AnimatedVisibility(
+            TopBarControlVisibility(
                 visible = onBack != null,
                 modifier = Modifier
                     .align(Alignment.CenterStart)
                     .then(if (useFloatingChrome) Modifier.padding(start = BAR_GUTTER) else Modifier.padding(start = 4.dp)),
-                enter = slideInHorizontally(animationSpec = tween(280)) { -it },
-                exit = slideOutHorizontally(animationSpec = tween(220)) { -it },
-                label = "topBarBackButtonTransition",
             ) {
                 if (useFloatingChrome) {
                     ArtworkPageBackButton(
@@ -379,14 +376,16 @@ fun FrostedTopBar(
 private fun TopBarControlVisibility(
     visible: Boolean,
     modifier: Modifier = Modifier,
-    initialScale: Float = 0.88f,
     content: @Composable () -> Unit,
 ) {
+    // Keep the artwork-aware surface fully opaque while it moves into place.
+    // This avoids a fade through the black/transparent ColorDodge intermediate.
     AnimatedVisibility(
         visible = visible,
         modifier = modifier,
-        enter = fadeIn(tween(180)) + scaleIn(initialScale = initialScale, animationSpec = tween(220)),
-        exit = fadeOut(tween(120)) + scaleOut(targetScale = initialScale, animationSpec = tween(160)),
+        enter = slideInHorizontally(animationSpec = tween(280)) { -it },
+        exit = slideOutHorizontally(animationSpec = tween(220)) { -it },
+        label = "topBarBackButtonTransition",
     ) {
         content()
     }
